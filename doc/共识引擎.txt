@@ -1,0 +1,41 @@
+共识引擎：
+Miner
+1. Packager: 负责存储未打包的tx，由timer或者tx数量驱动进行打包操作，控制块大小和打包优先级
+2. Signer/Verifyer: 负责给包签名/验证包是否符合共识
+3. Consenus: 负责可调的共识参数和具体变量计算
+
+let packager = new Pakcager(packagerConfig);
+let signer = new Signer(signerConfig);
+
+packager.on('onBeginPackage', (block) => {
+    //给包签名,应该是一个异步操作
+    signer.sign(block, (signedBlock) => {
+        blockStorage.addBlock(signedBlock);
+        broadcast(newheader);
+    });
+});
+
+BKChain角度：
+Miner.init(minerConfig);
+
+Miner.start();
+Miner.on('newBlock', (block) => {
+    BlockStorage.addNewBlock(block);
+    p2pStack.broadcast(BlockStorage.getLatestHeader());
+})
+p2pStack.onPkg((package) => {
+    //收到TX时加入packager
+    if (package.type == PACKAGE_TX) {
+        let tx = TX.fromRaw(package.data);
+        Miner.addTX(tx);
+    }
+})
+
+class Miner {
+    init(config) {
+        this.packager = new Packager(config.packager);
+        this.signer = new Signer(config.signer); 
+    }
+}
+
+9007 1992 5474 0992

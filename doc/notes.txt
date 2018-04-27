@@ -1,0 +1,65 @@
+一个Node = P2P + (1或n个)Chain + 可选共识算法
+
+组合：
+1. P2P库，负责连接和传输  
+2. ChainSDK, 包含Package部分，负责标准包处理，标准tx处理
+3. 其他共识算法可以指定
+4. 可以定制DataTX?
+5. 可以引入新Package？
+
+P2P库如何和Chain连接起来？Chain只管理conn么
+Chain只能配合我们BDT库用
+
+如何将Block的共识算法引入ChainSDK? 需要修改Block部分么
+签名Block和验证Block，可以作为参数，需要是上下文无关的
+
+SDK中提供一个DPOS的共识算法
+let chain = new Chain(BlockConsensus, MakeBlockConsensus)
+chain.setAccount(accountWif)
+BlockConsensus.SignBlock = function (merkleRoot) {
+    return (B64)sign, (U8)creator
+}
+BlockConsensus.VerifyBlock = function(merkleRoot, sign, creator){
+    return (Bool)ret
+}
+
+MakeBlockConsensus.isMakeBlock = function (chain){
+    return (bool)isMakeBlock
+}
+
+class SimpleNode {
+    constactor(){
+        this.chain = new Chain(new DefaultDPOSConsensus(metalist), DefaultMakeBlockConsensus)
+        this.m_p2p = new P2P(peerid: this.chain.getMyAddress())
+    }
+
+    start() {
+        this.m_p2p.startup()
+        this.chain.init()
+        this.m_acceptor = this.m_p2p.newAcceptor()
+        this.m_acceptor.on(EVENT.conn, (inconn) => {
+            //do sth or direct set to chain
+            //chain do version check
+            this.chain.addInConn(inconn)
+        })
+        this.m_acceptor.listen()
+
+        //conn to network
+        let wantedPeerids = this.chain.getNeededPeerids()
+        let conns = await this.chain.GetConnToPeerids(wantedPeerids)
+        for (conn of conns){
+            this.chain.addInConn(conn)
+        }
+
+        //complete startup
+    }
+
+    spendtx(parmas) {
+        //this tx already signed by myaddress
+        let tx = this.chain.spendtx(params)
+        if(tx){
+            this.chain.broadcast(tx.toRaw())
+        }
+        
+    }
+}
