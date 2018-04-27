@@ -8,7 +8,7 @@ let packager = new Pakcager(packagerConfig);
 let signer = new Signer(signerConfig);
 
 packager.on('onBeginPackage', (block) => {
-    //给包签名,应该是一个异步操作
+    //给包签名,是一个异步操作
     signer.sign(block, (signedBlock) => {
         blockStorage.addBlock(signedBlock);
         broadcast(newheader);
