@@ -20,6 +20,7 @@ async function newBlock() {
 
     let systemAccountSecret = "";
     let systemAccount = KeyRing.fromSecret(systemAccountSecret);
+    
     let coinbase = TX.createCoinbase([{ address: Alice.getAddress(), amount: 15000 }], systemAccount);
     assert(coinbase.verify());
 
