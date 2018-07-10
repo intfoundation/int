@@ -2,7 +2,7 @@ const {BX_SetLogLevel, BLOG_LEVEL_WARN, BLOG_LEVEL_ERROR} = require('../base/bas
 const MinerNode = require('./Peer/minernode');
 
 const dhtConfig = require('./dhtconfig');
-const config = require('../chainlib/config');
+const config = require('../src/chainlib/config');
 
 BX_SetLogLevel(BLOG_LEVEL_ERROR);
 

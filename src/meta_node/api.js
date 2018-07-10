@@ -10,7 +10,7 @@ const Koa = require('koa');
 const Router = require('koa-router');
 const bodyParser = require('koa-bodyparser');
 
-const SuperNodeClient = require('../client/Peer/superNodeClient');
+const SuperNodeClient = require('../../client/Peer/superNodeClient');
 let superNodeClient = new SuperNodeClient('127.0.0.1', require('./config').SUPER_NODE_RPC_PORT);
 
 let _todayBlockHeight = {

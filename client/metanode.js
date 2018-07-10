@@ -3,9 +3,9 @@ const {BX_SetLogLevel, BLOG_LEVEL_WARN, BLOG_LEVEL_ERROR} = require('../base/bas
 const dhtConfig = require('./dhtconfig');
 
 const P2P = require('../p2p/p2p');
-const config = require('../chainlib/config');
+const config = require('../src/chainlib/config');
 
-const MetaNode = require('../meta_node/metanode');
+const MetaNode = require('../src/meta_node/metanode');
 
 BX_SetLogLevel(BLOG_LEVEL_ERROR);
 //启动DHTServer用，eplist可以填空数组，内部用不到

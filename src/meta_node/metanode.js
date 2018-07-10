@@ -3,11 +3,11 @@
 * 完整的，有独立BDT栈的MetaNode，只有Meta链的功能
 */
 
-const AccountNode = require('../client/Peer/account_node');
+const AccountNode = require('../../client/Peer/account_node');
 const ChainNode = require('../chainlib/Nodes/ChainNode');
 const MetaChain = require('../chainlib/Nodes/MetaChain');
-const DPackage = require('../client/Peer/package');
-const RPCServer = require('../client/RPC/RPCServer');
+const DPackage = require('../../client/Peer/package');
+const RPCServer = require('../../client/RPC/RPCServer');
 const MetaDB = require('../db/meta');
 
 const { GroupInfo, ProofInfo } = require('../chainlib/Infos/Info');

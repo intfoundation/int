@@ -1,13 +1,13 @@
 const DPackage = require('./package');
 const AccountNode = require('./account_node');
-const BlockUtil = require("../../chainlib/Block/util");
-const TX = require('../../chainlib/Transcation/tx');
+const BlockUtil = require("../../src/chainlib/Block/util");
+const TX = require('../../src/chainlib/Transcation/tx');
 
-const Address = require('../../chainlib/Account/address');
-const Input = require('../../chainlib/Transcation/input');
-const util = require('../../chainlib/Utils/util');
-const encoding = require('../../chainlib/Utils/encoding');
-const Output = require('../../chainlib/Transcation/output');
+const Address = require('../../src/chainlib/Account/address');
+const Input = require('../../src/chainlib/Transcation/input');
+const util = require('../../src/chainlib/Utils/util');
+const encoding = require('../../src/chainlib/Utils/encoding');
+const Output = require('../../src/chainlib/Transcation/output');
 
 const RPCServer = require('../RPC/RPCServer');
 

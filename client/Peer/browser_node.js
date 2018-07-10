@@ -3,18 +3,18 @@
 // 5. 查询某个账户的余额和Coin
 
 const DPackage = require('./package');
-const BufferReader = require('../../chainlib/Utils/reader');
-const Header = require('../../chainlib/Block/headers');
-const Block = require('../../chainlib/Block/block');
-const Address = require('../../chainlib/Account/address');
+const BufferReader = require('../../src/chainlib/Utils/reader');
+const Header = require('../../src/chainlib/Block/headers');
+const Block = require('../../src/chainlib/Block/block');
+const Address = require('../../src/chainlib/Account/address');
 
-const KeyRing = require('../../chainlib/Account/keyring');
-const MTX = require('../../chainlib/Transcation/mtx');
+const KeyRing = require('../../src/chainlib/Account/keyring');
+const MTX = require('../../src/chainlib/Transcation/mtx');
 const BlockNode = require('./block_node');
 
-const NodeBlockChain = require('../../chainlib/Nodes/nodeblockchain');
+const NodeBlockChain = require('../../src/chainlib/Nodes/nodeblockchain');
 const assert = require('assert');
-const {Info} = require('../../chainlib/Infos/Info');
+const {Info} = require('../../src/chainlib/Infos/Info');
 
 class BrowserNode extends BlockNode {
     constructor(param) {

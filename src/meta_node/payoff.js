@@ -1,6 +1,6 @@
 let wageDB = require("./wagedb");
 
-const SuperNodeClient = require('../client/Peer/superNodeClient');
+const SuperNodeClient = require('../../client/Peer/superNodeClient');
 
 const SUPER_NODE_RPC_PORT = 11000;
 
