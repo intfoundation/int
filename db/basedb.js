@@ -1,5 +1,5 @@
 "use strict";
-// intchuan
+
 const sqlite3 = require('sqlite3');
 const path = require('path');
 const {BaseLib} = require('../base/base');
