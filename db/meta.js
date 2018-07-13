@@ -70,7 +70,7 @@ class MetaDB extends BaseDB {
         });
         let memberJSON = JSON.stringify(members);
         let gid = digest.sha1(memberJSON).toString('hex');
-        
+
         await this.BeginTranscation();
 
         for (const address of members) {
