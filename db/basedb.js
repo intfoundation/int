@@ -43,7 +43,7 @@ class BaseDB {
             this.m_db.get(sql, params, (err, row) => {
                 reslove(row);
             });
-        }); 
+        });
     }
 
     async _all(sql, params) {
@@ -51,7 +51,7 @@ class BaseDB {
             this.m_db.all(sql, params, (err, rows) => {
                 reslove(rows);
             });
-        }); 
+        });
     }
 }
 

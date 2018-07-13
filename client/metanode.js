@@ -1,11 +1,15 @@
+const fs = require('fs-extra');
+const moment = require('moment');
+
 const {BX_SetLogLevel, BLOG_LEVEL_WARN, BLOG_LEVEL_ERROR} = require('../base/base');
 
 const dhtConfig = require('./dhtconfig');
 
-const P2P = require('../p2p/p2p');
-const config = require('../src/chainlib/config');
+const P2P = require('../bdt/p2p/p2p');
+const config = require('../chainlib/config');
 
-const MetaNode = require('../src/meta_node/metanode');
+const MetaNode = require('../meta_node/metanode');
+const path = require('path');
 
 BX_SetLogLevel(BLOG_LEVEL_ERROR);
 //启动DHTServer用，eplist可以填空数组，内部用不到
@@ -39,8 +43,8 @@ async function startSN(snDHTServerConfig) {
 
 let metaNodeConfig = {
     protocolConfig: {
-        port: 12000, 
-        vport: 12100, 
+        port: 12000,
+        vport: 12100,
         snDHT: dhtConfig,
         tcp:{
             addrList: ['0.0.0.0'],
@@ -52,19 +56,19 @@ let metaNodeConfig = {
         },
     },
     nodeConfig: {
-        chaindb:'./storage/node/chain.db', 
-        storagePath: './storage/node/block',
+        chaindb: path.join(__dirname, './storage/node/chain.db'),
+        storagePath: path.join(__dirname, './storage/node/block'),
         config: config,
     },
     metaConfig: {
-        chaindb:'./storage/meta/chain.db', 
-        storagePath: './storage/meta/block',
+        chaindb:path.join(__dirname, './storage/meta/chain.db'),
+        storagePath: path.join(__dirname, './storage/meta/block'),
         config: config,
-        metaDB:'./storage/meta/meta.db',
+        metaDB:path.join(__dirname, './storage/meta/meta.db'),
     },
-    //accountWif: 'L5RhP7KP5yXaswf6iLKZCJrateUpp1qHvKMADPrae72MJWgXa9jm',
-    //sig: 'e433f1ebcd4be632127974871d2d207c93a821d9a21a68a6eba7083d4597bd741aaea6776a4fda957d1edbb6412d9d009ac5512d6521b2aa4dad216fa557ed1b',
-    number: 1, 
+    //accountWif: '',
+    //sig: '',
+    number: 1,
     rpcPort: 12001,
     devmode:1,
 };
@@ -75,19 +79,31 @@ async function start(accountWif,sig,number, tcpBDTPort,udpBDTPort,rpcPort, postf
     }
     metaNodeConfig.accountWif = accountWif;
     metaNodeConfig.sig = sig,
-    metaNodeConfig.number = number;
+        metaNodeConfig.number = number;
     metaNodeConfig.protocolConfig.tcp.port = tcpBDTPort;
     metaNodeConfig.protocolConfig.udp.port = udpBDTPort;
     metaNodeConfig.rpcPort = rpcPort;
+    let logfile = 'log.txt';
     if (postfix) {
-        metaNodeConfig.nodeConfig.chaindb = `./storage/node/chain${postfix}.db`;
-        metaNodeConfig.nodeConfig.storagePath = `./storage/node/block${postfix}`;
+        metaNodeConfig.nodeConfig.chaindb = path.join(__dirname, `./storage/node/chain${postfix}.db`);
+        metaNodeConfig.nodeConfig.storagePath = path.join(__dirname, `./storage/node/block${postfix}`);
 
-        metaNodeConfig.metaConfig.chaindb = `./storage/meta/chain${postfix}.db`;
-        metaNodeConfig.metaConfig.storagePath = `./storage/meta/block${postfix}`;
-        metaNodeConfig.metaConfig.metaDB = `./storage/meta/meta${postfix}`;
+        metaNodeConfig.metaConfig.chaindb = path.join(__dirname, `./storage/meta/chain${postfix}.db`);
+        metaNodeConfig.metaConfig.storagePath = path.join(__dirname, `./storage/meta/block${postfix}`);
+        metaNodeConfig.metaConfig.metaDB = path.join(__dirname, `./storage/meta/meta${postfix}`);
+        logfile = `log${postfix}.txt`;
     }
-   
+    if (fs.existsSync(logfile)) {
+        fs.unlinkSync(logfile);
+    }
+    console.oldLog = console.log;
+    console.log = function (str) {
+        let time1 = moment(new Date).format("YYYY-MM-DD HH:mm:ss.SSS")
+        str = time1.toString() + ' ' + str;
+        console.oldLog(str);
+        //fs.appendFileSync('./log.txt', str+'\r\n');
+    }
+
     let metaNode = new MetaNode(metaNodeConfig);
     await metaNode.create();
 }
@@ -97,9 +113,9 @@ process.on('unhandledRejection', error => {
     process.exit(1);
 });
 
-if (process.argv.length < 9) {
-    console.log('Usage: node minernode.js <metaAccountWIF> <metaSig> <number> <tcpBDTPort> <udpBDTPort> <rpcPort> {MinerPostfix} <runSNServer>');
-    process.exit(1);
-}
-
-start(process.argv[2],process.argv[3], parseInt(process.argv[4]), parseInt(process.argv[5]),parseInt(process.argv[6]),parseInt(process.argv[7]), process.argv[8],parseInt(process.argv[9]));
+// if (process.argv.length < 9) {
+//     console.log('Usage: node minernode.js <metaAccountWIF> <metaSig> <number> <tcpBDTPort> <udpBDTPort> <rpcPort> {MinerPostfix} <runSNServer>');
+//     process.exit(1);
+// }
+const metaProperty = require('../common/metaConfig');
+start(metaProperty.metaAccountWIF,metaProperty.metaSig, metaProperty.number, metaProperty.tcpBDTPort,metaProperty.udpBDTPort,metaProperty.rpcPort, metaProperty.postfix,metaProperty.runserver);
