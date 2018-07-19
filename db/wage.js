@@ -155,6 +155,8 @@ class WageDB {
                         let answer = JSON.parse(resp.resp);
                         if (respHash === answer.resphash) {
                             answers[resp.pid] = '0';
+                        } else {
+                            answers[resp.pid] = '1';
                         }
                     }
                     proof = {};
