@@ -2,7 +2,7 @@
 
 const EventEmitter = require('events');
 const Base = require('../base/base.js');
-const {HashDistance, EndPoint, Config} = require('./util.js');
+const { HashDistance, EndPoint, Config } = require('./util.js');
 const Bucket = require('./bucket.js');
 const DHTPackageFactory = require('./package_factory.js');
 const DHTPackage = require('./packages/package.js');
@@ -35,7 +35,7 @@ class PackageSender extends EventEmitter {
             }
         }
     }
-    
+
     get mixSocket() {
         return this.m_mixSocket;
     }
@@ -69,13 +69,13 @@ class PackageSender extends EventEmitter {
                     if (closePeer.isOnline(this.m_bucket.TIMEOUT_MS) &&
                         closePeer.peerid != peer.peerid &&
                         closePeer.peerid != peerStruct.peerid) {
-                        recommandNodes.push({id: closePeer.peerid, eplist: closePeer.eplist});
+                        recommandNodes.push({ id: closePeer.peerid, eplist: closePeer.eplist });
                     }
                 }
             }
         }
         cmdPackage.fillCommon(peerStruct, peer, recommandNodes);
-        
+
         peer.lastSendTime = Date.now();
         cmdPackage.isTooLarge = false;
         let eplist = peer.eplist;
@@ -100,7 +100,7 @@ class PackageSender extends EventEmitter {
         if (cmdPackage.isTooLarge) {
             return null;
         }
-        
+
         cmdPackage.dest.ep = EndPoint.toString(remoteAddr);
         LOG_TRACE(`PEER(${this.m_bucket.localPeer.peerid}) Send package(${DHTCommandType.toString(cmdPackage.cmdType)}) to peer(${cmdPackage.dest.peerid}:${remoteAddr.address}:${remoteAddr.port})`);
 
@@ -137,6 +137,7 @@ PackageSender.Events = {
 }
 
 let g_resenderQueue = [];
+
 function removeTimeoutResender() {
     let now = Date.now();
     if (g_resenderQueue.length > 1024) {
@@ -215,7 +216,7 @@ class ResendControlor {
     get tryTimes() {
         return this.m_tryTimes;
     }
-    
+
     get lastSendTime() {
         return this.m_lastTime;
     }
