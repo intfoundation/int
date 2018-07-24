@@ -9,6 +9,7 @@ class BlockStorage {
     constructor(cacheSize, storagePath) {
         this.cache = new LRU(cacheSize);
         this.storagePath = storagePath;
+        this.m_height = -1;
     }
 
     init() {
@@ -37,6 +38,7 @@ class BlockStorage {
                 this.cache.set(blockHash, block);
                 return block;
             } catch (error) {
+                console.log(`[block_storage get] error=${error}`);
                 return null;
             }
         }
@@ -45,6 +47,7 @@ class BlockStorage {
     _add(hash, block, blockRaw) {
         this.cache.set(hash, block);
         fs.writeFileSync(this._getRealPath(hash), blockRaw);
+        this.m_height = block.toHeaders().height;
     }
 
     add(block) {
@@ -66,6 +69,10 @@ class BlockStorage {
         }
         let stat = fs.statSync(this._getRealPath(blockHash));
         return stat.size;
+    }
+
+    getHeight() {
+        return this.m_height;
     }
 }
 
