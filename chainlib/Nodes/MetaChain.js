@@ -54,7 +54,7 @@ class MetaChain {
             }
 
             await this.storageBlock(newBlock, noStorageBlock);
-            
+
             //get orphanBlocks at current height and add it.
             while (this.m_orphanBlocks.has(this.m_headerChain.getNowHeight() + 1)) {
                 let block = this.m_orphanBlocks.get(this.m_headerChain.getNowHeight() + 1);
