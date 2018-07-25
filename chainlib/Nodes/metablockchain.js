@@ -2,7 +2,7 @@
 const assert = require('assert');
 
 const BlockChain = require('./blockchain');
-const {Info} = require('../../chainlib/Infos/Info');
+const { Info } = require('../../chainlib/Infos/Info');
 const KeyRing = require('../../chainlib/Account/keyring');
 const MetaDB = require('../../db/meta');
 
@@ -35,7 +35,7 @@ class MetaBlockChain extends BlockChain {
         await this.m_metaDB.clearGroupInfoTable();
         setInterval(() => {
             this.m_metaDB.clearGroupInfoTable();
-        },30*24*60*6000);
+    }, 30 * 24 * 60 * 6000);
     }
 
     async storageBlock(newBlock) {
@@ -84,8 +84,6 @@ class MetaBlockChain extends BlockChain {
         for (const [id, { pubkey, peerid }] of this.m_metaList) {
             if (peerid != myPeerid) {
                 peerids.push(peerid);
-            } else {
-                this.initMetaNodes = true;
             }
         }
 
@@ -110,6 +108,27 @@ class MetaBlockChain extends BlockChain {
             list.push({ id: id, pubkey: pubkey });
         }
         return list;
+    }
+
+    getIDByPeerid(peerid) {
+        let id = null;
+        for (const [id, { pubkey, pid }] of this.m_metaList) {
+            if (peerid === pid) {
+                return id;
+            }
+        }
+    }
+
+    removeMetaByPeerid(peerid) {
+        if (!peerid) {
+            return;
+        }
+        for (const [id, info] of this.m_metaList) {
+            if (peerid === info.peerid) {
+                this.m_metaList.delete(id);
+                return;
+            }
+        }
     }
 
     getMetaListIDArray() {

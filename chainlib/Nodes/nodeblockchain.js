@@ -28,10 +28,10 @@ class NodeBlockChain extends BlockChain {
             await this.m_headerChain.addHeader(newHeaders);
         }
         //update utxos from new block
-        await this.m_utxos.updateFromBlock(newBlock);
+        await this.m_utxos.updateFromBlock(newBlock,this.m_coinView);
         await this.m_chainDB.CommitTranscation();
 
-         this.m_blockStorage.add(newBlock);
+        this.m_blockStorage.add(newBlock);
     }
 
     getCurrentUTXOHeight() {
