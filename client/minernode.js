@@ -1,28 +1,34 @@
-const {BX_SetLogLevel, BLOG_LEVEL_WARN, BLOG_LEVEL_ERROR} = require('../base/base');
+const fs = require('fs-extra');
+const moment = require('moment');
+
+const {NetHelper} = require('../bdt/base/util');
+const {BX_SetLogLevel, BX_EnableFileLog,BLOG_LEVEL_WARN, BLOG_LEVEL_ERROR,BLOG_LEVEL_DEBUG} = require('../base/base');
 const MinerNode = require('./Peer/minernode');
 
 const dhtConfig = require('./dhtconfig');
-const config = require('../src/chainlib/config');
+const config = require('../chainlib/config');
+const path = require('path');
 
-BX_SetLogLevel(BLOG_LEVEL_ERROR);
+BX_SetLogLevel(BLOG_LEVEL_WARN);
+//BX_EnableFileLog('c:\\blog','miner');
 
 const minerConfig = {
     protocolConfig: {
-        port: 12000, 
-        vport: 12100, 
+        port: 12000,
+        vport: 12100,
         snDHT: dhtConfig,
         tcp:{
-            addrList: ['0.0.0.0'],
-            port: 12000, 
+            addrList: NetHelper.getLocalIPs(),//['0.0.0.0'],
+            port: 12000,
         },
         udp:{
-            addrList: ['0.0.0.0'],
+            addrList: NetHelper.getLocalIPs(),//['0.0.0.0'],
             port: 12000,
         },
     },
     chainConfig: {
-        chaindb:'./storage/chain.db', 
-        storagePath: './storage/block',
+        chaindb: path.join(__dirname, './storage/chain.db'),
+        storagePath: path.join(__dirname, './storage/block'),
         config: config,
     },
     //accountWif: 'Kx1vvQLVhSpRprKLBY9TU5CygfbCCT4aPZPvCW6AKrtUuqqibweU',
@@ -36,12 +42,27 @@ async function start(accountWif, tcpBDTPort,udpBDTPort, postfix) {
     minerConfig.accountWif = accountWif;
     minerConfig.protocolConfig.tcp.port = tcpBDTPort;
     minerConfig.protocolConfig.udp.port = udpBDTPort;
+    let logfile = 'log.txt';
     if (postfix) {
-        minerConfig.chainConfig.chaindb = `./storage/chain${postfix}.db`;
-        minerConfig.chainConfig.storagePath = `./storage/block${postfix}`;
-        minerConfig.wagedb = `./storage/wage${postfix}.db`;
+        minerConfig.chainConfig.chaindb = path.join(__dirname, `./storage/chain${postfix}.db`);
+        minerConfig.chainConfig.storagePath = path.join(__dirname, `./storage/block${postfix}`);
+        minerConfig.wagedb = path.join(__dirname, `./storage/wage${postfix}.db`);
+
+        logfile = `log${postfix}.txt`;
     }
-   
+
+
+    if (fs.existsSync(logfile)) {
+        fs.unlinkSync(logfile);
+    }
+    console.oldLog = console.log;
+    console.log = function (str) {
+        let time1 = moment(new Date).format("YYYY-MM-DD HH:mm:ss.SSS")
+        str = time1.toString() + ' ' + str;
+        console.oldLog(str);
+        //fs.appendFileSync(logfile, str+'\r\n');
+    }
+
     minerNode = new MinerNode(minerConfig);
     await minerNode.create();
     await minerNode.beginMine();

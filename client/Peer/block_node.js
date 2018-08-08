@@ -1,8 +1,8 @@
 //BlockNode是区块链存储数据的基础Node，可以用过P2P网络发送和接收区块链协议的包，有存储区块链信息的能力
 
 "use strict";
-const bdt = require('../../bdt/bdt');
-const P2P = require('../../p2p/p2p');
+const bdt = require('../../bdt/bdt/bdt');
+const P2P = require('../../bdt/p2p/p2p');
 const DPackage = require('./package');
 const EventEmitter = require('events');
 
@@ -10,7 +10,7 @@ const EventEmitter = require('events');
 class BlockNode extends EventEmitter {
     /*
     params: {
-        peerid: 
+        peerid:
         eplist:
         udp: {
             addrList:
@@ -25,7 +25,7 @@ class BlockNode extends EventEmitter {
                 peerid:
                 eplist:
         }],
-        storagePath: 
+        storagePath:
     }
     */
     constructor(params) {
@@ -76,19 +76,20 @@ class BlockNode extends EventEmitter {
         let udpServer = initServerParams(this.m_udp);
         let tcpServer = initServerParams(this.m_tcp);
         let {result, p2p} = await P2P.create({
-                peerid: this.peerid,
-                udp: udpServer,
-                tcp: tcpServer,
-                dhtEntry: this.m_dhtEntry,
-            });
-        
-        if (result !== bdt.Error.success) {
+            peerid: this.peerid,
+            udp: udpServer,
+            tcp: tcpServer,
+            dhtEntry: this.m_dhtEntry,
+            //snPeer: this.m_dhtEntry[0],// 先用sn方式------------------------------------------
+        });
+
+        if (result !== bdt.ERROR.success) {
             return Promise.resolve(BlockNode.ERROR.networkError);
         }
 
         this.m_p2p = p2p;
         result = await this.m_p2p.startupBDTStack();
-        if (result !== bdt.Error.success) {
+        if (result !== bdt.ERROR.success) {
             return Promise.resolve(BlockNode.ERROR.networkError);
         }
 
@@ -149,8 +150,17 @@ class BlockNode extends EventEmitter {
         let [conn, reader] = this.m_conns.get(peerid);
         return conn;
     }
-    _removeConn(peerid) {
-        this.m_conns.delete(peerid);
+    _removeConn(conn) {
+        if (!conn.remote.peerid) {
+            return;
+        }
+        let connGet = this._getConn(conn.remote.peerid);
+        if (!connGet || connGet !== conn) {
+            return;
+        }
+
+        this.m_conns.delete(conn.remote.peerid);
+        this.emit("OnRemoveConn",conn.remote.peerid);
     }
 
     async establishConnToPeers(peerids){
@@ -159,7 +169,7 @@ class BlockNode extends EventEmitter {
         for (const peerid of peerids) {
             ops.push(this.getConnToPeer(peerid));
         }
-        
+
         return Promise.all(ops);
     }
 
@@ -188,16 +198,16 @@ class BlockNode extends EventEmitter {
             this._onPkg(conn, pkg);
         });
         conn.on(bdt.Connection.EVENT.error, () => {
-            this._removeConn(conn.remote.peerid);
+            this._removeConn(conn);
             this.emit("OnConnBreakof");
             reader.close();
         });
         conn.on(bdt.Connection.EVENT.close, () => {
-            this._removeConn(conn.remote.peerid);
+            this._removeConn(conn);
             reader.close();
         });
     }
-    
+
     async _connectTo(peers, firstOp) {
         let op = [];
         for (let peer of peers) {
@@ -256,7 +266,7 @@ class BlockNode extends EventEmitter {
             if (filter && !filter(conn)) {
                 return true;
             }
-            let dwriter = writer.clone().bind(conn);
+            let dwriter = DPackage.copyWriter(writer).bind(conn);
             if (sendcb) {
                 sendcb(conn);
             }
@@ -275,7 +285,7 @@ class BlockNode extends EventEmitter {
                 }
             }
         }
-        
+
         return writeCount;
     }
 
