@@ -60,10 +60,10 @@ let metaNodeConfig = {
         config: config,
     },
     metaConfig: {
-        chaindb:'./storage/meta/chain.db', 
-        storagePath: './storage/meta/block',
+        chaindb:'./storage/meta_node/chain.db',
+        storagePath: './storage/meta_node/block',
         config: config,
-        metaDB:'./storage/meta/meta.db',
+        metaDB:'./storage/meta_node/meta_node.db',
     },
     //accountWif: '',
     //sig: '',
