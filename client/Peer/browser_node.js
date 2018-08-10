@@ -3,18 +3,18 @@
 // 5. 查询某个账户的余额和Coin
 
 const DPackage = require('./package');
-const BufferReader = require('../../src/chainlib/Utils/reader');
-const Header = require('../../src/chainlib/Block/headers');
-const Block = require('../../src/chainlib/Block/block');
-const Address = require('../../src/chainlib/Account/address');
+const BufferReader = require('../../chainlib/Utils/reader');
+const Header = require('../../chainlib/Block/headers');
+const Block = require('../../chainlib/Block/block');
+const Address = require('../../chainlib/Account/address');
 
-const KeyRing = require('../../src/chainlib/Account/keyring');
-const MTX = require('../../src/chainlib/Transcation/mtx');
+const KeyRing = require('../../chainlib/Account/keyring');
+const MTX = require('../../chainlib/Transcation/mtx');
 const BlockNode = require('./block_node');
 
-const NodeBlockChain = require('../../src/chainlib/Nodes/nodeblockchain');
+const NodeBlockChain = require('../../chainlib/Nodes/nodeblockchain');
 const assert = require('assert');
-const {Info} = require('../../src/chainlib/Infos/Info');
+const {Info} = require('../../chainlib/Infos/Info');
 
 class BrowserNode extends BlockNode {
     constructor(param) {
@@ -26,6 +26,9 @@ class BrowserNode extends BlockNode {
 
         this.m_metaPeerids = [];
         this.connMetaPeerid=""; //目前只考虑链接到一个metanode节点
+
+        this.m_updateBlockStateTimerID = 0;
+        this.m_updateHeaderStateTimerID = 0;
     }
 
     changeState(newState) {
@@ -72,7 +75,7 @@ class BrowserNode extends BlockNode {
     // 发送交易
     async sendTx(txRawStr) {
         let txRaw = Buffer.from(txRawStr, 'hex');
-        let conn = await this._connToSuperNode();
+        let conn = await this._connectToMetaNode();
         DPackage.createStreamWriter({ cmdType: DPackage.CMD_TYPE.tx }, null, txRaw.length).writeData(txRaw).bind(conn);
     }
 
@@ -86,12 +89,12 @@ class BrowserNode extends BlockNode {
         if (this.m_state !== BrowserNode.STATE.init) {
             return Promise.resolve(BrowserNode.ERROR.invalidState);
         }
-        
+
         await this._createStack();
         await this.chainNode.create();
 
         let header = await this.chainNode.getHeaderByHeight(0);
-        if (header){ 
+        if (header){
             let block = this.chainNode.getBlock(header.hash('hex'));
             if (block) {
                 for (const tx of block.txs) {
@@ -105,9 +108,39 @@ class BrowserNode extends BlockNode {
             }
         }
 
+        let timerid = 0;
+        let _doConn = async () => {
+            if (timerid !== 0) {
+                return true;
+            }
+            let conn = await this._connectToMetaNode();
+            if (conn) {
+                return true;
+            }
+            return new Promise((resolve) => {
+                timerid = setInterval( async () => {
+                    let conn = await this._connectToMetaNode();
+                    if (!conn) {
+                        return;
+                    }
+                    clearInterval(timerid);
+                    timerid = 0;
+                    resolve(true);
+                },2000);
+            });
+        };
+
+        this.on("OnConnBreakof",async () => {
+            console.log('OnConnBreakof------------');
+            this.connMetaPeerid = "";
+            await _doConn();
+            this.chainNode.EmitUpdateHeader();
+        });
+
         console.log('waiting connect to supernode');
         let conn = await this._connectToMetaNode();
         if (!conn) {
+            console.log('-----------------------------------------------');
             return BrowserNode.ERROR.networkError;
         }
         console.log('connect to supernode success');
@@ -116,13 +149,13 @@ class BrowserNode extends BlockNode {
             this.onUpdateHeader(obj,beginHeight);
         });
 
-        this.chainNode.on("OnUpdateBlock",(obj,hashList) => {
-            this.onUpdateBlock(obj,hashList);
+        this.chainNode.on("OnUpdateBlock",(obj) => {
+            this.onUpdateBlock(obj);
         });
 
         this.chainNode.EmitUpdateHeader();
         this.chainNode.EmitUpdateBlock();
-        
+
         return BrowserNode.ERROR.success;
     }
 
@@ -131,7 +164,7 @@ class BrowserNode extends BlockNode {
             let nIndex = Math.floor(Math.random()*this.m_metaPeerids.length);
             this.connMetaPeerid = this.m_metaPeerids[nIndex];
         }
-        if (this.connMetaPeerid.length === 0) {
+        if (!this.connMetaPeerid || this.connMetaPeerid.length === 0) {
             return null;
         }
         let [ret,conn] = await this.getConnToPeer(this.connMetaPeerid);
@@ -141,76 +174,111 @@ class BrowserNode extends BlockNode {
     async _onPkg(conn,pkg) {
         switch(pkg.header.cmdType) {
             case DPackage.CMD_TYPE.header:
-                {
-                    this.m_bUpdateHeader = false;
-                    if (pkg.dataLength === 0) {
-                        if (!this.m_bUpdateHeader && !this.m_bUpdateBlock) {
-                            this.changeState(BrowserNode.STATE.updated);
-                        }
+            {
+                if (pkg.dataLength === 0) {
+                    this.updateHeaderState(false);
+                    let lastHeader = await this.chainNode.getHeaderByHeight(this.chainNode.getNowHeight());
+                    if (!lastHeader) {
+                        console.log('[browser_node DPackage.CMD_TYPE.header]get last header error,lastheight='+this.chainNode.getNowHeight().toString());
                         break;
                     }
-
-                    let reader = new BufferReader(pkg.data[0]);
-                    let headers = [];
-                    while (reader.left() > 0) {
-                        let header = Header.fromReader(reader);
-                        headers.push(header);
-                    }
-                    if (headers.length > 0) {
-                        await this.chainNode.addHeaders(headers);
-                    }
-
-                    if (headers.length === 500) {
-                        this.m_blockChain.EmitUpdateHeader();
-                    }
-
-                    //addHeaders可能触发更新块
-                    if (!this.m_bUpdateHeader && !this.m_bUpdateBlock) {
+                    let lastBlock = await this.chainNode.getBlock(lastHeader.hash('hex'));
+                    if (!this.m_bUpdateHeader && lastBlock) {
+                        console.log('[browser_node DPackage.CMD_TYPE.header] update finish DPackage.CMD_TYPE.header datalength=0');
                         this.changeState(BrowserNode.STATE.updated);
                     }
+                    break;
                 }
+
+                let reader = new BufferReader(pkg.data[0]);
+                let headers = [];
+                while (reader.left() > 0) {
+                    let header = Header.fromReader(reader);
+                    headers.push(header);
+                }
+                if (headers.length > 0) {
+                    await this.chainNode.addHeaders(headers);
+                }
+
+                console.log('[browser_node DPackage.CMD_TYPE.header] update header length='+headers.length.toString());
+                this.updateHeaderState(false);
+                if (headers.length === 500) {
+                    this.chainNode.EmitUpdateHeader();
+                    break;
+                }
+
+                //addHeaders可能触发更新块
+                let lastHeader = await this.chainNode.getHeaderByHeight(this.chainNode.getNowHeight());
+                if (!lastHeader) {
+                    console.log('[browser_node DPackage.CMD_TYPE.header]get last header error,lastheight='+this.chainNode.getNowHeight().toString());
+                    break;
+                }
+                let lastBlock = await this.chainNode.getBlock(lastHeader.hash('hex'));
+                if (!this.m_bUpdateHeader && lastBlock) {
+                    console.log('[browser_node DPackage.CMD_TYPE.header]update finish header update finish');
+                    this.changeState(BrowserNode.STATE.updated);
+                }
+            }
                 break;
             case DPackage.CMD_TYPE.block:
-                {
-                    this.m_bUpdateBlock = false;
-                    if (pkg.dataLength === 0) {
-                        if (!this.m_bUpdateHeader && !this.m_bUpdateBlock) {
-                            this.changeState(BrowserNode.STATE.updated);
-                        }
-                        break;
-                    }
-
-                    let reader = new BufferReader(Buffer.from(pkg.data[0],'hex'));
-                    let blocks = [];
-                    while (reader.left() > 0) {
-                        let block = Block.fromReader(reader);
-                        blocks.push(block);
-                    }
-                    if(blocks.length > 0) {
-                        await this.chainNode.addBlocks(blocks);
-                    }
-                    
-                    //addBlocks可能继续触发更新，所以还是需要判断m_bUpdateBlock
+            {
+                this.updateBlockState(false);
+                if (pkg.dataLength === 0) {
+                    console.log('[browser_node DPackage.CMD_TYPE.block] update finish DPackage.CMD_TYPE.block datalength=0');
                     if (!this.m_bUpdateHeader && !this.m_bUpdateBlock) {
+                        console.log('[browser_node DPackage.CMD_TYPE.block] update finish DPackage.CMD_TYPE.block datalength=0 changestate');
                         this.changeState(BrowserNode.STATE.updated);
                     }
+                    break;
                 }
+
+                let reader = new BufferReader(Buffer.from(pkg.data[0],'hex'));
+                let blocks = [];
+                while (reader.left() > 0) {
+                    let block = Block.fromReader(reader);
+                    blocks.push(block);
+                }
+                console.log('[browser_node  DPackage.CMD_TYPE.block] updatedate block come back length='+blocks.length.toString());
+                if(blocks.length > 0) {
+                    await this.chainNode.addBlocks(blocks);
+                }
+                if (this.chainNode.getUpdateBlockListCount() !== 0) {
+                    console.log('[browser_node  DPackage.CMD_TYPE.block] need continue updateing block');
+                    this.onUpdateBlock(this.chainNode);
+                    break;
+                }
+                if (this.m_bUpdateHeader) {
+                    console.log('[browser_node  DPackage.CMD_TYPE.block] header updateing');
+                    break;
+                }
+                //addBlocks可能继续触发更新，所以还是需要判断m_bUpdateBlock
+                let lastHeader = await this.chainNode.getHeaderByHeight(this.chainNode.getNowHeight());
+                if (!lastHeader) {
+                    console.log('[browser_node DPackage.CMD_TYPE.block]get last header error,lastheight='+this.chainNode.getNowHeight().toString());
+                    break;
+                }
+                let lastBlock = await this.chainNode.getBlock(lastHeader.hash('hex'));
+                if (lastBlock) {
+                    console.log('[browser_node DPackage.CMD_TYPE.block] update finish block update finish');
+                    this.changeState(BrowserNode.STATE.updated);
+                }
+            }
                 break;
 
             case DPackage.CMD_TYPE.broadcastBlock:
-                {
-                    console.log(this.peerid.toString()+" receive DPackage.CMD_TYPE.broadcastBlock------------------------------");
-                    if (pkg.dataLength === 0) {
-                        break;
-                    }
-
-                    let ring = KeyRing.fromPublic(Buffer.from(pkg.body.pubkey,'hex'));
-                    let sig = Buffer.from(pkg.body.sig,'hex');
-                    if (ring.verifyHash(pkg.data[0],sig)) {
-                        let header = Header.fromRaw(pkg.data[0]);
-                        await this.chainNode.addHeaders([header]);
-                    }
+            {
+                console.log("[browser_node DPackage.CMD_TYPE.broadcastBlock] "+this.peerid.toString()+" receive DPackage.CMD_TYPE.broadcastBlock------------------------------");
+                if (pkg.dataLength === 0) {
+                    break;
                 }
+
+                let ring = KeyRing.fromPublic(Buffer.from(pkg.body.pubkey,'hex'));
+                let sig = Buffer.from(pkg.body.sig,'hex');
+                if (ring.verifyHash(pkg.data[0],sig)) {
+                    let header = Header.fromRaw(pkg.data[0]);
+                    await this.chainNode.addHeaders([header]);
+                }
+            }
                 break;
 
             default:
@@ -223,31 +291,57 @@ class BrowserNode extends BlockNode {
         if (this.m_bUpdateHeader) {
             return;
         }
+        console.log('[browser_node OnUpdateHeader],beginH='+beginHeight.toString());
         this.changeState(BrowserNode.STATE.syncing);
-        this.m_bUpdateHeader = true;
+        this.updateHeaderState(true);
         let conn = await this._connectToMetaNode();
+        if (!conn) {
+            this.updateHeaderState(false);
+            return;
+        }
         DPackage.createStreamWriter({cmdType:DPackage.CMD_TYPE.getHeader},{start:beginHeight,len:500},0).bind(conn);
     }
 
-    async onUpdateBlock(blockChain,hashList) {
-        if (!hashList || this.m_bUpdateBlock) {
+    async onUpdateBlock(blockChain) {
+        if (this.m_bUpdateBlock) {
+            console.log('[browser_node onUpdateBlock] return [this.m_bUpdateBlock] m_bUpdateBlock='+this.m_bUpdateBlock.toString());
             return;
         }
 
-        if (hashList.length === 0) {
-            this.changeState(BrowserNode.STATE.updated);
-            return;
-        }
-
-        this.changeState(BrowserNode.STATE.updating);
-        this.m_bUpdateBlock = true;
         let conn = await this._connectToMetaNode();
+        if (!conn) {
+            console.log('[browser_node onUpdateBlock] return conn null');
+            return;
+        }
+        let hashList = blockChain.getUpdateBlockList(1000);
+        if (!hashList || hashList.length === 0) {
+            console.log('[browser_node onUpdateBlock] return hashList='+hashList.length.toString());
+            return ;
+        }
+
+        console.log('[browser_node onUpdateBlock] ,hashList='+hashList.length.toString());
+        this.changeState(BrowserNode.STATE.updating);
+        this.updateBlockState(true);
         let jsonInfo = JSON.stringify(hashList);
         let raw = Buffer.from(jsonInfo);
         let sig = "";
         //let body = {'pid':this.m_address.toString(), 'pubkey':this.m_account.getPublicKey(),'sig':sig};
         let body = {'pid':"", 'pubkey':"",'sig':""};
         DPackage.createStreamWriter({cmdType:DPackage.CMD_TYPE.getBlock},body,raw.length).writeData(raw).bind(conn);
+    }
+
+
+    async getCoinsByAddress(address) {
+        let coins = await this.chainNode.getCoinsByAddress(address);
+        let result = [];
+        for (let item of coins) {
+            let coinRaw = item.toRaw();
+            let coinRawtx = coinRaw.toString('hex');
+            let index = item.index;
+            let coincopy = { hash: item.hash, rawtx: coinRawtx, index: index };
+            result.push(coincopy);
+        }
+        return result;
     }
 
 
@@ -275,6 +369,34 @@ class BrowserNode extends BlockNode {
         let txRaw = tx.toRaw();
         let conn = await this._connectToMetaNode();
         DPackage.createStreamWriter({cmdType:DPackage.CMD_TYPE.tx},null,txRaw.length).writeData(txRaw).bind(conn);
+    }
+
+    updateBlockState(bUpdate) {
+        this.m_bUpdateBlock = bUpdate;
+        if (this.m_updateBlockStateTimerID !== 0) {
+            clearTimeout(this.m_updateBlockStateTimerID);
+            this.m_updateBlockStateTimerID = 0;
+        }
+
+        if (bUpdate) {
+            this.m_updateBlockStateTimerID = setTimeout(() => {
+                this.updateBlockState(false);
+            }, 7000);
+        }
+    }
+
+    updateHeaderState(bUpdate) {
+        this.m_bUpdateHeader = bUpdate;
+        if (this.m_updateHeaderStateTimerID !== 0) {
+            clearTimeout(this.m_updateHeaderStateTimerID);
+            this.m_updateHeaderStateTimerID = 0;
+        }
+
+        if (bUpdate) {
+            this.m_updateHeaderStateTimerID = setTimeout(() => {
+                this.updateHeaderState(false);
+            }, 7000);
+        }
     }
 }
 
