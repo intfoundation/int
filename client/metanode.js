@@ -61,10 +61,10 @@ let metaNodeConfig = {
         config: config,
     },
     metaConfig: {
-        chaindb:path.join(__dirname, './storage/meta/chain.db'),
-        storagePath: path.join(__dirname, './storage/meta/block'),
+        chaindb:path.join(__dirname, './storage/meta_node/chain.db'),
+        storagePath: path.join(__dirname, './storage/meta_node/block'),
         config: config,
-        metaDB:path.join(__dirname, './storage/meta/meta.db'),
+        metaDB:path.join(__dirname, './storage/meta_node/meta_node.db'),
     },
     //accountWif: '',
     //sig: '',

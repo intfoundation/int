@@ -66,8 +66,8 @@ let metaNodeConfig1 = {
         config: config,
     },
     metaConfig: {
-        chaindb:'./storage2/meta/chain_1.db', 
-        storagePath: './storage2/meta/block_1',
+        chaindb:'./storage2/meta_node/chain_1.db',
+        storagePath: './storage2/meta_node/block_1',
         config: config,
         metaDB:'./storage2/meta1.db',
     },
@@ -91,8 +91,8 @@ let metaNodeConfig2 = {
         config: config,
     },
     metaConfig: {
-        chaindb:'./storage2/meta/chain_2.db', 
-        storagePath: './storage2/meta/block_2',
+        chaindb:'./storage2/meta_node/chain_2.db',
+        storagePath: './storage2/meta_node/block_2',
         config: config,
         metaDB:'./storage2/meta2.db',
     },
@@ -116,8 +116,8 @@ let metaNodeConfig3 = {
         config: config,
     },
     metaConfig: {
-        chaindb:'./storage2/meta/chain_3.db', 
-        storagePath: './storage2/meta/block_3',
+        chaindb:'./storage2/meta_node/chain_3.db',
+        storagePath: './storage2/meta_node/block_3',
         config: config,
         metaDB:'./storage2/meta3.db',
     },
