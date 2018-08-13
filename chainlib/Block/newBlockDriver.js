@@ -70,7 +70,7 @@ class NewBlockDriver extends EventEmitter {
         }
         this.newBlockTimer = setTimeout(() => {
             this._newBlockImpl();
-        }, timeOffset);
+    }, timeOffset);
     }
 
     _newBlockImpl() {
@@ -102,8 +102,8 @@ class NewBlockDriver extends EventEmitter {
         this._endMonitorTimer();
         this.monitorTimer = setTimeout(() => {
             console.log(`[newBlockDriver _beginMonitorTimer]  thisid=${this.m_id}, intervalTime=${this.intervalTime}`);
-            this._newBlockImpl();
-        }, this.intervalTime);
+        this._newBlockImpl();
+    }, this.intervalTime);
     }
 
     _endMonitorTimer() {
