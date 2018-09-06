@@ -42,6 +42,20 @@ class HostClient {
         }
         return { err: JSON.parse(cr.resp) };
     }
+    async sendSignedTransaction(params) {
+        let vTx = new core_1.ValueTransaction();
+        let err = vTx.decode(new core_1.BufferReader(params.tx));
+        if (err) {
+            this.m_logger.error(`decode transaction error`, params.tx);
+            return { err: core_1.ErrorCode.RESULT_INVALID_FORMAT };
+        }
+        let cr = await this.m_client.callAsync('sendTransaction', { tx: params.tx });
+        if (cr.ret !== 200) {
+            this.m_logger.error(`send tx failed ret `, cr.ret);
+            return { err: core_1.ErrorCode.RESULT_FAILED, hash: vTx.hash };
+        }
+        return { err: JSON.parse(cr.resp), hash: vTx.hash };
+    }
     async view(params) {
         let cr = await this.m_client.callAsync('view', params);
         if (cr.ret !== 200) {
