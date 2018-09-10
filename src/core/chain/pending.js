@@ -12,16 +12,25 @@ class PendingTransactions {
         this.m_storageManager = options.storageManager;
         this.m_txLiveTime = options.txlivetime;
         this.m_pendingLock = new Lock_1.Lock();
+        this.m_handler = options.handler;
+        this.m_maxPengdingCount = options.maxPengdingCount;
+        this.m_warnPendingCount = options.warnPendingCount;
     }
     async addTransaction(tx) {
-        this.m_logger.info(`addTransaction, txhash=${tx.hash}`);
+        this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+        const checker = this.m_handler.getTxPendingChecker(tx.method);
+        if (!checker) {
+            this.m_logger.error(`txhash=${tx.hash} method=${tx.method} has no match listener`);
+            return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
+        }
+        const err = checker(tx);
+        if (err) {
+            this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
+            return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
+        }
         await this.m_pendingLock.enter();
-        // this.m_logger.info('transactions length='+this.m_transactions.length.toString());
-        // if (this.m_orphanTx.has(tx.address as string)) {
-        //     this.m_logger.info('m_orphanTx length='+(this.m_orphanTx.get(tx.address as string) as Transaction[]).length);
-        // }
         if (this.isExist(tx)) {
-            this.m_logger.error(`addTransaction failed, tx exist,hash=${tx.hash}`);
+            this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             await this.m_pendingLock.leave();
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
@@ -29,30 +38,49 @@ class PendingTransactions {
         await this.m_pendingLock.leave();
         return ret;
     }
-    popTransaction() {
-        while (true) {
-            if (!this.m_transactions.length) {
-                return null;
-            }
+    popTransaction(nCount) {
+        let txs = [];
+        let toOrphan = new Set();
+        while (this.m_transactions.length > 0 && txs.length < nCount) {
             let txTime = this.m_transactions.shift();
             if (this.isTimeout(txTime)) {
-                // 当前tx已经超时，那么同一个地址的其他tx(nonce一定大于当前tx的）进行排队等待
-                this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce - 1);
-                let i = 0;
-                while (i < this.m_transactions.length) {
-                    if (this.m_transactions[i].tx.address === txTime.tx.address) {
-                        let txTemp = (this.m_transactions.splice(i, 1)[0]);
-                        this.addToOrphan(txTime.tx.address, txTemp);
-                    }
-                    else {
-                        i++;
-                    }
+                if (!toOrphan.has(txTime.tx.address)) {
+                    this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce - 1);
+                    toOrphan.add(txTime.tx.address);
                 }
             }
             else {
-                return txTime.tx;
+                if (toOrphan.has(txTime.tx.address)) {
+                    this.addToOrphan(txTime);
+                }
+                else {
+                    txs.push(txTime.tx);
+                }
             }
         }
+        if (toOrphan.size === 0) {
+            return txs;
+        }
+        let pos = 0;
+        while (pos < this.m_transactions.length) {
+            if (this.isTimeout(this.m_transactions[pos])) {
+                let txTime = this.m_transactions.shift();
+                if (!toOrphan.has(txTime.tx.address)) {
+                    this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce - 1);
+                    toOrphan.add(txTime.tx.address);
+                }
+            }
+            else {
+                if (toOrphan.has(this.m_transactions[pos].tx.address)) {
+                    let txTemp = (this.m_transactions.splice(pos, 1)[0]);
+                    this.addToOrphan(txTemp);
+                }
+                else {
+                    pos++;
+                }
+            }
+        }
+        return txs;
     }
     async updateTipBlock(header) {
         let svr = await this.m_storageManager.getSnapshotView(header.hash);
@@ -67,6 +95,18 @@ class PendingTransactions {
         this.m_storageView = svr.storage;
         await this.removeTx();
         return error_code_1.ErrorCode.RESULT_OK;
+    }
+    init() {
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    uninit() {
+        if (this.m_curHeader) {
+            this.m_storageManager.releaseSnapshotView(this.m_curHeader.hash);
+            delete this.m_storageView;
+            delete this.m_curHeader;
+        }
+        this.m_mapNonce.clear();
+        this.m_orphanTx.clear();
     }
     isExist(tx) {
         for (let t of this.m_transactions) {
@@ -88,39 +128,28 @@ class PendingTransactions {
         let address = txTime.tx.address;
         let { err, nonce } = await this.getNonce(address);
         if (err) {
+            this.m_logger.error(`_addTx getNonce nonce error ${err}`);
             return err;
         }
+        let nCount = this.getPengdingCount();
+        if (nCount >= this.m_maxPengdingCount) {
+            this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
+            return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
+        }
         if (nonce + 1 === txTime.tx.nonce) {
-            this.addToQueue(txTime);
+            this.addToQueue(txTime, -1);
+            this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
+            await this.ScanOrphan(address);
+            return error_code_1.ErrorCode.RESULT_OK;
         }
-        else if (nonce + 1 < txTime.tx.nonce) {
-            this.addToOrphan(address, txTime);
-        }
-        else {
-            for (let i = 0; i < this.m_transactions.length; i++) {
-                if (this.m_transactions[i].tx.address === txTime.tx.address && this.m_transactions[i].tx.nonce === txTime.tx.nonce) {
-                    if (this.isTimeout(this.m_transactions[i])) {
-                        this.m_transactions.splice(i, 1);
-                        this.addToQueue(txTime);
-                        // addToQueue会设置txTime的nonce进去，txTime.tx.nonce会小于inPendingNonce,所以需要重新设置回去
-                        this.m_mapNonce.set(txTime.tx.address, nonce);
-                        return error_code_1.ErrorCode.RESULT_OK;
-                    }
-                    let _err = await this.checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
-                    if (_err === error_code_1.ErrorCode.RESULT_OK) {
-                        this.m_transactions.splice(i, 1);
-                        this.addToQueue(txTime);
-                        // addToQueue会设置txTime的nonce进去，txTime.tx.nonce会小于inPendingNonce,所以需要重新设置回去
-                        this.m_mapNonce.set(txTime.tx.address, nonce);
-                        return error_code_1.ErrorCode.RESULT_OK;
-                    }
-                    return _err;
-                }
+        if (nonce + 1 < txTime.tx.nonce) {
+            if (nCount >= this.m_warnPendingCount) {
+                this.m_logger.warn(`pengding count ${nCount}, warnPengdingCount ${this.m_warnPendingCount}`);
+                return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
             }
-            return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
+            return await this.addToOrphanMayNonceExist(txTime);
         }
-        await this.ScanOrphan(address);
-        return error_code_1.ErrorCode.RESULT_OK;
+        return await this.addToQueueMayNonceExist(txTime);
     }
     // 同个address的两个相同nonce的tx存在，且先前的也还没有入链
     async checkSmallNonceTx(txNew, txOld) {
@@ -200,13 +229,15 @@ class PendingTransactions {
             await this.ScanOrphan(address);
         }
     }
-    addToOrphan(s, txTime) {
+    addToOrphan(txTime) {
+        let s = txTime.tx.address;
         let l;
         if (this.m_orphanTx.has(s)) {
             l = this.m_orphanTx.get(s);
         }
         else {
             l = new Array();
+            this.m_orphanTx.set(s, l);
         }
         if (l.length === 0) {
             l.push(txTime);
@@ -215,8 +246,20 @@ class PendingTransactions {
             for (let i = 0; i < l.length; i++) {
                 if (txTime.tx.nonce < l[i].tx.nonce) {
                     l.splice(i, 0, txTime);
-                    break;
+                    return;
                 }
+            }
+            l.push(txTime);
+        }
+    }
+    clearTimeoutTx(l) {
+        let pos = 0;
+        while (pos < l.length) {
+            if (this.isTimeout(l[pos])) {
+                l.splice(pos, 1);
+            }
+            else {
+                pos++;
             }
         }
     }
@@ -233,21 +276,98 @@ class PendingTransactions {
             }
             if (this.isTimeout(l[0])) {
                 l.shift();
+                this.clearTimeoutTx(l);
                 break;
             }
             if (nonce + 1 !== l[0].tx.nonce) {
+                this.clearTimeoutTx(l);
                 break;
             }
-            this.addToQueue(l.shift());
+            let txTime = l.shift();
+            this.addToQueue(txTime, -1);
+            this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
             nonce++;
         }
     }
     isTimeout(txTime) {
         return Date.now() >= txTime.ct + this.m_txLiveTime * 1000;
     }
-    addToQueue(txTime) {
-        this.m_transactions.push(txTime);
-        this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
+    addToQueue(txTime, pos) {
+        if (pos === -1) {
+            this.m_transactions.push(txTime);
+        }
+        else {
+            this.m_transactions.splice(pos, 0, txTime);
+        }
+    }
+    async onReplaceTx(txNew, txOld) {
+    }
+    getPengdingCount() {
+        let count = this.m_transactions.length;
+        for (let [address, l] of this.m_orphanTx) {
+            count += l.length;
+        }
+        return count;
+    }
+    async addToQueueMayNonceExist(txTime) {
+        for (let i = 0; i < this.m_transactions.length; i++) {
+            if (this.m_transactions[i].tx.address === txTime.tx.address && this.m_transactions[i].tx.nonce === txTime.tx.nonce) {
+                let txOld = this.m_transactions[i].tx;
+                if (this.isTimeout(this.m_transactions[i])) {
+                    this.m_transactions.splice(i, 1);
+                    this.addToQueue(txTime, i);
+                    await this.onReplaceTx(txTime.tx, txOld);
+                    return error_code_1.ErrorCode.RESULT_OK;
+                }
+                let _err = await this.checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
+                if (_err === error_code_1.ErrorCode.RESULT_OK) {
+                    this.m_transactions.splice(i, 1);
+                    this.addToQueue(txTime, i);
+                    await this.onReplaceTx(txTime.tx, txOld);
+                    return error_code_1.ErrorCode.RESULT_OK;
+                }
+                return _err;
+            }
+        }
+        return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
+    }
+    async addToOrphanMayNonceExist(txTime) {
+        let s = txTime.tx.address;
+        let l;
+        if (this.m_orphanTx.has(s)) {
+            l = this.m_orphanTx.get(s);
+        }
+        else {
+            l = new Array();
+            this.m_orphanTx.set(s, l);
+        }
+        if (l.length === 0) {
+            l.push(txTime);
+            return error_code_1.ErrorCode.RESULT_OK;
+        }
+        for (let i = 0; i < l.length; i++) {
+            if (txTime.tx.nonce === l[i].tx.nonce) {
+                let txOld = l[i].tx;
+                if (this.isTimeout(l[i])) {
+                    l.splice(i, 1, txTime);
+                    await this.onReplaceTx(txTime.tx, txOld);
+                    return error_code_1.ErrorCode.RESULT_OK;
+                }
+                let _err = await this.checkSmallNonceTx(txTime.tx, l[i].tx);
+                if (_err === error_code_1.ErrorCode.RESULT_OK) {
+                    l.splice(i, 1, txTime);
+                    await this.onReplaceTx(txTime.tx, txOld);
+                    return error_code_1.ErrorCode.RESULT_OK;
+                }
+                return _err;
+            }
+            if (txTime.tx.nonce < l[i].tx.nonce) {
+                l.splice(i, 0, txTime);
+                return error_code_1.ErrorCode.RESULT_OK;
+            }
+        }
+        l.push(txTime);
+        return error_code_1.ErrorCode.RESULT_OK;
     }
 }
 exports.PendingTransactions = PendingTransactions;
