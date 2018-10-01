@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const rpc_server_1 = require("../lib/rpc_server");
 const core_1 = require("../../core");
 const util_1 = require("util");
+// import {TxPool} from "../../core/tx_pool/txPool";
 function promisify(f) {
     return () => {
         let args = Array.prototype.slice.call(arguments);
@@ -20,10 +21,12 @@ function promisify(f) {
     };
 }
 class ChainServer {
+    // private m_txPool: TxPool;
     constructor(logger, chain, miner) {
         this.m_chain = chain;
         this.m_miner = miner;
         this.m_logger = logger;
+        // this.m_txPool = new TxPool();
     }
     init(commandOptions) {
         let host = commandOptions.get('rpchost');
@@ -42,6 +45,15 @@ class ChainServer {
     _initMethods() {
         this.m_server.on('sendTransaction', async (params, resp) => {
             let tx = new core_1.ValueTransaction();
+            tx.method = params.method;
+            tx.value = params.value;
+            tx.fee = params.fee;
+            tx.input = params.input;
+            // let {errCode,signTx} = await this.m_txPool.addAndSignTx(tx, params.password, params.from);
+            //
+            // if(errCode){
+            //    return {err: errCode, hash:""}
+            // }
             let err = tx.decode(new core_1.BufferReader(Buffer.from(params.tx, 'hex')));
             if (err) {
                 await promisify(resp.write.bind(resp)(JSON.stringify(err)));
@@ -49,7 +61,20 @@ class ChainServer {
             else {
                 this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
                 err = await this.m_chain.addTransaction(tx);
-                await promisify(resp.write.bind(resp)(JSON.stringify(err)));
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err, hash: tx.hash })));
+            }
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('sendSignedTransaction', async (params, resp) => {
+            let tx = new core_1.ValueTransaction();
+            let err = tx.decode(new core_1.BufferReader(Buffer.from(params.tx, 'hex')));
+            if (err) {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
+            }
+            else {
+                this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                err = await this.m_chain.addTransaction(tx);
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
             }
             await promisify(resp.end.bind(resp)());
         });
@@ -95,14 +120,14 @@ class ChainServer {
         });
         this.m_server.on('getBlock', async (params, resp) => {
             let hr = await this.m_chain.getHeader(params.which);
-            let l = new core_1.ValueHandler().getMinerWageListener();
-            let wage = await l(hr.header.number);
-            let header = hr.header.stringify();
-            header.wage = wage;
             if (hr.err) {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: hr.err })));
             }
             else {
+                let l = new core_1.ValueHandler().getMinerWageListener();
+                let wage = await l(hr.header.number);
+                let header = hr.header.stringify();
+                header.wage = wage;
                 // 是否返回 block的transactions内容
                 if (params.transactions) {
                     let block = await this.m_chain.getBlock(hr.header.hash);
@@ -113,7 +138,7 @@ class ChainServer {
                         if (transactions && transactions.length !== 0) {
                             let totalFee = 0;
                             transactions.forEach((value) => {
-                                totalFee += value.fee;
+                                totalFee += Number(value.fee);
                             });
                             header.fee = totalFee;
                         }
