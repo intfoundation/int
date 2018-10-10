@@ -37,18 +37,18 @@ class HostClient {
         return JSON.parse(cr.resp);
     }
     async sendSignedTransaction(params) {
-        let writer = new core_1.BufferWriter();
-        let err = params.tx.encode(writer);
-        if (err) {
-            this.m_logger.error(`send invalid transaction`, params.tx);
-            return { err };
-        }
-        let cr = await this.m_client.callAsync('sendSignedTransaction', { tx: writer.render() });
+        // let writer = new BufferWriter();
+        // let err = params.tx.encode(writer);
+        // if (err) {
+        //     this.m_logger.error(`send invalid transaction`, params.tx);
+        //     return {err};
+        // }
+        let cr = await this.m_client.callAsync('sendSignedTransaction', { tx: params.tx });
         if (cr.ret !== 200) {
             this.m_logger.error(`send tx failed ret `, cr.ret);
             return { err: core_1.ErrorCode.RESULT_FAILED };
         }
-        return { err: JSON.parse(cr.resp) };
+        return JSON.parse(cr.resp);
     }
     async view(params) {
         let cr = await this.m_client.callAsync('view', params);

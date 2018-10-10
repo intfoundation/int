@@ -15,6 +15,14 @@ class PendingTransactions {
         this.m_handler = options.handler;
         this.m_maxPengdingCount = options.maxPengdingCount;
         this.m_warnPendingCount = options.warnPendingCount;
+        this.m_priorityLock = new Lock_1.PriorityLock();
+    }
+    async sleep(bSleep) {
+        if (bSleep) {
+            await this.m_priorityLock.enter(true);
+            return;
+        }
+        await this.m_priorityLock.leave(true);
     }
     async addTransaction(tx) {
         this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
@@ -28,14 +36,19 @@ class PendingTransactions {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
             return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
         }
+        await this.m_priorityLock.enter(false);
         await this.m_pendingLock.enter();
+        // 在存在很多纯内存操作的tx存在的时候，调用一个IO借口给其他microtask一个机会
+        await this.getStorageNonce(tx.address);
         if (this.isExist(tx)) {
             this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             await this.m_pendingLock.leave();
+            await this.m_priorityLock.leave(false);
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
         let ret = await this._addTx({ tx, ct: Date.now() });
         await this.m_pendingLock.leave();
+        await this.m_priorityLock.leave(false);
         return ret;
     }
     popTransaction(nCount) {
@@ -93,7 +106,12 @@ class PendingTransactions {
         }
         this.m_curHeader = header;
         this.m_storageView = svr.storage;
+        this.m_logger.info(`===============begin updateTipBlock`);
+        await this.m_pendingLock.enter(true);
+        this.m_logger.info(`==========inlock`);
         await this.removeTx();
+        await this.m_pendingLock.leave();
+        this.m_logger.info(`===============end updateTipBlock`);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     init() {
@@ -126,15 +144,15 @@ class PendingTransactions {
     }
     async _addTx(txTime) {
         let address = txTime.tx.address;
-        let { err, nonce } = await this.getNonce(address);
-        if (err) {
-            this.m_logger.error(`_addTx getNonce nonce error ${err}`);
-            return err;
-        }
         let nCount = this.getPengdingCount();
         if (nCount >= this.m_maxPengdingCount) {
             this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
             return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
+        }
+        let { err, nonce } = await this.getNonce(address);
+        if (err) {
+            this.m_logger.error(`_addTx getNonce nonce error ${err}`);
+            return err;
         }
         if (nonce + 1 === txTime.tx.nonce) {
             this.addToQueue(txTime, -1);
@@ -191,13 +209,21 @@ class PendingTransactions {
         }
     }
     async removeTx() {
+        let nonceCache = new Map();
         let index = 0;
         while (true) {
             if (index === this.m_transactions.length) {
                 break;
             }
             let tx = this.m_transactions[index].tx;
-            let { err, nonce } = await this.getStorageNonce(tx.address);
+            let nonce = -1;
+            if (nonceCache.has(tx.address)) {
+                nonce = nonceCache.get(tx.address);
+            }
+            else {
+                let ret = await this.getStorageNonce(tx.address);
+                nonce = ret.nonce;
+            }
             if (tx.nonce <= nonce) {
                 this.m_transactions.splice(index, 1);
                 if (this.m_mapNonce.has(tx.address)) {
@@ -215,8 +241,15 @@ class PendingTransactions {
                 if (l.length === 0) {
                     break;
                 }
-                let { err, nonce } = await this.getStorageNonce(l[0].tx.address);
-                if (l[0].tx.nonce <= nonce) {
+                let nonce1 = -1;
+                if (nonceCache.has(l[0].tx.address)) {
+                    nonce1 = nonceCache.get(l[0].tx.address);
+                }
+                else {
+                    let ret = await this.getStorageNonce(l[0].tx.address);
+                    nonce1 = ret.nonce;
+                }
+                if (l[0].tx.nonce <= nonce1) {
                     l.shift();
                 }
                 else {

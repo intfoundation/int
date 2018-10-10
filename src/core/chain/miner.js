@@ -4,7 +4,6 @@ const chain_1 = require("./chain");
 const error_code_1 = require("../error_code");
 const assert = require("assert");
 const events_1 = require("events");
-const util_1 = require("util");
 var MinerState;
 (function (MinerState) {
     MinerState[MinerState["none"] = 0] = "none";
@@ -17,6 +16,7 @@ var MinerState;
 class Miner extends events_1.EventEmitter {
     constructor(options) {
         super();
+        this.m_constructOptions = options;
         this.m_logger = options.logger;
         this.m_state = MinerState.none;
     }
@@ -26,12 +26,13 @@ class Miner extends events_1.EventEmitter {
     get peerid() {
         return this.m_chain.peerid;
     }
-    async initComponents(dataDir, handler) {
+    async initComponents() {
+        // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state > MinerState.none) {
             return error_code_1.ErrorCode.RESULT_OK;
         }
         this.m_chain = this._chainInstance();
-        let err = await this.m_chain.initComponents(dataDir, handler);
+        let err = await this.m_chain.initComponents();
         if (err) {
             this.m_logger.error(`miner initComponent failed for chain initComponent failed`, err);
             return err;
@@ -39,15 +40,28 @@ class Miner extends events_1.EventEmitter {
         this.m_state = MinerState.init;
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    async uninitComponents() {
+        // 上层保证await调用别重入了, 不加入中间状态了
+        if (this.m_state !== MinerState.init) {
+            return;
+        }
+        await this.m_chain.uninitComponents();
+        delete this.m_chain;
+        this.m_state = MinerState.none;
+    }
     _chainInstance() {
-        return new chain_1.Chain({ logger: this.m_logger });
+        return new chain_1.Chain(this.m_constructOptions);
     }
     parseInstanceOptions(node, instanceOptions) {
         let value = Object.create(null);
         value.node = node;
+        if (instanceOptions.has('genesisMiner')) {
+            value.minOutbound = 0;
+        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(options) {
+        // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state !== MinerState.init) {
             this.m_logger.error(`miner initialize failed hasn't initComponent`);
             return error_code_1.ErrorCode.RESULT_INVALID_STATE;
@@ -58,19 +72,25 @@ class Miner extends events_1.EventEmitter {
             this.m_logger.error(`miner initialize failed for chain initialize failed ${err}`);
             return err;
         }
-        this.m_chain.on('tipBlock', (chain, tipBlock) => {
-            this._onTipBlock(this.m_chain, tipBlock);
-        });
+        this.m_onTipBlockListener = this._onTipBlock.bind(this);
+        this.m_chain.on('tipBlock', this.m_onTipBlockListener);
         this.m_state = MinerState.idle;
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async create(globalOptions, genesisOptions) {
+    async uninitialize() {
+        // 上层保证await调用别重入了, 不加入中间状态了
+        if (this.m_state <= MinerState.init) {
+            return;
+        }
+        this.m_chain.removeListener('tipBlock', this.m_onTipBlockListener);
+        delete this.m_onTipBlockListener;
+        await this.m_chain.uninitialize();
+        this.m_state = MinerState.init;
+    }
+    async create(genesisOptions) {
         if (this.m_state !== MinerState.init) {
             this.m_logger.error(`miner create failed hasn't initComponent`);
             return error_code_1.ErrorCode.RESULT_INVALID_STATE;
-        }
-        if (!this.m_chain.onCheckGlobalOptions(globalOptions)) {
-            this.m_logger.error(`miner create failed for invalid globalOptions`, globalOptions);
         }
         let genesis = this.m_chain.newBlock();
         genesis.header.timestamp = Date.now() / 1000;
@@ -78,13 +98,13 @@ class Miner extends events_1.EventEmitter {
         if (sr.err) {
             return sr.err;
         }
-        let err;
+        let err = error_code_1.ErrorCode.RESULT_OK;
         do {
             err = await this._decorateBlock(genesis);
             if (err) {
                 break;
             }
-            err = await this._createGenesisBlock(genesis, sr.storage, globalOptions, genesisOptions);
+            err = await this.chain.onCreateGenesisBlock(genesis, sr.storage, genesisOptions);
             if (err) {
                 break;
             }
@@ -103,56 +123,24 @@ class Miner extends events_1.EventEmitter {
                 break;
             }
             assert(ssr.snapshot);
-            err = await this.chain.create(genesis, ssr.snapshot);
+            err = await this.chain.onPostCreateGenesis(genesis, ssr.snapshot);
         } while (false);
         await sr.storage.remove();
         return err;
     }
-    /**
-     * virtual
-     * @param block
-     */
-    async _createGenesisBlock(block, storage, globalOptions, genesisOptions) {
-        let dbr = await storage.createDatabase(chain_1.Chain.dbUser);
-        if (dbr.err) {
-            this.m_logger.error(`miner create genensis block failed for create user table to storage failed ${dbr.err}`);
-            return dbr.err;
-        }
-        dbr = await storage.createDatabase(chain_1.Chain.dbSystem);
-        if (dbr.err) {
-            return dbr.err;
-        }
-        let kvr = await dbr.value.createKeyValue(chain_1.Chain.kvNonce);
-        if (kvr.err) {
-            this.m_logger.error(`miner create genensis block failed for create nonce table to storage failed ${kvr.err}`);
-            return kvr.err;
-        }
-        kvr = await dbr.value.createKeyValue(chain_1.Chain.kvConfig);
-        if (kvr.err) {
-            this.m_logger.error(`miner create genensis block failed for create config table to storage failed ${kvr.err}`);
-            return kvr.err;
-        }
-        for (let [key, value] of Object.entries(globalOptions)) {
-            if (!(util_1.isString(value) || util_1.isNumber(value) || util_1.isBoolean(value))) {
-                assert(false, `invalid globalOptions ${key}`);
-                this.m_logger.error(`miner create genensis block failed for write global config to storage failed for invalid globalOptions ${key}`);
-                return error_code_1.ErrorCode.RESULT_INVALID_FORMAT;
-            }
-            let { err } = await kvr.kv.hset('global', key, value);
-            if (err) {
-                this.m_logger.error(`miner create genensis block failed for write global config to storage failed ${err}`);
-                return err;
-            }
-        }
-        return error_code_1.ErrorCode.RESULT_OK;
-    }
     async _createBlock(header) {
+        await this.chain.setIdle(false);
+        let ret = await this.__createBlock(header);
+        await this.chain.setIdle(true);
+        return ret;
+    }
+    async __createBlock(header) {
         let block = this.chain.newBlock(header);
         this.m_state = MinerState.executing;
-        let tx = this.chain.pending.popTransaction();
-        while (tx) {
-            block.content.addTransaction(tx);
-            tx = this.chain.pending.popTransaction();
+        let nMax = this.chain.globalOptions.blockTxMaxCount;
+        let txs = this.chain.pending.popTransaction(nMax);
+        while (txs.length > 0) {
+            block.content.addTransaction(txs.shift());
         }
         await this._decorateBlock(block);
         let sr = await this.chain.storageManager.createStorage(header.preBlockHash, block.header.preBlockHash);
@@ -168,13 +156,13 @@ class Miner extends events_1.EventEmitter {
             }
             err = await nber.executor.execute();
             if (err) {
-                this.m_logger.error(`${this.chain.node.node.peerid} execute failed! ret ${err}`);
+                this.m_logger.error(`${this.chain.peerid} execute failed! ret ${err}`);
                 break;
             }
             this.m_state = MinerState.mining;
             err = await this._mineBlock(block);
             if (err) {
-                this.m_logger.error(`${this.chain.node.node.peerid} mine block failed! ret ${err}`);
+                this.m_logger.error(`${this.chain.peerid} mine block failed! ret ${err}`);
                 break;
             }
         } while (false);
