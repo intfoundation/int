@@ -119,4 +119,23 @@ class JsonReadWritableDatabase extends JsonReadableDatabase {
         return { err, kv: tbl };
     }
 }
+class JsonStorageTransaction {
+    constructor(storageRoot) {
+        this.m_transactionRoot = serializable_1.deepCopy(storageRoot);
+        this.m_storageRoot = storageRoot;
+    }
+    async beginTransaction() {
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async commit() {
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async rollback() {
+        for (const k of Object.keys(this.m_storageRoot)) {
+            delete this.m_storageRoot[k];
+        }
+        Object.assign(this.m_storageRoot, this.m_transactionRoot);
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+}
 exports.JsonStorage = JsonStorage;
