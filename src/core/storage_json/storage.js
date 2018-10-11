@@ -138,4 +138,96 @@ class JsonStorageTransaction {
         return error_code_1.ErrorCode.RESULT_OK;
     }
 }
+class JsonStorage extends storage_1.Storage {
+    constructor() {
+        super(...arguments);
+        this.m_isInit = false;
+    }
+    get root() {
+        const r = this.m_root;
+        return r;
+    }
+    _createLogger() {
+        return new storage_1.JStorageLogger();
+    }
+    get isInit() {
+        return this.m_isInit;
+    }
+    async init(readonly) {
+        if (this.m_root) {
+            return error_code_1.ErrorCode.RESULT_SKIPPED;
+        }
+        assert(!this.m_root);
+        fs.ensureDirSync(path.dirname(this.m_filePath));
+        let options = {};
+        let err = error_code_1.ErrorCode.RESULT_OK;
+        if (fs.existsSync(this.m_filePath)) {
+            try {
+                const root = fs.readJSONSync(this.m_filePath);
+                this.m_root = serializable_1.fromStringifiable(root);
+            }
+            catch (e) {
+                err = error_code_1.ErrorCode.RESULT_EXCEPTION;
+            }
+        }
+        else {
+            this.m_root = Object.create(null);
+        }
+        if (!err) {
+            this.m_isInit = true;
+        }
+        setImmediate(() => {
+            this.m_eventEmitter.emit('init', err);
+    });
+        return err;
+    }
+    async uninit() {
+        await this.flush();
+        if (this.m_root) {
+            delete this.m_root;
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async messageDigest() {
+        let buf = await fs.readFile(this.m_filePath);
+        let hash = digest.hash256(buf).toString('hex');
+        return { err: error_code_1.ErrorCode.RESULT_OK, value: hash };
+    }
+    async getReadableDataBase(name) {
+        let err = storage_1.Storage.checkDataBaseName(name);
+        if (err) {
+            return { err };
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, value: new JsonReadableDatabase(this.m_root, name, this.m_logger) };
+    }
+    async createDatabase(name) {
+        let err = storage_1.Storage.checkDataBaseName(name);
+        if (err) {
+            return { err };
+        }
+        if (util_1.isUndefined(this.m_root[name])) {
+            this.m_root[name] = Object.create(null);
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, value: new JsonReadWritableDatabase(this.m_root, name, this.m_logger) };
+    }
+    async getReadWritableDatabase(name) {
+        let err = storage_1.Storage.checkDataBaseName(name);
+        if (err) {
+            return { err };
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, value: new JsonReadWritableDatabase(this.m_root, name, this.m_logger) };
+    }
+    async beginTransaction() {
+        let transcation = new JsonStorageTransaction(this.m_root);
+        await transcation.beginTransaction();
+        return { err: error_code_1.ErrorCode.RESULT_OK, value: transcation };
+    }
+    async flush(root) {
+        if (root) {
+            this.m_root = root;
+        }
+        const s = serializable_1.toStringifiable(this.m_root, true);
+        await fs.writeJSON(this.m_filePath, s, { spaces: 4, flag: 'w' });
+    }
+}
 exports.JsonStorage = JsonStorage;
