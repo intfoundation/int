@@ -6,7 +6,6 @@ const address_1 = require("../address");
 const value_chain_1 = require("../value_chain");
 const block_1 = require("./block");
 const chain_1 = require("./chain");
-const consensus = require("./consensus");
 class DposMiner extends value_chain_1.ValueMiner {
     get chain() {
         return this.m_chain;
@@ -15,7 +14,7 @@ class DposMiner extends value_chain_1.ValueMiner {
         return this.m_address;
     }
     _chainInstance() {
-        return new chain_1.DposChain({ logger: this.m_logger });
+        return new chain_1.DposChain(this.m_constructOptions);
     }
     parseInstanceOptions(node, instanceOptions) {
         let { err, value } = super.parseInstanceOptions(node, instanceOptions);
@@ -39,7 +38,10 @@ class DposMiner extends value_chain_1.ValueMiner {
         if (!options.coinbase) {
             this.coinbase = this.m_address;
         }
-        assert(this.coinbase, `secret key failed`);
+        else {
+            this.coinbase = options.coinbase;
+        }
+        assert(address_1.isValidAddress(this.address), `secret key or coinbase address is wrong !`);
         if (!this.m_address) {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
         }
@@ -99,35 +101,6 @@ class DposMiner extends value_chain_1.ValueMiner {
         let blockInterval = this.m_chain.globalOptions.blockInterval;
         let nextTime = (Math.floor((now - hr.header.timestamp) / blockInterval) + 1) * blockInterval;
         return { err: error_code_1.ErrorCode.RESULT_OK, timeout: (nextTime + hr.header.timestamp - now) * 1000 };
-    }
-    async _createGenesisBlock(block, storage, globalOptions, genesisOptions) {
-        let err = await super._createGenesisBlock(block, storage, globalOptions, genesisOptions);
-        if (err) {
-            return err;
-        }
-        let gkvr = await storage.getKeyValue(value_chain_1.Chain.dbSystem, value_chain_1.Chain.kvConfig);
-        if (gkvr.err) {
-            return gkvr.err;
-        }
-        let rpr = await gkvr.kv.set('consensus', 'dpos');
-        if (rpr.err) {
-            return rpr.err;
-        }
-        let dbr = await storage.getReadWritableDatabase(value_chain_1.Chain.dbSystem);
-        if (dbr.err) {
-            return dbr.err;
-        }
-        // storage的键值对要在初始化的时候就建立好
-        let kvr = await dbr.value.createKeyValue(consensus.ViewContext.kvDPOS);
-        if (kvr.err) {
-            return kvr.err;
-        }
-        let denv = new consensus.Context(dbr.value, globalOptions, this.m_logger);
-        let ir = await denv.init(genesisOptions.candidates, genesisOptions.miners);
-        if (ir.err) {
-            return ir.err;
-        }
-        return error_code_1.ErrorCode.RESULT_OK;
     }
 }
 exports.DposMiner = DposMiner;
