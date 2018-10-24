@@ -5,17 +5,20 @@ let assert = require('assert');
 const initSql = 'CREATE TABLE IF NOT EXISTS "txview"("txhash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "address" CHAR(64) NOT NULL, "blockheight" INTEGER NOT NULL, "blockhash" CHAR(64) NOT NULL);';
 class TxStorage {
     constructor(options) {
+        this.m_readonly = !!(options && options.readonly);
         this.m_db = options.db;
         this.m_logger = options.logger;
         this.m_blockStorage = options.blockstorage;
     }
     async init() {
-        try {
-            await this.m_db.run(initSql);
-        }
-        catch (e) {
-            this.m_logger.error(e);
-            return error_code_1.ErrorCode.RESULT_EXCEPTION;
+        if (!this.m_readonly) {
+            try {
+                await this.m_db.run(initSql);
+            }
+            catch (e) {
+                this.m_logger.error(e);
+                return error_code_1.ErrorCode.RESULT_EXCEPTION;
+            }
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -76,6 +79,19 @@ class TxStorage {
         }
         catch (e) {
             this.m_logger.error(`getCountByAddress exception,error=${e},address=${address}`);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async getTransactionByAddress(address) {
+        try {
+            let result = await this.m_db.all(`select txhash from txview where address="${address}"`);
+            if (!result || result.length === 0) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, txs: result };
+        }
+        catch (e) {
+            this.m_logger.error(`getTransactionByAddress exception,error=${e},address=${address}`);
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
     }
