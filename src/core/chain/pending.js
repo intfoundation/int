@@ -15,14 +15,6 @@ class PendingTransactions {
         this.m_handler = options.handler;
         this.m_maxPengdingCount = options.maxPengdingCount;
         this.m_warnPendingCount = options.warnPendingCount;
-        this.m_priorityLock = new Lock_1.PriorityLock();
-    }
-    async sleep(bSleep) {
-        if (bSleep) {
-            await this.m_priorityLock.enter(true);
-            return;
-        }
-        await this.m_priorityLock.leave(true);
     }
     async addTransaction(tx) {
         this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
@@ -36,22 +28,26 @@ class PendingTransactions {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
             return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
         }
-        await this.m_priorityLock.enter(false);
         await this.m_pendingLock.enter();
         // 在存在很多纯内存操作的tx存在的时候，调用一个IO借口给其他microtask一个机会
         await this.getStorageNonce(tx.address);
         if (this.isExist(tx)) {
             this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             await this.m_pendingLock.leave();
-            await this.m_priorityLock.leave(false);
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
         let ret = await this._addTx({ tx, ct: Date.now() });
         await this.m_pendingLock.leave();
-        await this.m_priorityLock.leave(false);
         return ret;
     }
-    popTransaction(nCount) {
+    popTransaction() {
+        let txs = this._popTransaction(1);
+        if (txs.length === 0) {
+            return;
+        }
+        return txs[0].tx;
+    }
+    _popTransaction(nCount) {
         let txs = [];
         let toOrphan = new Set();
         while (this.m_transactions.length > 0 && txs.length < nCount) {
@@ -67,7 +63,7 @@ class PendingTransactions {
                     this.addToOrphan(txTime);
                 }
                 else {
-                    txs.push(txTime.tx);
+                    txs.push(txTime);
                 }
             }
         }
@@ -106,12 +102,9 @@ class PendingTransactions {
         }
         this.m_curHeader = header;
         this.m_storageView = svr.storage;
-        this.m_logger.info(`===============begin updateTipBlock`);
         await this.m_pendingLock.enter(true);
-        this.m_logger.info(`==========inlock`);
         await this.removeTx();
         await this.m_pendingLock.leave();
-        this.m_logger.info(`===============end updateTipBlock`);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     init() {
