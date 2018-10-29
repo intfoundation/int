@@ -21,6 +21,13 @@ class HostClient {
         }
         return JSON.parse(cr.resp);
     }
+    async getTransactionByAddress(params) {
+        let cr = await this.m_client.callAsync('getTransactionByAddress', params);
+        if (cr.ret !== 200) {
+            return { err: core_1.ErrorCode.RESULT_FAILED };
+        }
+        return JSON.parse(cr.resp);
+    }
     async getNonce(params) {
         let cr = await this.m_client.callAsync('getNonce', params);
         if (cr.ret !== 200) {
@@ -28,8 +35,31 @@ class HostClient {
         }
         return JSON.parse(cr.resp);
     }
+    async getPendingTransactions(params) {
+        let cr = await this.m_client.callAsync('getPendingTransactions', params);
+        if (cr.ret !== 200) {
+            return { err: core_1.ErrorCode.RESULT_FAILED };
+        }
+        return JSON.parse(cr.resp);
+    }
+    async newAccount(params) {
+        let cr = await this.m_client.callAsync('newAccount', params);
+        if (cr.ret !== 200) {
+            this.m_logger.error(`create account failed ret `, cr.ret);
+            return { err: core_1.ErrorCode.RESULT_FAILED };
+        }
+        return JSON.parse(cr.resp);
+    }
+    async accounts(params) {
+        let cr = await this.m_client.callAsync('accounts', params);
+        if (cr.ret !== 200) {
+            this.m_logger.error(`read file failed`, cr.ret);
+            return { err: core_1.ErrorCode.RESULT_FAILED };
+        }
+        return JSON.parse(cr.resp);
+    }
     async sendTransaction(params) {
-        let cr = await this.m_client.callAsync('sendTransaction', { params: params });
+        let cr = await this.m_client.callAsync('sendTransaction', params);
         if (cr.ret !== 200) {
             this.m_logger.error(`send tx failed ret `, cr.ret);
             return { err: core_1.ErrorCode.RESULT_FAILED, hash: "" };

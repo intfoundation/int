@@ -24,12 +24,10 @@ function promisify(f) {
     };
 }
 class ChainServer {
-    // private m_txPool: TxPool;
     constructor(logger, chain, miner) {
         this.m_chain = chain;
         this.m_miner = miner;
         this.m_logger = logger;
-        // this.m_txPool = new TxPool();
     }
     init(commandOptions) {
         let host = commandOptions.get('rpchost');
@@ -50,7 +48,8 @@ class ChainServer {
             let tx = new core_1.ValueTransaction();
         tx.method = params.method;
         tx.value = new core_1.BigNumber(params.value);
-        tx.fee = new core_1.BigNumber(params.fee);
+        tx.limit = new core_1.BigNumber(params.limit);
+        tx.price = new core_1.BigNumber(params.price);
         tx.input = params.input;
         //签名相关的逻辑
         let fromAddress = params.from;
@@ -71,10 +70,10 @@ class ChainServer {
             }
         }
         if (!keyStore) {
-            err = core_1.ErrorCode.RESULT_TX_POOL_ADDRESS_NOT_EXIST;
+            err = core_1.ErrorCode.RESULT_ADDRESS_NOT_EXIST;
         }
         if (keyStore.address != fromAddress && !err) {
-            err = core_1.ErrorCode.RESULT_TX_POOL_KEYSTORE_ERROR;
+            err = core_1.ErrorCode.RESULT_KEYSTORE_ERROR;
         }
         if (err) {
             await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
@@ -138,7 +137,7 @@ class ChainServer {
             else {
                 let accounts = [];
         for (let fileName of files) {
-            let address = fileName.substring(26, 60);
+            let address = fileName.substring(26, fileName.length - 5);
             accounts.push(address);
         }
         await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, accounts: accounts })));
@@ -179,6 +178,22 @@ class ChainServer {
         await promisify(resp.write.bind(resp)(JSON.stringify(nonce)));
         await promisify(resp.end.bind(resp)());
     });
+        this.m_server.on('getPendingTransactions', async (params, resp) => {
+            let pendingTransactions = await this.m_chain.getPendingTransactions();
+        await promisify(resp.write.bind(resp)(JSON.stringify(pendingTransactions)));
+        await promisify(resp.end.bind(resp)());
+    });
+        this.m_server.on('getTransactionByAddress', async (params, resp) => {
+            let cr = await this.m_chain.getTransactionByAddress(params.address);
+        if (cr.err) {
+            this.m_logger.error(`get transaction by address ${params.address} failed for ${cr.err}`);
+            await promisify(resp.write.bind(resp)(JSON.stringify({ err: cr.err })));
+        }
+        else {
+            await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, txs: cr.txs })));
+        }
+        await promisify(resp.end.bind(resp)());
+    });
         this.m_server.on('view', async (params, resp) => {
             let cr = await this.m_chain.view(util_1.isUndefined(params.from) ? 'latest' : params.from, params.method, params.params);
         if (cr.err) {
@@ -216,16 +231,6 @@ class ChainServer {
                     // 处理block content 中的transaction, 然后再响应请求
                     let transactions = block.content.transactions.map((tr) => tr.stringify());
                     let res = { err: core_1.ErrorCode.RESULT_OK, block: header, transactions };
-                    if (transactions && transactions.length !== 0) {
-                        let totalFee = 0;
-                        transactions.forEach((value) => {
-                            totalFee += Number(value.fee);
-                    });
-                        header.fee = totalFee;
-                    }
-                    else {
-                        header.fee = 0;
-                    }
                     await promisify(resp.write.bind(resp)(JSON.stringify(res)));
                 }
             }

@@ -175,6 +175,10 @@ class PendingTransactions {
             return await this.getStorageNonce(address);
         }
     }
+    // 获取mem中的未处理的交易
+    async getPendingTransactions() {
+        return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: this.m_transactions };
+    }
     async getStorageNonce(s) {
         try {
             let dbr = await this.m_storageView.getReadableDataBase(chain_1.Chain.dbSystem);
