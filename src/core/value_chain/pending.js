@@ -10,8 +10,8 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         super(...arguments);
         this.m_balance = new Map();
         this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000);
-        this.m_minTxFee = new bignumber_js_1.BigNumber(5000000000000000);
-        this.m_maxTxFee = new bignumber_js_1.BigNumber(5000000000000000000);
+        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000);
+        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000);
         // protected m_bytes = new BigNumber(0);
         // protected m_totalLimit = new BigNumber(0);
         this.m_baseLimit = new bignumber_js_1.BigNumber(500);
@@ -31,6 +31,11 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         let balance = br.value;
         let totalUse = tx.value;
         let txLimit = tx.limit;
+        let txTotalLimit = this.calcTxLimit(tx);
+        if (txLimit.lt(txTotalLimit)) {
+            this.m_logger.error(`addTransaction failed, need limit ${txTotalLimit}, but limit ${txLimit}`);
+            return error_code_1.ErrorCode.RESULT_LIMIT_NOT_ENOUGH;
+        }
         // if (balance.lt(totalUse.plus(tx.fee))) {
         if (balance.lt(totalUse.plus(tx.limit.times(tx.price)))) {
             this.m_logger.error(`addTransaction failed, need fee ${tx.limit.times(tx.price).toString()} but balance ${balance.toString()}`);
@@ -58,14 +63,14 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
         }
         // 单笔tx的最大 price
-        if (tx.price.gt(this.m_maxTxFee.div(this.m_maxTxLimit))) {
-            this.m_logger.error(`addTransaction failed, max transaction price ${(this.m_maxTxFee.div(this.m_maxTxLimit))}, but user defined price ${tx.price}`);
-            return error_code_1.ErrorCode.RESULT_PRICE_OUT_OF_RANGE;
+        if (tx.price.gt(this.m_maxTxPrice)) {
+            this.m_logger.error(`addTransaction failed, max transaction price ${(this.m_maxTxPrice.toString())}, but user defined price ${tx.price.toString()}`);
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
         }
         // 单笔tx的最小 price
-        if (tx.price.lt(this.m_minTxFee.div(this.m_maxTxLimit))) {
-            this.m_logger.error(`addTransaction failed, min transaction price ${(this.m_minTxFee.div(this.m_maxTxLimit))}, but user defined price ${tx.price}`);
-            return error_code_1.ErrorCode.RESULT_PRICE_OUT_OF_RANGE;
+        if (tx.price.lt(this.m_minTxPrice)) {
+            this.m_logger.error(`addTransaction failed, min transaction price ${(this.m_minTxPrice.toString())}, but user defined price ${tx.price.toString()}`);
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
         }
         let err = await super.addTransaction(tx);
         if (err) {
