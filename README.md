@@ -1,6 +1,6 @@
 ## INT Chain
 
-Official ode.js implementation of the INT Chain protocol.
+Official Node.js implementation of the INT Chain protocol.
 
 ## Environment dependence
 
