@@ -1,22 +1,23 @@
 {
-  "name": "blockchain-sdk",
-  "version": "1.0.1",
-  "description": "",
-  "directories": {
-    "doc": "doc"
-  },
+  "name": "INT Chain",
+  "version": "3.0.0",
+  "description": "INT is the new generation of bottom-up created system of IoT and blockchain",
   "scripts": {
-    "test": "mocha dist/blockchain-sdk/test/*/**.js --timeout 120000",
-    "build": "gulp build",
-    "watch": "tsc -w"
+
   },
   "repository": {
     "type": "git",
-    "url": "https://git.tinyappcloud.com/lzc/chainSDK"
+    "url": "https://github.com/intfoundation/int"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "INT",
+    "Blockchain",
+    "IOT",
+    "Nodejs",
+    "javaScript"
+  ],
+  "author": "intfoundation",
+  "license": "MIT",
   "dependencies": {
     "bdt-p2p": "^0.1.234",
     "bignumber.js": "^6.0.0",
