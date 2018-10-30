@@ -41,10 +41,10 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             this.m_logger.error(`addTransaction failed, need fee ${tx.limit.times(tx.price).toString()} but balance ${balance.toString()}`);
             return error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
-        if (((tx.value.toString()).indexOf('.') !== -1) || ((tx.limit.toString()).indexOf('.') !== -1) || ((tx.price.toString()).indexOf('.') !== -1)) {
-            this.m_logger.error(`addTransaction failed, params can't have decimals`);
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
-        }
+        // if (((tx.value.toString()).indexOf('.') !== -1) || ((tx.limit.toString()).indexOf('.') !== -1) || ((tx.price.toString()).indexOf('.') !== -1)) {
+        //     this.m_logger.error(`addTransaction failed, params: value ${tx.value.toString()}, limit: ${tx.limit.toString()}, price: ${tx.price.toString()}, can't have decimals`);
+        //     return ErrorCode.RESULT_INVALID_PARAM;
+        // }
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
             this.m_logger.error(`addTransaction failed, value must be BigNumber`);
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
