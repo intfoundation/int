@@ -83,7 +83,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             totalCost = totalCost.plus(fee);
             if (totalCost.gt(txFee)) {
                 this.m_totalCost = txFee;
-                this.m_logger.error(`context cost failed, tx hash ${this.m_tx.hash} total cost ${totalCost}, but fee ${txFee}`);
+                this.m_logger.error(`context cost failed, tx hash ${this.m_tx.hash} total cost ${totalCost.toString()}, but fee ${txFee.toString()}`);
                 return error_code_1.ErrorCode.RESULT_TX_FEE_NOT_ENOUGH;
             }
             else {
