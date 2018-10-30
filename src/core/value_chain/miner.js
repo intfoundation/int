@@ -4,11 +4,13 @@ const error_code_1 = require("../error_code");
 const chain_1 = require("../chain");
 const bignumber_js_1 = require("bignumber.js");
 const chain_2 = require("./chain");
-const address_1 = require("../address");
 const assert = require('assert');
 class ValueMiner extends chain_1.Miner {
     constructor(options) {
         super(options);
+        this.m_blocklimit = new bignumber_js_1.BigNumber(0);
+        // 一个块的最大 limit
+        this.m_maxblocklimit = new bignumber_js_1.BigNumber(80000000);
     }
     set coinbase(address) {
         this.m_coinbase = address;
@@ -17,7 +19,7 @@ class ValueMiner extends chain_1.Miner {
         return this.m_coinbase;
     }
     _chainInstance() {
-        return new chain_2.ValueChain({ logger: this.m_logger });
+        return new chain_2.ValueChain(this.m_constructOptions);
     }
     get chain() {
         return this.m_chain;
@@ -28,53 +30,32 @@ class ValueMiner extends chain_1.Miner {
             return { err };
         }
         value.coinbase = instanceOptions.get('coinbase');
+        if (!instanceOptions.has('blocklimit')) {
+            console.log(`not exist 'blocklimit' option in command`);
+            return { err: error_code_1.ErrorCode.RESULT_PARSE_ERROR };
+        }
+        value.blocklimit = new bignumber_js_1.BigNumber(instanceOptions.get('blocklimit'));
+        if (value.blocklimit.gt(this.m_maxblocklimit)) {
+            return { err: error_code_1.ErrorCode.RESULT_BLOCK_LIMIT_TOO_BIG };
+        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(options) {
         if (options.coinbase) {
             this.m_coinbase = options.coinbase;
         }
+        this.m_blocklimit = options.blocklimit;
         return super.initialize(options);
     }
     async _decorateBlock(block) {
         block.header.coinbase = this.m_coinbase;
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async _createGenesisBlock(block, storage, globalOptions, genesisOptions) {
-        let err = await super._createGenesisBlock(block, storage, globalOptions, genesisOptions);
-        if (err) {
-            return err;
+    pushTx(block) {
+        let txs = this.chain.pending.popTransactionWithFee(this.m_blocklimit);
+        while (txs.length > 0) {
+            block.content.addTransaction(txs.shift());
         }
-        let dbr = await storage.getReadWritableDatabase(chain_1.Chain.dbSystem);
-        if (dbr.err) {
-            assert(false, `value chain create genesis failed for no system database`);
-            return dbr.err;
-        }
-        const dbSystem = dbr.value;
-        let gkvr = await dbSystem.getReadWritableKeyValue(chain_1.Chain.kvConfig);
-        if (gkvr.err) {
-            return gkvr.err;
-        }
-        let rpr = await gkvr.kv.rpush('features', 'value');
-        if (rpr.err) {
-            return rpr.err;
-        }
-        if (!genesisOptions || !address_1.isValidAddress(genesisOptions.coinbase)) {
-            this.m_logger.error(`create genesis failed for genesisOptioins should has valid coinbase`);
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
-        }
-        block.header.coinbase = genesisOptions.coinbase;
-        let kvr = await dbSystem.createKeyValue(chain_2.ValueChain.kvBalance);
-        // 在这里给用户加钱
-        if (genesisOptions && genesisOptions.preBalances) {
-            // 这里要给几个账户放钱
-            let kvBalance = kvr.kv;
-            for (let index = 0; index < genesisOptions.preBalances.length; index++) {
-                // 按照address和amount预先初始化钱数
-                await kvBalance.set(genesisOptions.preBalances[index].address, new bignumber_js_1.BigNumber(genesisOptions.preBalances[index].amount));
-            }
-        }
-        return kvr.err;
     }
 }
 exports.ValueMiner = ValueMiner;

@@ -31,11 +31,30 @@ class TcpConnection extends net_1.IConnection {
     }
     close() {
         if (this.m_socket) {
+            this.m_socket.removeAllListeners('drain');
+            this.m_socket.removeAllListeners('data');
+            this.m_socket.removeAllListeners('error');
+            this.m_socket.once('error', () => {
+                // do nothing
+            });
             this.m_socket.end();
             delete this.m_socket;
         }
         this.emit('close', this);
         return Promise.resolve(error_code_1.ErrorCode.RESULT_OK);
+    }
+    destroy() {
+        if (this.m_socket) {
+            this.m_socket.removeAllListeners('drain');
+            this.m_socket.removeAllListeners('data');
+            this.m_socket.removeAllListeners('error');
+            this.m_socket.once('error', () => {
+                // do nothing
+            });
+            this.m_socket.destroy();
+            delete this.m_socket;
+        }
+        return Promise.resolve();
     }
     getRemote() {
         return this.m_remote;

@@ -11,6 +11,15 @@ class RPCServer extends events_1.EventEmitter {
     on(event, listener) {
         return super.on(event, listener);
     }
+    once(event, listener) {
+        return super.once(event, listener);
+    }
+    prependListener(event, listener) {
+        return super.prependListener(event, listener);
+    }
+    prependOnceListener(event, listener) {
+        return super.prependOnceListener(event, listener);
+    }
     start() {
         if (this.m_server) {
             return;

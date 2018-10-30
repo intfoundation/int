@@ -9,6 +9,7 @@ __export(require("./transaction"));
 __export(require("./chain"));
 __export(require("./handler"));
 __export(require("./miner"));
+__export(require("./pending"));
 var executor_1 = require("./executor");
 exports.ValueTransactionExecutor = executor_1.ValueTransactionExecutor;
 exports.ValueBlockExecutor = executor_1.ValueBlockExecutor;

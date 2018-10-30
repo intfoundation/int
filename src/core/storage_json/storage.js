@@ -71,6 +71,303 @@ class JsonStorageKeyValue {
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
     }
+    async hdel(key, field) {
+        try {
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            delete this.m_root[key][field];
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`hdel ${key} ${field} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hlen(key) {
+        try {
+            assert(key);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: Object.keys(this.m_root[key]).length };
+        }
+        catch (e) {
+            this.logger.error(`hlen ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hexists(key, field) {
+        try {
+            assert(key);
+            assert(field);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: !util_1.isUndefined(this.m_root[key][field]) };
+        }
+        catch (e) {
+            this.logger.error(`hexsits ${key} ${field}`, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hmset(key, fields, values) {
+        try {
+            assert(key);
+            assert(fields.length === values.length);
+            if (!this.m_root[key]) {
+                this.m_root[key] = Object.create(null);
+            }
+            for (let ix = 0; ix < fields.length; ++ix) {
+                this.m_root[key][fields[ix]] = serializable_1.deepCopy(values[ix]);
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`hmset ${key} ${fields} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hmget(key, fields) {
+        try {
+            assert(key);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            let values = [];
+            for (let f of fields) {
+                values.push(serializable_1.deepCopy(this.m_root[key][f]));
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: values };
+        }
+        catch (e) {
+            this.logger.error(`hmget ${key} ${fields} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hkeys(key) {
+        try {
+            assert(key);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: Object.keys(this.m_root[key]) };
+        }
+        catch (e) {
+            this.logger.error(`hkeys ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hvalues(key) {
+        try {
+            assert(key);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: Object.values(this.m_root[key]).map((x) => serializable_1.deepCopy(x)) };
+        }
+        catch (e) {
+            this.logger.error(`hvalues ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hgetall(key) {
+        try {
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return {
+                err: error_code_1.ErrorCode.RESULT_OK, value: Object.keys(this.m_root[key]).map((x) => {
+                    return { key: x, value: serializable_1.deepCopy(this.m_root[key][x]) };
+                })
+            };
+        }
+        catch (e) {
+            this.logger.error(`hgetall ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async hclean(key) {
+        try {
+            delete this.m_root[key];
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`hclean ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lindex(key, index) {
+        try {
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: serializable_1.deepCopy(this.m_root[key][index]) };
+        }
+        catch (e) {
+            this.logger.error(`lindex ${key} ${index}`, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lset(key, index, value) {
+        try {
+            assert(key);
+            this.m_root[key][index] = serializable_1.deepCopy(value);
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`lset ${key} ${index} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async llen(key) {
+        try {
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: this.m_root[key].length };
+        }
+        catch (e) {
+            this.logger.error(`llen ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lrange(key, start, stop) {
+        try {
+            assert(key);
+            if (util_1.isUndefined(this.m_root[key])) {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            const { err, value: len } = await this.llen(key);
+            if (err) {
+                return { err };
+            }
+            if (!len) {
+                return { err: error_code_1.ErrorCode.RESULT_OK, value: [] };
+            }
+            if (start < 0) {
+                start = len + start;
+            }
+            if (stop < 0) {
+                stop = len + stop;
+            }
+            if (stop >= len) {
+                stop = len - 1;
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: serializable_1.deepCopy(this.m_root[key].slice(start, stop + 1)) };
+        }
+        catch (e) {
+            this.logger.error(`lrange ${key} ${start} ${stop}`, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lpush(key, value) {
+        try {
+            assert(key);
+            if (!this.m_root[key]) {
+                this.m_root[key] = [];
+            }
+            this.m_root[key].unshift(serializable_1.deepCopy(value));
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`lpush ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lpushx(key, value) {
+        try {
+            assert(key);
+            if (!this.m_root[key]) {
+                this.m_root[key] = [];
+            }
+            this.m_root[key].unshift(...value.map((e) => serializable_1.deepCopy(e)));
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`lpushx ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lpop(key) {
+        try {
+            assert(key);
+            if (this.m_root[key] && this.m_root[key].length > 0) {
+                return { err: error_code_1.ErrorCode.RESULT_OK, value: serializable_1.deepCopy(this.m_root[key].shift()) };
+            }
+            else {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+        }
+        catch (e) {
+            this.logger.error(`lpop ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async rpush(key, value) {
+        try {
+            assert(key);
+            if (!this.m_root[key]) {
+                this.m_root[key] = [];
+            }
+            this.m_root[key].push(serializable_1.deepCopy(value));
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`rpush ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async rpushx(key, value) {
+        try {
+            assert(key);
+            if (!this.m_root[key]) {
+                this.m_root[key] = [];
+            }
+            this.m_root[key].push(...value.map((e) => serializable_1.deepCopy(e)));
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`lpushx ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async rpop(key) {
+        try {
+            assert(key);
+            if (this.m_root[key] && this.m_root[key].length > 0) {
+                return { err: error_code_1.ErrorCode.RESULT_OK, value: serializable_1.deepCopy(this.m_root[key].pop()) };
+            }
+            else {
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+        }
+        catch (e) {
+            this.logger.error(`rpop ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async linsert(key, index, value) {
+        try {
+            assert(key);
+            this.m_root[key].splice(index, 0, serializable_1.deepCopy(value));
+            return { err: error_code_1.ErrorCode.RESULT_OK };
+        }
+        catch (e) {
+            this.logger.error(`linsert ${key} ${index} `, value, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
+    async lremove(key, index) {
+        try {
+            assert(key);
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: serializable_1.deepCopy(this.m_root[key].splice(index, 1)[0]) };
+        }
+        catch (e) {
+            this.logger.error(`lremove ${key} `, e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
 }
 class JsonReadableDatabase {
     constructor(storageRoot, name, logger) {
@@ -178,7 +475,7 @@ class JsonStorage extends storage_1.Storage {
         }
         setImmediate(() => {
             this.m_eventEmitter.emit('init', err);
-    });
+        });
         return err;
     }
     async uninit() {

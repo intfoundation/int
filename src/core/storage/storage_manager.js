@@ -12,7 +12,13 @@ class StorageManager {
         this.m_path = options.path;
         this.m_storageType = options.storageType;
         this.m_logger = options.logger;
-        this.m_snapshotManager = new log_snapshot_manager_1.SnapshotManager(options);
+        if (options.snapshotManager) {
+            this.m_snapshotManager = options.snapshotManager;
+        }
+        else {
+            this.m_snapshotManager = new log_snapshot_manager_1.StorageLogSnapshotManager(options);
+        }
+        this.m_readonly = !!options.readonly;
     }
     async init() {
         let err = await this.m_snapshotManager.init();
@@ -21,7 +27,16 @@ class StorageManager {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    get path() {
+        return this.m_path;
+    }
+    uninit() {
+        this.m_snapshotManager.uninit();
+    }
     async createSnapshot(from, blockHash, remove) {
+        if (this.m_readonly) {
+            return { err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT };
+        }
         let csr = await this.m_snapshotManager.createSnapshot(from, blockHash);
         if (csr.err) {
             return csr;
@@ -35,7 +50,13 @@ class StorageManager {
     async getSnapshot(blockHash) {
         return await this.m_snapshotManager.getSnapshot(blockHash);
     }
+    releaseSnapshot(blockHash) {
+        return this.m_snapshotManager.releaseSnapshot(blockHash);
+    }
     async createStorage(name, from) {
+        if (this.m_readonly) {
+            return { err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT };
+        }
         let storage = new this.m_storageType({
             filePath: path.join(this.m_path, name),
             logger: this.m_logger
@@ -134,7 +155,10 @@ class StorageManager {
     // 对象形式的redo log（通过网络请求, 然后解析buffer获得) 写入至本地文件
     // 提供给chain层引用
     writeRedoLog(blockHash, log) {
-        this.m_snapshotManager.writeRedoLog(blockHash, log);
+        if (this.m_readonly) {
+            return error_code_1.ErrorCode.RESULT_NOT_SUPPORT;
+        }
+        return this.m_snapshotManager.writeRedoLog(blockHash, log);
     }
     async releaseSnapshotView(blockHash) {
         let stub = this.m_views.get(blockHash);

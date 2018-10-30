@@ -10,7 +10,7 @@ function instance(superClass) {
         constructor(...args) {
             super(args[0]);
             // Uint8Array(33)
-            this.m_pubkey = new Buffer(33);
+            this.m_pubkey = encoding_1.Encoding.ZERO_KEY;
             // Uint8Array(64)
             this.m_sign = encoding_1.Encoding.ZERO_SIG64;
         }
@@ -79,6 +79,11 @@ function instance(superClass) {
             this._encodeSignContent(writer);
             let signHash = digest.hash256(writer.render());
             return Address.verifyBufferMsg(signHash, this.m_sign, this.m_pubkey);
+        }
+        stringify() {
+            let obj = super.stringify();
+            obj.creator = Address.addressFromPublicKey(this.m_pubkey);
+            return obj;
         }
     };
 }

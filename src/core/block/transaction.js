@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const serializable_1 = require("../serializable");
 const encoding_1 = require("../lib/encoding");
 const Address = require("../address");
+const util_1 = require("util");
 class Transaction extends serializable_1.SerializableWithHash {
     constructor() {
         super();
@@ -121,6 +122,24 @@ class Transaction extends serializable_1.SerializableWithHash {
         obj.caller = this.address;
         return obj;
     }
+    static fromRaw(raw, T) {
+        let buffer;
+        if (util_1.isString(raw)) {
+            buffer = Buffer.from(raw, 'hex');
+        }
+        else if (util_1.isBuffer(raw)) {
+            buffer = raw;
+        }
+        else {
+            return undefined;
+        }
+        let tx = new T();
+        let err = tx.decode(new serializable_1.BufferReader(buffer));
+        if (err) {
+            return undefined;
+        }
+        return tx;
+    }
 }
 exports.Transaction = Transaction;
 class EventLog {
@@ -216,16 +235,21 @@ class Receipt {
         return serializable_1.ErrorCode.RESULT_OK;
     }
     decode(reader) {
-        this.m_transactionHash = reader.readVarString();
-        this.m_returnCode = reader.readI32();
-        let nCount = reader.readU16();
-        for (let i = 0; i < nCount; i++) {
-            let log = new EventLog();
-            let err = log.decode(reader);
-            if (err) {
-                return err;
+        try {
+            this.m_transactionHash = reader.readVarString();
+            this.m_returnCode = reader.readI32();
+            let nCount = reader.readU16();
+            for (let i = 0; i < nCount; i++) {
+                let log = new EventLog();
+                let err = log.decode(reader);
+                if (err) {
+                    return err;
+                }
+                this.m_eventLogs.push(log);
             }
-            this.m_eventLogs.push(log);
+        }
+        catch (e) {
+            return serializable_1.ErrorCode.RESULT_INVALID_FORMAT;
         }
         return serializable_1.ErrorCode.RESULT_OK;
     }

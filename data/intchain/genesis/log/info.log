@@ -1,0 +1,10 @@
+2018-10-22T10:11:00.000Z - info: create storage genesis storage_manager.js:67
+2018-10-22T10:11:16.371Z - info: begin execute block 0 block.js:53
+2018-10-22T10:11:16.375Z - debug: execute event on 0 transaction.js:151
+2018-10-22T10:11:16.377Z - debug: event handler commit storage transaction.js:172
+2018-10-22T10:11:16.379Z - debug: execute event on 0 transaction.js:151
+2018-10-22T10:11:16.379Z - info: on BlockHeight 0 handler.js:377
+2018-10-22T10:11:16.380Z - debug: event handler commit storage transaction.js:172
+2018-10-22T10:11:16.400Z - info: creating snapshot 3f8dec2f6ca3f8d294440de104add7b38c1472fa94139b23eb9cc5505583b0ea dump_snapshot_manager.js:34
+2018-10-22T10:11:16.408Z - debug: getting snapshot 3f8dec2f6ca3f8d294440de104add7b38c1472fa94139b23eb9cc5505583b0ea log_snapshot_manager.js:118
+2018-10-22T10:11:16.408Z - debug: get snapshot 3f8dec2f6ca3f8d294440de104add7b38c1472fa94139b23eb9cc5505583b0ea directly from dump log_snapshot_manager.js:123

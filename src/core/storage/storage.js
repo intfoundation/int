@@ -6,7 +6,6 @@ const assert = require('assert');
 const error_code_1 = require("../error_code");
 const logger_1 = require("./logger");
 const reader_1 = require("../lib/reader");
-const digest = require('../lib/digest');
 class IReadableStorage {
 }
 exports.IReadableStorage = IReadableStorage;
@@ -50,17 +49,25 @@ class Storage extends IReadWritableStorage {
         return this.m_filePath;
     }
     async reset() {
-        await this.remove();
+        const err = await this.remove();
+        if (err) {
+            return err;
+        }
         return await this.init();
     }
     async remove() {
         await this.uninit();
-        fs.removeSync(this.m_filePath);
+        try {
+            fs.removeSync(this.m_filePath);
+        }
+        catch (e) {
+            this.m_logger.error(`remove storage ${this.m_filePath} failed `, e);
+            return error_code_1.ErrorCode.RESULT_EXCEPTION;
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
     }
-    async messageDigest() {
-        let buf = await fs.readFile(this.m_filePath);
-        let hash = digest.hash256(buf).toString('hex');
-        return { err: error_code_1.ErrorCode.RESULT_OK, value: hash };
+    messageDigest() {
+        return Promise.resolve({ err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT });
     }
     static getKeyValueFullName(dbName, kvName) {
         return `${dbName}${this.keyValueNameSpec}${kvName}`;

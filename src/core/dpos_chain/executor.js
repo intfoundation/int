@@ -4,8 +4,8 @@ const error_code_1 = require("../error_code");
 const value_chain_1 = require("../value_chain");
 const consensus = require("./consensus");
 class DposBlockExecutor extends value_chain_1.ValueBlockExecutor {
-    async _executePostBlockEvent() {
-        let err = await super._executePostBlockEvent();
+    async executePostBlockEvent() {
+        let err = await super.executePostBlockEvent();
         if (err) {
             return err;
         }
@@ -28,7 +28,7 @@ class DposBlockExecutor extends value_chain_1.ValueBlockExecutor {
                 // 先禁用那些超过最长时间不出块的miner
                 await denv.banProducer(this.m_block.header.timestamp);
                 // 更新选举结果
-                let ber = await denv.finishElection(this.m_block.header.hash);
+                let ber = await denv.finishElection(this.m_block.header.timestamp.toString());
                 if (ber.err) {
                     return ber.err;
                 }

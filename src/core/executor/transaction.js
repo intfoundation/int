@@ -1,16 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const serializable_1 = require("../serializable");
 const assert = require('assert');
 const error_code_1 = require("../error_code");
 const chain_1 = require("../chain");
 const util_1 = require("util");
+const client_1 = require("../../client");
 const { LogShim } = require('../lib/log_shim');
 class BaseExecutor {
     constructor(logger) {
         this.m_logger = logger;
     }
     async prepareContext(blockHeader, storage, externContext) {
-        let database = (await storage.getReadWritableDatabase(chain_1.Chain.dbUser));
+        let database = (await storage.getReadWritableDatabase(chain_1.Chain.dbUser)).value;
         let context = Object.create(externContext);
         // context.getNow = (): number => {
         //     return blockHeader.timestamp;
@@ -19,16 +21,10 @@ class BaseExecutor {
             writable: false,
             value: blockHeader.timestamp
         });
-        // context.getHeight = (): number => {
-        //     return blockHeader.number;
-        // };
         Object.defineProperty(context, 'height', {
             writable: false,
             value: blockHeader.number
         });
-        // context.getStorage = (): IReadWritableKeyValue => {
-        //     return kv;
-        // }
         Object.defineProperty(context, 'storage', {
             writable: false,
             value: database
@@ -40,6 +36,7 @@ class TransactionExecutor extends BaseExecutor {
     constructor(listener, tx, logger) {
         super(new LogShim(logger).bind(`[transaction: ${tx.hash}]`, true).log);
         this.m_logs = [];
+        this.m_addrIndex = 0;
         this.m_listener = listener;
         this.m_tx = tx;
     }
@@ -62,10 +59,12 @@ class TransactionExecutor extends BaseExecutor {
         await kvr.kv.set(tx.address, tx.nonce);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async execute(blockHeader, storage, externContext) {
-        let nonceErr = await this._dealNonce(this.m_tx, storage);
-        if (nonceErr !== error_code_1.ErrorCode.RESULT_OK) {
-            return { err: nonceErr };
+    async execute(blockHeader, storage, externContext, flag) {
+        if (!(flag && flag.ignoreNoce)) {
+            let nonceErr = await this._dealNonce(this.m_tx, storage);
+            if (nonceErr !== error_code_1.ErrorCode.RESULT_OK) {
+                return { err: nonceErr };
+            }
         }
         let context = await this.prepareContext(blockHeader, storage, externContext);
         let receipt = new chain_1.Receipt();
@@ -75,14 +74,14 @@ class TransactionExecutor extends BaseExecutor {
             return { err: work.err };
         }
         receipt.returnCode = await this._execute(context, this.m_tx.input);
-        assert(util_1.isNumber(receipt.returnCode), `invalid handler return code ${receipt.returnCode}`);
+        // assert(isNumber(receipt.returnCode), `invalid handler return code ${receipt.returnCode}`);
         if (!util_1.isNumber(receipt.returnCode)) {
             this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=`, receipt.returnCode);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
         receipt.transactionHash = this.m_tx.hash;
         if (receipt.returnCode) {
-            this.m_logger.warn(`handler return code=${receipt.returnCode}, will rollback storage`);
+            this.m_logger.debug(`handler return code=${receipt.returnCode}, will rollback storage`);
             await work.value.rollback();
         }
         else {
@@ -115,14 +114,30 @@ class TransactionExecutor extends BaseExecutor {
             log.param = param;
             this.m_logs.push(log);
         };
-        // context.getCaller = ():string =>{
-        //     return this.m_tx.address!;
-        // };
         Object.defineProperty(context, 'caller', {
             writable: false,
             value: this.m_tx.address
         });
+        Object.defineProperty(context, 'bytes', {
+            writable: false,
+            value: this.objectToBuffer(this.m_tx.input)
+        });
+        context.createAddress = () => {
+            let buf = Buffer.from(this.m_tx.address + this.m_tx.nonce + this.m_addrIndex);
+            this.m_addrIndex++;
+            return client_1.addressFromPublicKey(buf);
+        };
         return context;
+    }
+    objectToBuffer(input) {
+        let inputString;
+        if (input) {
+            inputString = JSON.stringify(serializable_1.toStringifiable(input, true));
+        }
+        else {
+            inputString = JSON.stringify({});
+        }
+        return Buffer.from(inputString);
     }
 }
 exports.TransactionExecutor = TransactionExecutor;

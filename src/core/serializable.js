@@ -12,6 +12,137 @@ const encoding_1 = require("./lib/encoding");
 const digest = require("./lib/digest");
 const bignumber_js_1 = require("bignumber.js");
 const util_1 = require("util");
+function MapToObject(input) {
+    if (!(input instanceof Map)) {
+        throw new Error('input MUST be a Map');
+    }
+    let ret = {};
+    for (const [k, v] of input) {
+        if (!util_1.isString(k)) {
+            throw new Error('input Map`s key MUST be string');
+        }
+        ret[k] = v;
+    }
+    return ret;
+}
+exports.MapToObject = MapToObject;
+function SetToArray(input) {
+    if (!(input instanceof Set)) {
+        throw new Error('input MUST be a Set');
+    }
+    let ret = new Array();
+    for (const item of input) {
+        ret.push(item);
+    }
+    return ret;
+}
+exports.SetToArray = SetToArray;
+function SetFromObject(input) {
+    if (!util_1.isObject(input)) {
+        throw new Error('input MUST be a Object');
+    }
+    let ret = new Set();
+    do {
+        const item = input.shift();
+        ret.add(item);
+    } while (input.length > 0);
+    return ret;
+}
+exports.SetFromObject = SetFromObject;
+function MapFromObject(input) {
+    if (!util_1.isObject(input)) {
+        throw new Error('input MUST be a Object');
+    }
+    let ret = new Map();
+    for (const k of Object.keys(input)) {
+        ret.set(k, input[k]);
+    }
+    return ret;
+}
+exports.MapFromObject = MapFromObject;
+function deepCopy(o) {
+    if (util_1.isUndefined(o) || util_1.isNull(o)) {
+        return o;
+    }
+    else if (util_1.isNumber(o) || util_1.isBoolean(o)) {
+        return o;
+    }
+    else if (util_1.isString(o)) {
+        return o;
+    }
+    else if (o instanceof bignumber_js_1.BigNumber) {
+        return new bignumber_js_1.BigNumber(o);
+    }
+    else if (util_1.isBuffer(o)) {
+        return Buffer.from(o);
+    }
+    else if (util_1.isArray(o) || o instanceof Array) {
+        let s = [];
+        for (let e of o) {
+            s.push(deepCopy(e));
+        }
+        return s;
+    }
+    else if (o instanceof Map) {
+        let s = new Map();
+        for (let k of o.keys()) {
+            s.set(k, deepCopy(o.get(k)));
+        }
+        return s;
+    }
+    else if (util_1.isObject(o)) {
+        let s = Object.create(null);
+        for (let k of Object.keys(o)) {
+            s[k] = deepCopy(o[k]);
+        }
+        return s;
+    }
+    else {
+        throw new Error('not JSONable');
+    }
+}
+exports.deepCopy = deepCopy;
+function toEvalText(o) {
+    if (util_1.isUndefined(o) || util_1.isNull(o)) {
+        return JSON.stringify(o);
+    }
+    else if (util_1.isNumber(o) || util_1.isBoolean(o)) {
+        return JSON.stringify(o);
+    }
+    else if (util_1.isString(o)) {
+        return JSON.stringify(o);
+    }
+    else if (o instanceof bignumber_js_1.BigNumber) {
+        return `new BigNumber('${o.toString()}')`;
+    }
+    else if (util_1.isBuffer(o)) {
+        return `Buffer.from('${o.toString('hex')}', 'hex')`;
+    }
+    else if (util_1.isArray(o) || o instanceof Array) {
+        let s = [];
+        for (let e of o) {
+            s.push(toEvalText(e));
+        }
+        return `[${s.join(',')}]`;
+    }
+    else if (o instanceof Map) {
+        throw new Error(`use MapToObject before toStringifiable`);
+    }
+    else if (o instanceof Set) {
+        throw new Error(`use SetToArray before toStringifiable`);
+    }
+    else if (util_1.isObject(o)) {
+        let s = [];
+        for (let k of Object.keys(o)) {
+            s.push(`'${k}':${toEvalText(o[k])}`);
+        }
+        return `{${s.join(',')}}`;
+    }
+    else {
+        throw new Error('not JSONable');
+    }
+}
+exports.toEvalText = toEvalText;
 function toStringifiable(o, parsable = false) {
     if (util_1.isUndefined(o) || util_1.isNull(o)) {
         return o;
@@ -35,17 +166,16 @@ function toStringifiable(o, parsable = false) {
         }
         return s;
     }
+    else if (o instanceof Map) {
+        throw new Error(`use MapToObject before toStringifiable`);
+    }
+    else if (o instanceof Set) {
+        throw new Error(`use SetToArray before toStringifiable`);
+    }
     else if (util_1.isObject(o)) {
         let s = Object.create(null);
         for (let k of Object.keys(o)) {
             s[k] = toStringifiable(o[k], parsable);
-        }
-        return s;
-    }
-    else if (o instanceof Map) {
-        let s = Object.create(null);
-        for (let k of o.keys()) {
-            s[k] = toStringifiable(o.get(k), parsable);
         }
         return s;
     }

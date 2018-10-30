@@ -15,6 +15,9 @@ class IConnection extends events_1.EventEmitter {
     close() {
         return Promise.resolve(error_code_1.ErrorCode.RESULT_OK);
     }
+    destroy() {
+        return Promise.resolve();
+    }
     getRemote() {
         return '';
     }

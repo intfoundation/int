@@ -8,6 +8,22 @@ class Version {
         this.m_mainVersion = MAIN_VERSION;
         this.m_timestamp = Date.now();
         this.m_peerid = '';
+        this.m_random = 1000000 * Math.random();
+    }
+    compare(other) {
+        if (this.m_timestamp > other.m_timestamp) {
+            return 1;
+        }
+        else if (this.m_timestamp < other.m_timestamp) {
+            return -1;
+        }
+        if (this.m_random > other.m_random) {
+            return 1;
+        }
+        else if (this.m_random > other.m_random) {
+            return -1;
+        }
+        return 0;
     }
     set mainversion(v) {
         this.m_mainVersion = v;

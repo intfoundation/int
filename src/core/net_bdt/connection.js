@@ -2,11 +2,13 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const error_code_1 = require("../error_code");
 const net_1 = require("../net");
+const assert = require("assert");
 const { P2P } = require('bdt-p2p');
 class BdtConnection extends net_1.IConnection {
     constructor(options) {
         super();
         this.m_nTimeDelta = 0;
+        assert(options.bdt_connection);
         this.m_bdt_connection = options.bdt_connection;
         this.m_bdt_connection.on(P2P.Connection.EVENT.drain, () => {
             this.emit('drain');
@@ -27,7 +29,10 @@ class BdtConnection extends net_1.IConnection {
         this.m_remote = options.remote;
     }
     send(data) {
-        return this.m_bdt_connection.send(data);
+        if (this.m_bdt_connection) {
+            return this.m_bdt_connection.send(data);
+        }
+        return -1;
     }
     close() {
         if (this.m_bdt_connection) {

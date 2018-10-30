@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const transaction_1 = require("./transaction");
 const serializable_1 = require("../serializable");
 const error_code_1 = require("../error_code");
 const merkle = require("../lib/merkle");
@@ -127,15 +126,17 @@ class BlockHeader extends serializable_1.SerializableWithHash {
         obj.number = this.number;
         obj.timestamp = this.timestamp;
         obj.preBlock = this.preBlockHash;
+        obj.merkleRoot = this.merkleRoot;
         return obj;
     }
 }
 exports.BlockHeader = BlockHeader;
 class BlockContent {
-    constructor(transactionType) {
+    constructor(transactionType, receiptType) {
         this.m_transactions = new Array();
         this.m_receipts = new Map();
         this.m_transactionType = transactionType;
+        this.m_receiptType = receiptType;
     }
     get transactions() {
         const t = this.m_transactions;
@@ -220,7 +221,7 @@ class BlockContent {
                 return err;
             }
             this.m_transactions.push(tx);
-            let receipt = new transaction_1.Receipt();
+            let receipt = new this.m_receiptType();
             err = receipt.decode(reader);
             if (err !== error_code_1.ErrorCode.RESULT_OK) {
                 return err;
@@ -236,6 +237,7 @@ class Block {
         this.m_transactionType = options.transactionType;
         this.m_headerType = options.headerType;
         this.m_header = new this.m_headerType();
+        this.m_receiptType = options.receiptType;
         if (options.header) {
             let writer = new serializable_1.BufferWriter();
             let err = options.header.encode(writer);
@@ -244,7 +246,7 @@ class Block {
             err = this.m_header.decode(reader);
             assert(!err, `clone header failed with err ${err}`);
         }
-        this.m_content = new BlockContent(this.m_transactionType);
+        this.m_content = new BlockContent(this.m_transactionType, this.m_receiptType);
     }
     clone() {
         let writer = new serializable_1.BufferWriter();
@@ -252,18 +254,13 @@ class Block {
         assert(!err, `encode block failed ${err}`);
         let reader = new serializable_1.BufferReader(writer.render());
         let newBlock = new Block({
-            headerType: this.headerType,
-            transactionType: this.transactionType
+            headerType: this.m_headerType,
+            transactionType: this.m_transactionType,
+            receiptType: this.m_receiptType,
         });
         err = newBlock.decode(reader);
         assert(!err, `clone block ${this.m_header.hash} failed for ${err}`);
         return newBlock;
-    }
-    get transactionType() {
-        return this.m_transactionType;
-    }
-    get headerType() {
-        return this.m_headerType;
     }
     get header() {
         return this.m_header;

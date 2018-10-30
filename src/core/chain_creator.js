@@ -1,32 +1,22 @@
-import { ErrorCode } from './error_code';
-import { LoggerInstance, initLogger, LoggerOptions } from './lib/logger_util';
-import { BaseHandler, ChainGlobalOptions, ChainTypeOptions, Chain, Miner } from './chain';
-import * as path from 'path';
-import * as fs from 'fs-extra';
-import * as process from 'process';
-
-type ChainTypeInstance = {
-    newHandler(creator: ChainCreator, typeOptions: ChainTypeOptions): BaseHandler;
-newChain(creator: ChainCreator, typeOptions: ChainTypeOptions): Chain;
-newMiner(creator: ChainCreator, typeOptions: ChainTypeOptions): Miner;
-};
-
-export class ChainCreator {
-    private m_logger: LoggerInstance;
-    private m_instances: Map<string, ChainTypeInstance> = new Map();
-    constructor(options: LoggerOptions) {
-        this.m_logger = initLogger(options);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const error_code_1 = require("./error_code");
+const logger_util_1 = require("./lib/logger_util");
+const path = require("path");
+const fs = require("fs-extra");
+const process = require("process");
+class ChainCreator {
+    constructor(options) {
+        this.m_instances = new Map();
+        this.m_logger = logger_util_1.initLogger(options);
     }
-
-    public registerChainType(consesus: string, instance: ChainTypeInstance) {
+    registerChainType(consesus, instance) {
         this.m_instances.set(consesus, instance);
     }
-
-    public get logger(): LoggerInstance {
+    get logger() {
         return this.m_logger;
     }
-
-    protected _getTypeInstance(typeOptions: ChainTypeOptions): ChainTypeInstance|undefined {
+    _getTypeInstance(typeOptions) {
         let ins = this.m_instances.get(typeOptions.consensus);
         if (!ins) {
             this.m_logger.error(`chain creator has no register consensus named ${typeOptions.consensus}`);
@@ -34,8 +24,7 @@ export class ChainCreator {
         }
         return ins;
     }
-
-    public async createGenesis(packagePath: string, dataDir: string, genesisOptions: any, externalHandler = false): Promise<{err: ErrorCode, miner?: Miner}> {
+    async createGenesis(packagePath, dataDir, genesisOptions, externalHandler = false) {
         if (!path.isAbsolute(dataDir)) {
             dataDir = path.join(process.cwd(), dataDir);
         }
@@ -48,63 +37,62 @@ export class ChainCreator {
             try {
                 let _config = fs.readJSONSync(configPath);
                 _config['handler'] = path.join(packagePath, _config['handler']);
-                fs.writeJSONSync(path.join(dataDir, 'config.json'), _config, {spaces: 4, flag: 'w'});
-            } catch (e) {
+                fs.writeJSONSync(path.join(dataDir, 'config.json'), _config, { spaces: 4, flag: 'w' });
+            }
+            catch (e) {
                 this.m_logger.error(`load ${configPath} failed for`, e);
             }
-        } else {
+        }
+        else {
             fs.copySync(packagePath, dataDir);
         }
-
         let cmir = await this.createMinerInstance(dataDir);
         if (cmir.err) {
-            return {err: cmir.err};
+            return { err: cmir.err };
         }
         let lcr = this._loadConfig(dataDir);
         if (lcr.err) {
-            return {err: lcr.err};
+            return { err: lcr.err };
         }
-        let err = await cmir.miner!.create(lcr.config!.globalOptions, genesisOptions);
+        let err = await cmir.miner.create(genesisOptions);
         if (err) {
-            return {err};
+            return { err };
         }
-        return {err: ErrorCode.RESULT_OK, miner: cmir.miner};
+        return { err: error_code_1.ErrorCode.RESULT_OK, miner: cmir.miner };
     }
-
-    protected _loadConfig(dataDir: string): {err: ErrorCode, config?: {handler: BaseHandler, typeOptions: ChainTypeOptions, globalOptions: ChainGlobalOptions} } {
+    _loadConfig(dataDir) {
         let configPath = path.join(dataDir, 'config.json');
-        let constConfig: any;
+        let constConfig;
         try {
             constConfig = fs.readJsonSync(configPath);
-        } catch (e) {
-            this.m_logger.error(`can't get config from package ${dataDir} for ${e.message}`);
-            return {err: ErrorCode.RESULT_EXCEPTION};
         }
-
+        catch (e) {
+            this.m_logger.error(`can't get config from package ${dataDir} for ${e.message}`);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
         if (!constConfig['handler']) {
             this.m_logger.error(`can't get handler from package ${dataDir}/config.json`);
-            return {err: ErrorCode.RESULT_EXCEPTION};
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
         let handlerPath = constConfig['handler'];
         if (!path.isAbsolute(handlerPath)) {
             handlerPath = path.join(dataDir, handlerPath);
         }
-
         let typeOptions = constConfig['type'];
         if (!typeOptions || !typeOptions.consensus || !typeOptions.features) {
             this.m_logger.error(`invalid type from package ${dataDir}`);
-            return {err: ErrorCode.RESULT_EXCEPTION};
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
         let handler = this._loadHandler(handlerPath, typeOptions);
         if (!handler) {
-            return {err: ErrorCode.RESULT_EXCEPTION};
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
         let globalOptions = constConfig['global'];
         if (!globalOptions) {
             globalOptions = {};
         }
         return {
-            err: ErrorCode.RESULT_OK,
+            err: error_code_1.ErrorCode.RESULT_OK,
             config: {
                 handler,
                 typeOptions,
@@ -112,8 +100,7 @@ export class ChainCreator {
             }
         };
     }
-
-    protected _loadHandler(handlerPath: string, typeOptions: ChainTypeOptions): BaseHandler|undefined {
+    _loadHandler(handlerPath, typeOptions) {
         let instance = this._getTypeInstance(typeOptions);
         if (!instance) {
             return undefined;
@@ -131,62 +118,54 @@ export class ChainCreator {
                 }
                 handlerPath = pathsplitter.join(':');
             }
-
             let handlerMod = require(handlerPath);
             handlerMod.registerHandler(handler);
-        } catch (e) {
+        }
+        catch (e) {
             console.error(`handler error: ${e.message}`);
             return undefined;
         }
         return handler;
     }
-
-    public async createMinerInstance(dataDir: string): Promise<{ err: ErrorCode, miner?: Miner }> {
+    async createMinerInstance(dataDir) {
         if (!path.isAbsolute(dataDir)) {
             dataDir = path.join(process.cwd(), dataDir);
         }
         let lcr = this._loadConfig(dataDir);
         if (lcr.err) {
-            return {err: lcr.err};
+            return { err: lcr.err };
         }
-        let instance = this._getTypeInstance(lcr.config!.typeOptions);
+        let instance = this._getTypeInstance(lcr.config.typeOptions);
         if (!instance) {
-            return {err: ErrorCode.RESULT_INVALID_TYPE};
+            return { err: error_code_1.ErrorCode.RESULT_INVALID_TYPE };
         }
-        let miner = instance.newMiner(this, lcr.config!.typeOptions);
-        let err = await miner.initComponents(dataDir, lcr.config!.handler);
+        let miner = instance.newMiner(this, dataDir, lcr.config);
+        let err = await miner.initComponents();
         if (err) {
-            return {err};
+            return { err };
         }
-        return {err: ErrorCode.RESULT_OK, miner};
+        return { err: error_code_1.ErrorCode.RESULT_OK, miner, globalOptions: lcr.config.globalOptions };
     }
-
-    public async createChainInstance(dataDir: string): Promise<{ err: ErrorCode, chain?: Chain }> {
+    async createChainInstance(dataDir, options) {
         if (!path.isAbsolute(dataDir)) {
             dataDir = path.join(process.cwd(), dataDir);
         }
         let lcr = this._loadConfig(dataDir);
         if (lcr.err) {
-            return {err: lcr.err};
+            return { err: lcr.err };
         }
-        let instance = this._getTypeInstance(lcr.config!.typeOptions);
+        let instance = this._getTypeInstance(lcr.config.typeOptions);
         if (!instance) {
-            return {err: ErrorCode.RESULT_INVALID_TYPE};
+            return { err: error_code_1.ErrorCode.RESULT_INVALID_TYPE };
         }
-        let chain = instance.newChain(this, lcr.config!.typeOptions);
-        let err = await chain.initComponents(dataDir, lcr.config!.handler);
-        if (err) {
-            return {err};
+        let chain = instance.newChain(this, dataDir, lcr.config);
+        if (options.initComponents) {
+            let err = await chain.initComponents({ readonly: options.readonly });
+            if (err) {
+                return { err };
+            }
         }
-        return {err: ErrorCode.RESULT_OK, chain};
+        return { err: error_code_1.ErrorCode.RESULT_OK, chain };
     }
-
-    // options.initBlockWnd = chainParam.get('initBlockWnd');
-    //     options.blockTimeout = chainParam.get('blockTimeout');
-    //     options.headersTimeout = chainParam.get('headersTimeout');
-    //     options.minOutbound = chainParam.get('minOutbound');
-    //     options.nodeCacheSize = chainParam.get('nodeCacheSize');
-    //     options.initializePeerCount = chainParam.get('initializePeerCount');
-    //     options.headerReqLimit = chainParam.get('headerReqLimit');
-    //     options.confirmDepth = chainParam.get('confirmDepth');
 }
+exports.ChainCreator = ChainCreator;

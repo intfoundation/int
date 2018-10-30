@@ -10,10 +10,18 @@ class BlockStorage {
         this.m_path = path.join(options.path, 'Block');
         this.m_blockHeaderType = options.blockHeaderType;
         this.m_transactionType = options.transactionType;
+        this.m_receiptType = options.receiptType;
         this.m_logger = options.logger;
+        this.m_readonly = !!options.readonly;
     }
     init() {
-        fs.mkdirsSync(this.m_path);
+        if (!this.m_readonly) {
+            fs.mkdirsSync(this.m_path);
+        }
+        return client_1.ErrorCode.RESULT_OK;
+    }
+    uninit() {
+        // do nothing
     }
     has(blockHash) {
         return fs.existsSync(this._pathOfBlock(blockHash));
@@ -22,9 +30,15 @@ class BlockStorage {
         return path.join(this.m_path, hash);
     }
     get(blockHash) {
-        let blockRaw = fs.readFileSync(this._pathOfBlock(blockHash));
+        let blockRaw;
+        try {
+            blockRaw = fs.readFileSync(this._pathOfBlock(blockHash));
+        }
+        catch (error) {
+            this.m_logger.warn(`readBlockFile ${this._pathOfBlock(blockHash)} failed.`);
+        }
         if (blockRaw) {
-            let block = new block_1.Block({ headerType: this.m_blockHeaderType, transactionType: this.m_transactionType });
+            let block = new block_1.Block({ headerType: this.m_blockHeaderType, transactionType: this.m_transactionType, receiptType: this.m_receiptType });
             let err = block.decode(new serializable_1.BufferReader(blockRaw));
             if (err) {
                 this.m_logger.error(`load block ${blockHash} from storage failed!`);
@@ -40,6 +54,9 @@ class BlockStorage {
         fs.writeFileSync(this._pathOfBlock(hash), blockRaw);
     }
     add(block) {
+        if (this.m_readonly) {
+            return client_1.ErrorCode.RESULT_NOT_SUPPORT;
+        }
         let hash = block.hash;
         if (this.has(hash)) {
             return client_1.ErrorCode.RESULT_ALREADY_EXIST;

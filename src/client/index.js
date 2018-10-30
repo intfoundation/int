@@ -35,7 +35,14 @@ host.registerNet('tcp', (commandOptions) => {
         peers = peers.split(';');
     }
     let nodeType = core_1.StaticOutNode(core_1.TcpNode);
-    return new nodeType({ host: _host, port }, peers);
+    return new nodeType(peers, { host: _host, port });
+});
+host.registerNet('standalone', (commandOptions) => {
+    let peerid = commandOptions.get('peerid');
+    if (!peerid) {
+        peerid = 'defaultNode';
+    }
+    return new core_1.StandaloneNode(peerid);
 });
 host.registerNet('bdt', (commandOptions) => {
     let _host = commandOptions.get('host');
@@ -88,3 +95,21 @@ host.registerNet('bdt', (commandOptions) => {
     };
     return new core_1.BdtNode({ host: _host, tcpport, udpport, peerid, snPeer, bdtLoggerOptions: bdt_logger });
 });
+const core_2 = require("../core");
+const valueChainDebuger = {
+    async createIndependSession(loggerOptions, dataDir) {
+        const cdr = await core_2.createValueDebuger(core_2.initChainCreator({ loggerOptions }), dataDir);
+        if (cdr.err) {
+            return { err: cdr.err };
+        }
+        return { err: core_2.ErrorCode.RESULT_OK, session: cdr.debuger.createIndependSession() };
+    },
+    async createChainSession(loggerOptions, dataDir, debugerDir) {
+        const cdr = await core_2.createValueDebuger(core_2.initChainCreator({ loggerOptions }), dataDir);
+        if (cdr.err) {
+            return { err: cdr.err };
+        }
+        return cdr.debuger.createChainSession(debugerDir);
+    }
+};
+exports.valueChainDebuger = valueChainDebuger;

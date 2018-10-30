@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const assert = require('assert');
 const error_code_1 = require("../error_code");
 const net_1 = require("../net");
 const connection_1 = require("./connection");
@@ -43,9 +44,9 @@ class BdtNode extends net_1.INode {
         // 为了方便测试， 补充加入本机的内网192 IP
         let ips = Util.NetHelper.getLocalIPV4().filter((ip) => ip.match(/^192.168.\d+.\d+/));
         let addrList = [this.m_host, ...ips];
+        const dhtEntry = [this.m_options.snPeer];
         let bdtInitParams = {};
         bdtInitParams['peerid'] = this.m_peerid;
-        bdtInitParams['dhtEntry'] = [this.m_options.snPeer];
         if (this.m_tcpListenPort !== 0) {
             bdtInitParams['tcp'] = {
                 addrList,
@@ -60,19 +61,25 @@ class BdtNode extends net_1.INode {
                 maxPortOffset: 0,
             };
         }
-        let { result, p2p, bdtStack } = await P2P.create4BDTStack(bdtInitParams);
-        // 检查是否创建成功
+        let { result, p2p } = await P2P.create(bdtInitParams);
+        if (result !== 0) {
+            throw Error(`init p2p peer error ${result}. please check the params`);
+        }
+        p2p.joinDHT(dhtEntry, false, { manualActiveLocalPeer: true });
+        result = await p2p.startupBDTStack(bdtInitParams.options);
         if (result !== 0) {
             throw Error(`init p2p peer error ${result}. please check the params`);
         }
         this.m_snPeerid = this.m_options.snPeer.peerid;
         this.m_dht = p2p.m_dht;
-        this.m_bdtStack = bdtStack;
+        this.m_bdtStack = p2p.bdtStack;
+        // <TODO> ready标记已经不再需要，暂时留着check DHT实现的正确性
         // 启动p2p的时候 先把当前peer的ready设置为0， 避免在listen前被其他节点发现并连接
         this.m_dht.updateLocalPeerAdditionalInfo('ready', 0);
     }
     _ready() {
         this.m_dht.updateLocalPeerAdditionalInfo('ready', 1);
+        this.m_dht.rootDHT.activeLocalPeer();
     }
     async randomPeers(count, excludes) {
         let res = await this.m_dht.getRandomPeers(count, false);
@@ -95,6 +102,7 @@ class BdtNode extends net_1.INode {
             let ready = val.getAdditionalInfo('ready');
             if (ready !== 1) {
                 this.m_logger.debug(`exclude ${val.peerid} not ready`);
+                assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
                 return false;
             }
             return true;
@@ -118,6 +126,7 @@ class BdtNode extends net_1.INode {
                 let ready = val.getAdditionalInfo('ready');
                 if (ready !== 1) {
                     this.m_logger.debug(`exclude ${val.peerid} not ready`);
+                    assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
                     return false;
                 }
                 return true;

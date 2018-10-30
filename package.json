@@ -1,29 +1,52 @@
 {
-  "name": "int",
-  "version": "1.0.0",
-  "description": "INT Chain",
-  "main": "index.js",
+  "name": "blockchain-sdk",
+  "version": "1.0.1",
+  "description": "",
+  "directories": {
+    "doc": "doc"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha dist/blockchain-sdk/test/*/**.js --timeout 120000",
+    "build": "gulp build",
+    "watch": "tsc -w"
   },
   "repository": {
     "type": "git",
-    "url": "github.com:intfoundation/int.git"
+    "url": "https://git.tinyappcloud.com/lzc/chainSDK"
   },
-  "keywords": [
-    "int",
-    "blockchain",
-    "iot"
-  ],
-  "author": "INT Foundation intfoundation@intchain.io",
-  "license": "MIT",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
+    "bdt-p2p": "^0.1.234",
+    "bignumber.js": "^6.0.0",
+    "bn.js": "^4.11.8",
     "fs-extra": "^5.0.0",
-    "keypair": "^1.0.1",
+    "intjs": "^1.2.16",
+    "js-combinatorics": "^0.5.3",
+    "lodash": "^4.17.5",
+    "md5-file": "^4.0.0",
     "msgpack-lite": "^0.1.26",
-    "secp256k1": "^3.4.0",
-    "sqlite3": "^3.1.13",
-    "unirest": "^0.5.1",
+    "node-gyp": "^3.8.0",
+    "secp256k1": "^3.5.0",
+    "sqlite": "^2.9.1",
+    "sqlite3-transactions": "0.0.5",
+    "winston": "^2.4.2",
     "xmlhttprequest": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.2",
+    "@types/mocha": "^5.0.0",
+    "@types/fs-extra": "^5.0.2",
+    "@types/lodash": "^4.14.107",
+    "@types/node": "^9.6.4",
+    "@types/sqlite3": "^3.1.3",
+    "@types/winston": "^2.3.9",
+    "chai": "^4.1.2",
+    "gulp": "^3.9.1",
+    "gulp-typescript": "^4.0.2",
+    "gulp-sourcemaps": "^2.6.4",
+    "mocha": "^5.1.0",
+    "typescript": "^2.8.1"
   }
 }

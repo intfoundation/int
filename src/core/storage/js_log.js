@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const error_code_1 = require("../error_code");
+const serializable_1 = require("../serializable");
 class TransactionLogger {
     constructor(owner) {
         this.owner = owner;
@@ -24,9 +25,6 @@ class KeyValueLogger {
         this.name = name;
     }
     get(key) {
-        return Promise.resolve({ err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT });
-    }
-    getall() {
         return Promise.resolve({ err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT });
     }
     hexists(key, field) {
@@ -60,61 +58,61 @@ class KeyValueLogger {
         return Promise.resolve({ err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT });
     }
     async set(key, value) {
-        this.owner.appendLog(`await ${this.name}.set(${JSON.stringify(key)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.set(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     // hash
     async hset(key, field, value) {
-        this.owner.appendLog(`await ${this.name}.hset(${JSON.stringify(key)}, ${JSON.stringify(field)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.hset(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(field)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async hmset(key, fields, values) {
-        this.owner.appendLog(`await ${this.name}.hmset(${JSON.stringify(key)}, ${JSON.stringify(fields)}, ${JSON.stringify(values)});`);
+        this.owner.appendLog(`await ${this.name}.hmset(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(fields)}, ${serializable_1.toEvalText(values)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async hclean(key) {
-        this.owner.appendLog(`await ${this.name}.hclean(${JSON.stringify(key)});`);
+        this.owner.appendLog(`await ${this.name}.hclean(${serializable_1.toEvalText(key)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async hdel(key, field) {
-        this.owner.appendLog(`await ${this.name}.hdel(${key},${field})`);
+        this.owner.appendLog(`await ${this.name}.hdel(${serializable_1.toEvalText(key)},${serializable_1.toEvalText(field)})`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     // array
     async lset(key, index, value) {
-        this.owner.appendLog(`await ${this.name}.lset(${JSON.stringify(key)}, ${index}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.lset(${serializable_1.toEvalText(key)}, ${index}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async lpush(key, value) {
-        this.owner.appendLog(`await ${this.name}.lpush(${JSON.stringify(key)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.lpush(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async lpushx(key, value) {
-        this.owner.appendLog(`await ${this.name}.lpushx(${JSON.stringify(key)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.lpushx(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async lpop(key) {
-        this.owner.appendLog(`await ${this.name}.lpop(${JSON.stringify(key)});`);
+        this.owner.appendLog(`await ${this.name}.lpop(${serializable_1.toEvalText(key)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async rpush(key, value) {
-        this.owner.appendLog(`await ${this.name}.rpush(${JSON.stringify(key)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.rpush(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async rpushx(key, value) {
-        this.owner.appendLog(`await ${this.name}.rpushx(${JSON.stringify(key)}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.rpushx(${serializable_1.toEvalText(key)}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async rpop(key) {
-        this.owner.appendLog(`await ${this.name}.rpop(${JSON.stringify(key)});`);
+        this.owner.appendLog(`await ${this.name}.rpop(${serializable_1.toEvalText(key)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async linsert(key, index, value) {
-        this.owner.appendLog(`await ${this.name}.linsert(${JSON.stringify(key)}, ${index}, ${JSON.stringify(value)});`);
+        this.owner.appendLog(`await ${this.name}.linsert(${serializable_1.toEvalText(key)}, ${index}, ${serializable_1.toEvalText(value)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async lremove(key, index) {
-        this.owner.appendLog(`await ${this.name}.hset(${JSON.stringify(key)}, ${index});`);
+        this.owner.appendLog(`await ${this.name}.lremove(${serializable_1.toEvalText(key)}, ${index});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
 }
@@ -125,7 +123,7 @@ class DatabaseLogger {
         this.m_nextVal = 0;
     }
     _kvVal() {
-        let val = `kv${this.m_nextVal}`;
+        let val = `${this.name}kv${this.m_nextVal}`;
         ++this.m_nextVal;
         return val;
     }
@@ -168,7 +166,7 @@ class JStorageLogger {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     init() {
-        this.m_log = 'async function redo() {';
+        this.m_log = `const BigNumber = require('bignumber.js');async function redo() {`;
     }
     finish() {
         this.appendLog('}; redo().then(()=>{resolve(0);})');
@@ -178,7 +176,7 @@ class JStorageLogger {
     }
     async createDatabase(name) {
         let val = this._dbVal();
-        this.appendLog(`let ${val} = (await storage.createKeyValue(${JSON.stringify(name)})).value;`);
+        this.appendLog(`let ${val} = (await storage.createDatabase(${JSON.stringify(name)})).value;`);
         return { err: error_code_1.ErrorCode.RESULT_OK, value: new DatabaseLogger(this, val) };
     }
     async getReadWritableDatabase(name) {

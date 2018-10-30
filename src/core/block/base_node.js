@@ -20,9 +20,12 @@ class BaseNode extends events_1.EventEmitter {
         this.m_connecting = new Set();
         this.m_blockHeaderType = options.blockHeaderType;
         this.m_transactionType = options.transactionType;
+        this.m_receiptType = options.receiptType;
         this.m_node = options.node;
         this.m_logger = new LogShim(options.logger).bind(`[peerid: ${this.peerid}]`, true).log;
+        this.m_node.logger = options.logger;
         this.m_headerStorage = options.headerStorage;
+        this.m_ignoreBan = !!options.ignoreBan;
         this.m_node.on('error', (conn, err) => {
             this.emit('error', conn.getRemote());
         });
@@ -69,7 +72,8 @@ class BaseNode extends events_1.EventEmitter {
         let block = new block_1.Block({
             header,
             headerType: this.m_blockHeaderType,
-            transactionType: this.m_transactionType
+            transactionType: this.m_transactionType,
+            receiptType: this.m_receiptType
         });
         return block;
     }
@@ -133,9 +137,15 @@ class BaseNode extends events_1.EventEmitter {
         });
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    _isBan(peerid) {
+        if (this.m_ignoreBan) {
+            return false;
+        }
+        return this.m_nodeStorage.isBan(peerid);
+    }
     async listen() {
         this.m_node.on('inbound', (inbound) => {
-            if (this.m_nodeStorage.isBan(inbound.getRemote())) {
+            if (this._isBan(inbound.getRemote())) {
                 this.logger.warn(`new inbound from ${inbound.getRemote()} ignored for ban`);
                 this.m_node.closeConnection(inbound);
             }
@@ -147,19 +157,25 @@ class BaseNode extends events_1.EventEmitter {
         return await this.m_node.listen();
     }
     banConnection(remote, level) {
+        if (this.m_ignoreBan) {
+            return;
+        }
         this.m_logger.warn(`banned peer ${remote} for ${level}`);
         this.m_nodeStorage.ban(remote, level);
         this.m_node.banConnection(remote);
         this.emit('ban', remote);
     }
     _onWillConnectTo(peerid) {
-        if (this.m_nodeStorage.isBan(peerid)) {
+        if (this._isBan(peerid)) {
             return false;
         }
         if (this.m_node.getConnection(peerid)) {
             return false;
         }
         if (this.m_connecting.has(peerid)) {
+            return false;
+        }
+        if (this.m_node.peerid === peerid) {
             return false;
         }
         return true;

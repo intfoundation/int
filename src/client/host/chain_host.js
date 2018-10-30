@@ -11,56 +11,61 @@ class ChainHost {
     async initMiner(commandOptions) {
         let dataDir = this._parseDataDir(commandOptions);
         if (!dataDir) {
-            return false;
+            console.error('chain_host initMiner fail _parseDataDir');
+            return { ret: false };
         }
         let logger = this._parseLogger(dataDir, commandOptions);
         let creator = core_1.initChainCreator({ logger });
         let cr = await creator.createMinerInstance(dataDir);
         if (cr.err) {
-            return false;
+            console.error('chain_host initMiner fail createMinerInstance');
+            return { ret: false };
         }
         let node = this._parseNode(commandOptions);
         if (!node) {
-            return false;
+            console.error('chain_host initMiner fail _parseNode');
+            return { ret: false };
         }
         let pr = cr.miner.parseInstanceOptions(node, commandOptions);
         if (pr.err) {
-            return false;
+            console.error('chain_host initMiner fail parseInstanceOptions');
+            return { ret: false };
         }
         let err = await cr.miner.initialize(pr.value);
         if (err) {
-            return false;
+            console.error('chain_host initMiner fail initialize');
+            return { ret: false };
         }
         this.m_server = new rpc_1.ChainServer(logger, cr.miner.chain, cr.miner);
         this.m_server.init(commandOptions);
-        return true;
+        return { ret: true, miner: cr.miner };
     }
     async initPeer(commandOptions) {
         let dataDir = this._parseDataDir(commandOptions);
         if (!dataDir) {
-            return false;
+            return { ret: false };
         }
         let logger = this._parseLogger(dataDir, commandOptions);
         let creator = core_1.initChainCreator({ logger });
-        let cr = await creator.createChainInstance(dataDir);
+        let cr = await creator.createChainInstance(dataDir, { initComponents: true });
         if (cr.err) {
-            return false;
+            return { ret: false };
         }
         let node = this._parseNode(commandOptions);
         if (!node) {
-            return false;
+            return { ret: false };
         }
         let pr = cr.chain.parseInstanceOptions(node, commandOptions);
         if (pr.err) {
-            return false;
+            return { ret: false };
         }
         let err = await cr.chain.initialize(pr.value);
         if (err) {
-            return false;
+            return { ret: false };
         }
         this.m_server = new rpc_1.ChainServer(logger, cr.chain);
         this.m_server.init(commandOptions);
-        return true;
+        return { ret: true, chain: cr.chain };
     }
     async createGenesis(commandOptions) {
         if (!commandOptions.get('package')) {
@@ -83,13 +88,7 @@ class ChainHost {
             fs.ensureDirSync(dataDir);
         }
         else {
-            if (commandOptions.get('forceClean')) {
-                fs.removeSync(dataDir);
-            }
-            else {
-                console.error(`dataDir already exsits`);
-                return false;
-            }
+            fs.removeSync(dataDir);
         }
         let logger = this._parseLogger(dataDir, commandOptions);
         let creator = core_1.initChainCreator({ logger });
@@ -143,7 +142,7 @@ class ChainHost {
         if (commandOptions.has('forceClean')) {
             fs.removeSync(dataDir);
         }
-        if (fs.pathExistsSync(dataDir)) {
+        if (core_1.Chain.dataDirValid(dataDir)) {
             return dataDir;
         }
         else {
@@ -164,5 +163,5 @@ class ChainHost {
         this.m_net.set(net, instance);
     }
 }
-ChainHost.CREATE_TIP = `command: createGenesis --package [packageDir] --dataDir [dataDir] --[genesisConfig] [genesisConfig] --[externalHandler]`;
+ChainHost.CREATE_TIP = `command: create --package [packageDir] --dataDir [dataDir] --[genesisConfig] [genesisConfig] --[externalHandler]`;
 exports.ChainHost = ChainHost;

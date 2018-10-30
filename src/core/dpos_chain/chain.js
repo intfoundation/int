@@ -17,8 +17,8 @@ class DposChain extends value_chain_1.ValueChain {
     get _broadcastDepth() {
         return 0;
     }
-    async initComponents(dataDir, handler, options) {
-        let err = await super.initComponents(dataDir, handler, options);
+    async initComponents(options) {
+        let err = await super.initComponents(options);
         if (err) {
             return err;
         }
@@ -44,11 +44,11 @@ class DposChain extends value_chain_1.ValueChain {
         externalContext.transferTo = async (address, amount) => {
             return await ve.transferTo(value_chain_1.ValueChain.sysAddress, address, amount);
         };
-        let dbr = await storage.getReadableDataBase(value_chain_1.Chain.dbSystem);
+        let dbr = await storage.getReadWritableDatabase(value_chain_1.Chain.dbSystem);
         if (dbr.err) {
             return { err: dbr.err };
         }
-        let de = new consensus.Context(dbr.value, this.globalOptions, this.logger);
+        let de = new consensus.Context(dbr.value, this.m_globalOptions, this.logger);
         externalContext.vote = async (from, candiates) => {
             let vr = await de.vote(from, candiates);
             if (vr.err) {
@@ -84,12 +84,12 @@ class DposChain extends value_chain_1.ValueChain {
             }
             return gvr.vote;
         };
-        externalContext.getStoke = async (address) => {
-            let gsr = await de.getStoke(address);
+        externalContext.getStake = async (address) => {
+            let gsr = await de.getStake(address);
             if (gsr.err) {
                 throw new Error();
             }
-            return gsr.stoke;
+            return gsr.stake;
         };
         externalContext.getCandidates = async () => {
             let gc = await de.getCandidates();
@@ -105,7 +105,7 @@ class DposChain extends value_chain_1.ValueChain {
             }
             return gm.creators;
         };
-        let executor = new executor_1.DposBlockExecutor({ logger: this.logger, block, storage, handler: this.handler, externContext: externalContext, globalOptions: this.globalOptions });
+        let executor = new executor_1.DposBlockExecutor({ logger: this.logger, block, storage, handler: this.m_handler, externContext: externalContext, globalOptions: this.m_globalOptions });
         return { err: error_code_1.ErrorCode.RESULT_OK, executor: executor };
     }
     async newViewExecutor(header, storage, method, param) {
@@ -115,7 +115,7 @@ class DposChain extends value_chain_1.ValueChain {
         if (dbr.err) {
             return { err: dbr.err };
         }
-        let de = new consensus.Context(dbr.value, this.globalOptions, this.logger);
+        let de = new consensus.ViewContext(dbr.value, this.m_globalOptions, this.logger);
         externalContext.getVote = async () => {
             let gvr = await de.getVote();
             if (gvr.err) {
@@ -123,12 +123,12 @@ class DposChain extends value_chain_1.ValueChain {
             }
             return gvr.vote;
         };
-        externalContext.getStoke = async (address) => {
-            let gsr = await de.getStoke(address);
+        externalContext.getStake = async (address) => {
+            let gsr = await de.getStake(address);
             if (gsr.err) {
                 throw new Error();
             }
-            return gsr.stoke;
+            return gsr.stake;
         };
         externalContext.getCandidates = async () => {
             let gc = await de.getCandidates();
@@ -136,6 +136,13 @@ class DposChain extends value_chain_1.ValueChain {
                 throw Error();
             }
             return gc.candidates;
+        };
+        externalContext.getMiners = async () => {
+            let gm = await de.getNextMiners();
+            if (gm.err) {
+                throw Error();
+            }
+            return gm.creators;
         };
         return nvex;
     }

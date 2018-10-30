@@ -36,24 +36,27 @@ class BlockHeaderEntry {
 class HeaderStorage {
     constructor(options) {
         this.m_transactionLock = new Lock_1.Lock();
+        this.m_readonly = !!(options && options.readonly);
         this.m_db = options.db;
         this.m_blockHeaderType = options.blockHeaderType;
         this.m_logger = options.logger;
         this.m_cacheHeight = new LRUCache_1.LRUCache(100);
         this.m_cacheHash = new LRUCache_1.LRUCache(100);
-        this.m_txView = new tx_storage_1.TxStorage({ logger: options.logger, db: options.db, blockstorage: options.blockStorage });
+        this.m_txView = new tx_storage_1.TxStorage({ logger: options.logger, db: options.db, blockstorage: options.blockStorage, readonly: this.m_readonly });
     }
     get txView() {
         return this.m_txView;
     }
     async init() {
-        try {
-            let stmt = await this.m_db.run(initHeaderSql);
-            stmt = await this.m_db.run(initBestSql);
-        }
-        catch (e) {
-            this.m_logger.error(e);
-            return error_code_1.ErrorCode.RESULT_EXCEPTION;
+        if (!this.m_readonly) {
+            try {
+                let stmt = await this.m_db.run(initHeaderSql);
+                stmt = await this.m_db.run(initBestSql);
+            }
+            catch (e) {
+                this.m_logger.error(e);
+                return error_code_1.ErrorCode.RESULT_EXCEPTION;
+            }
         }
         return await this.m_txView.init();
     }

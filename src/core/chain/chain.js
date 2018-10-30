@@ -167,9 +167,9 @@ class Chain extends events_1.EventEmitter {
         if (Array.isArray(kvgr.value)) {
             kvgr.value = kvgr.value.reduce((obj, item) => {
                 const { key, value } = item;
-            obj[key] = value;
-            return obj;
-        }, {});
+                obj[key] = value;
+                return obj;
+            }, {});
         }
         // TODO: compare with globalOptions
         return error_code_1.ErrorCode.RESULT_OK;
@@ -309,25 +309,25 @@ class Chain extends events_1.EventEmitter {
         this.m_node = node;
         this.m_node.on('blocks', (params) => {
             this._addPendingBlocks(params);
-    });
+        });
         this.m_node.on('headers', (params) => {
             this._addPendingHeaders(params);
-    });
+        });
         this.m_node.on('transactions', async (conn, transactions) => {
             for (let tx of transactions) {
-            const _err = await this._addTransaction(tx);
-            if (_err === error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR) {
-                this._banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
-                break;
+                const _err = await this._addTransaction(tx);
+                if (_err === error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR) {
+                    this._banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                    break;
+                }
             }
-        }
-    });
+        });
         this.m_node.base.on('ban', (remote) => {
             this._onConnectionError(remote);
-    });
+        });
         this.m_node.base.on('error', (connRemotePeer) => {
             this._onConnectionError(connRemotePeer);
-    });
+        });
         err = await this._loadChain();
         if (err) {
             return err;
@@ -339,10 +339,10 @@ class Chain extends events_1.EventEmitter {
         }
         err = await new Promise(async (resolve) => {
             this.prependOnceListener('tipBlock', () => {
-            this.m_logger.info(`chain initialized success, tip number: ${this.m_tip.number} hash: ${this.m_tip.hash}`);
-        resolve(error_code_1.ErrorCode.RESULT_OK);
-    });
-    });
+                this.m_logger.info(`chain initialized success, tip number: ${this.m_tip.number} hash: ${this.m_tip.hash}`);
+                resolve(error_code_1.ErrorCode.RESULT_OK);
+            });
+        });
         if (err) {
             return err;
         }
@@ -896,9 +896,9 @@ class Chain extends events_1.EventEmitter {
                     hr.headers = hr.headers.slice(1);
                 }
                 this.m_node.broadcast(hr.headers, { filter: (conn) => {
-                    this.m_logger.debug(`broadcast to ${conn.getRemote()}: ${!broadcastExcept.has(conn.getRemote())}`);
-                return !broadcastExcept.has(conn.getRemote());
-            } });
+                        this.m_logger.debug(`broadcast to ${conn.getRemote()}: ${!broadcastExcept.has(conn.getRemote())}`);
+                        return !broadcastExcept.has(conn.getRemote());
+                    } });
                 this.m_logger.info(`broadcast tip headers from number: ${hr.headers[0].number} hash: ${hr.headers[0].hash} to number: ${this.m_tip.number} hash: ${this.m_tip.hash}`);
             }
         }
@@ -991,21 +991,21 @@ class Chain extends events_1.EventEmitter {
                 const tip = this.m_tip;
                 setImmediate(() => {
                     this.emit('tipBlock', this, tip);
-            });
+                });
                 return error_code_1.ErrorCode.RESULT_OK;
             }
             return err;
         }
         this.m_node.base.on('outbound', async (conn) => {
             let syncPeer = conn;
-        assert(syncPeer);
-        let hr = await this.m_headerStorage.getHeader((this.m_tip.number > this._confirmDepth) ? (this.m_tip.number - this._confirmDepth) : 0);
-        if (hr.err) {
-            return hr.err;
-        }
-        assert(hr.header);
-        return await this._beginSyncWithConnection(conn.getRemote(), hr.header.hash);
-    });
+            assert(syncPeer);
+            let hr = await this.m_headerStorage.getHeader((this.m_tip.number > this._confirmDepth) ? (this.m_tip.number - this._confirmDepth) : 0);
+            if (hr.err) {
+                return hr.err;
+            }
+            assert(hr.header);
+            return await this._beginSyncWithConnection(conn.getRemote(), hr.header.hash);
+        });
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async verifyBlock(block, options) {
@@ -1042,7 +1042,7 @@ class Chain extends events_1.EventEmitter {
                     result = { err: digestResult.err };
                     break;
                 }
-                // 当前的storage hash和header上的storageHash 比较
+                // 当前的storage hash和header上的storageHash 比较 
                 // 设置verify 结果, 后续流程需要使用 res.valid
                 verifyResult = { err: error_code_1.ErrorCode.RESULT_OK, valid: digestResult.value === block.header.storageHash };
             }

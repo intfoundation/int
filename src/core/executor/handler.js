@@ -38,6 +38,9 @@ class BaseHandler {
     getViewMethod(name) {
         return this.m_viewListeners.get(name);
     }
+    getViewMethodNames() {
+        return [...this.m_viewListeners.keys()];
+    }
     addPreBlockListener(filter, listener) {
         this.m_preBlockListeners.push({ filter, listener });
     }

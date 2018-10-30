@@ -19,28 +19,51 @@ var CMD_TYPE;
 class INode extends events_1.EventEmitter {
     constructor(options) {
         super();
-        this.m_socket = null;
-        this.m_port = 0;
-        this.m_addr = '';
-        this.m_peerid = '';
-        // chain的创始块的hash值，从chain_node传入， 可用于传输中做校验
-        this.m_genesis = '';
         this.m_inConn = [];
         this.m_outConn = [];
         this.m_remoteMap = new Map();
         this.m_peerid = options.peerid;
         this.m_logger = logger_util_1.initLogger(options);
     }
-    async randomPeers(count) {
+    async randomPeers(count, excludes) {
         return { err: error_code_1.ErrorCode.RESULT_NO_IMP, peers: [] };
     }
-    set genesis_hash(genesis_hash) {
+    set genesisHash(genesis_hash) {
         this.m_genesis = genesis_hash;
+    }
+    set logger(logger) {
+        this.m_logger = logger;
     }
     get peerid() {
         return this.m_peerid;
     }
     async init() {
+    }
+    dumpConns() {
+        let ret = [];
+        this.m_inConn.forEach((element) => {
+            ret.push(` <= ${element.getRemote()}`);
+        });
+        this.m_outConn.forEach((element) => {
+            ret.push(` => ${element.getRemote()}`);
+        });
+        return ret;
+    }
+    uninit() {
+        this.removeAllListeners('inbound');
+        this.removeAllListeners('error');
+        this.removeAllListeners('ban');
+        let ops = [];
+        for (let conn of this.m_inConn) {
+            ops.push(conn.destroy());
+        }
+        for (let conn of this.m_outConn) {
+            ops.push(conn.destroy());
+        }
+        this.m_inConn = [];
+        this.m_outConn = [];
+        this.m_remoteMap.clear();
+        return Promise.all(ops);
     }
     async listen() {
         return error_code_1.ErrorCode.RESULT_NO_IMP;
@@ -53,6 +76,12 @@ class INode extends events_1.EventEmitter {
         let conn = result.conn;
         conn.setRemote(peerid);
         let ver = new version_1.Version();
+        conn.version = ver;
+        if (!this.m_genesis || !this.m_peerid) {
+            this.m_logger.error(`connectTo failed for genesis or peerid not set`);
+            assert(false, `${this.m_peerid} has not set genesis`);
+            return { err: error_code_1.ErrorCode.RESULT_INVALID_STATE, peerid };
+        }
         ver.genesis = this.m_genesis;
         ver.peerid = this.m_peerid;
         let err = await new Promise((resolve) => {
@@ -94,9 +123,20 @@ class INode extends events_1.EventEmitter {
         if (err) {
             return { err, peerid };
         }
+        let other = this.getConnection(peerid);
+        if (other) {
+            if (conn.version.compare(other.version) > 0) {
+                conn.close();
+                return { err: error_code_1.ErrorCode.RESULT_ALREADY_EXIST, peerid };
+            }
+            else {
+                this.closeConnection(other);
+            }
+        }
         this.m_outConn.push(result.conn);
         this.m_remoteMap.set(peerid, result.conn);
         conn.on('error', (_conn, _err) => {
+            this.closeConnection(result.conn);
             this.emit('error', result.conn, _err);
         });
         return { err: error_code_1.ErrorCode.RESULT_OK, peerid, conn };
@@ -107,31 +147,31 @@ class INode extends events_1.EventEmitter {
         if (options && options.count) {
             nMax = options.count;
         }
-        let sended = new Map();
+        let sent = new Map();
         for (let conn of this.m_inConn) {
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
             }
-            if (sended.has(conn.getRemote())) {
+            if (sent.has(conn.getRemote())) {
                 continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sended.set(conn.getRemote(), 1);
+                sent.set(conn.getRemote(), 1);
             }
         }
         for (let conn of this.m_outConn) {
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
             }
-            if (sended.has(conn.getRemote())) {
+            if (sent.has(conn.getRemote())) {
                 continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sended.set(conn.getRemote(), 1);
+                sent.set(conn.getRemote(), 1);
             }
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
@@ -145,7 +185,15 @@ class INode extends events_1.EventEmitter {
         return false;
     }
     getOutbounds() {
-        return this.m_outConn;
+        const c = this.m_outConn;
+        return c;
+    }
+    getInbounds() {
+        const c = this.m_inConn;
+        return c;
+    }
+    getConnnectionCount() {
+        return this.m_outConn.length + this.m_inConn.length;
     }
     getConnection(remote) {
         return this.m_remoteMap.get(remote);
@@ -159,21 +207,20 @@ class INode extends events_1.EventEmitter {
         return false;
     }
     banConnection(remote) {
-        // TODO: 要写到一个什么地方，禁多久，忽略这个peer
         let conn = this.m_remoteMap.get(remote);
         if (conn) {
-            this.closeConnection(conn);
+            this.closeConnection(conn, true);
         }
     }
-    closeConnection(conn) {
+    closeConnection(conn, destroy = false) {
         conn.removeAllListeners('error');
         conn.removeAllListeners('pkg');
-        conn.once('close', (obj) => {
-            let index = 0;
+        let index = 0;
+        do {
             for (let c of this.m_outConn) {
                 if (c === conn) {
                     this.m_outConn.splice(index, 1);
-                    return;
+                    break;
                 }
                 index++;
             }
@@ -181,13 +228,18 @@ class INode extends events_1.EventEmitter {
             for (let c of this.m_inConn) {
                 if (c === conn) {
                     this.m_inConn.splice(index, 1);
-                    return;
+                    break;
                 }
                 index++;
             }
-            this.m_remoteMap.delete(conn.getRemote());
-        });
-        conn.close();
+        } while (false);
+        this.m_remoteMap.delete(conn.getRemote());
+        if (destroy) {
+            conn.destroy();
+        }
+        else {
+            conn.close();
+        }
     }
     on(event, listener) {
         return super.on(event, listener);
@@ -202,6 +254,7 @@ class INode extends events_1.EventEmitter {
                 let buff = pkg.data[0];
                 let dataReader = new reader_2.BufferReader(buff);
                 let ver = new version_1.Version();
+                inbound.version = ver;
                 let err = ver.decode(dataReader);
                 if (err) {
                     this.m_logger.warn(`recv version in invalid format from ${inbound.getRemote()} `);
@@ -225,12 +278,22 @@ class INode extends events_1.EventEmitter {
                     inbound.close();
                     return;
                 }
+                let other = this.getConnection(inbound.getRemote());
+                if (other) {
+                    if (inbound.version.compare(other.version) > 0) {
+                        inbound.close();
+                        return;
+                    }
+                    else {
+                        this.closeConnection(other);
+                    }
+                }
                 this.m_inConn.push(inbound);
                 this.m_remoteMap.set(ver.peerid, inbound);
                 inbound.on('error', (conn, _err) => {
+                    this.closeConnection(inbound);
                     this.emit('error', inbound, _err);
                 });
-                inbound.emit('checkedVersion', inbound);
                 this.emit('inbound', inbound);
             }
             else {
@@ -261,12 +324,6 @@ class INode extends events_1.EventEmitter {
                 this.m_reader.on('pkg', (pkg) => {
                     super.emit('pkg', pkg);
                 });
-                super.on('checkedVersion', (conn) => {
-                    conn.on('error', (conn1, err) => {
-                        thisNode.closeConnection(conn1);
-                        thisNode.emit('error', conn1, err);
-                    });
-                });
                 // 接收到 reader的传出来的error 事件后, emit ban事件, 给上层的chain_node去做处理
                 // 这里只需要emit给上层, 最好不要处理其他逻辑
                 this.m_reader.on('error', (err, column) => {
@@ -279,12 +336,14 @@ class INode extends events_1.EventEmitter {
                     let _writer = this.m_pendingWriters.splice(0, 1)[0];
                     _writer.close();
                     if (this.m_pendingWriters.length) {
-                        this.m_pendingWriters[0].on('finish', onFinish);
+                        this.m_pendingWriters[0].on(writer_1.WRITER_EVENT.finish, onFinish);
+                        this.m_pendingWriters[0].on(writer_1.WRITER_EVENT.error, onFinish);
                         this.m_pendingWriters[0].bind(this);
                     }
                 };
                 if (!this.m_pendingWriters.length) {
-                    writer.on('finish', onFinish);
+                    writer.on(writer_1.WRITER_EVENT.finish, onFinish);
+                    writer.on(writer_1.WRITER_EVENT.error, onFinish);
                     writer.bind(this);
                 }
                 this.m_pendingWriters.push(writer);

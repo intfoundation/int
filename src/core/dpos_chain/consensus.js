@@ -83,22 +83,22 @@ class ViewContext {
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, creators: lrr.value };
     }
-    async getStoke(address) {
+    async getStake(address) {
         let kvCurDPOS = (await this.database.getReadableKeyValue(ViewContext.kvDPOS)).kv;
         // 如果投票者的权益不够，则返回
-        let her = await kvCurDPOS.hexists(ViewContext.keyStoke, address);
+        let her = await kvCurDPOS.hexists(ViewContext.keyStake, address);
         if (her.err) {
             return { err: her.err };
         }
         if (!her.value) {
-            return { err: error_code_1.ErrorCode.RESULT_OK, stoke: new bignumber_js_1.BigNumber(0) };
+            return { err: error_code_1.ErrorCode.RESULT_OK, stake: new bignumber_js_1.BigNumber(0) };
         }
         else {
-            let gr = await kvCurDPOS.hget(ViewContext.keyStoke, address);
+            let gr = await kvCurDPOS.hget(ViewContext.keyStake, address);
             if (gr.err) {
                 return { err: gr.err };
             }
-            return { err: error_code_1.ErrorCode.RESULT_OK, stoke: gr.value };
+            return { err: error_code_1.ErrorCode.RESULT_OK, stake: gr.value };
         }
     }
     async getVote() {
@@ -188,7 +188,7 @@ class ViewContext {
 ViewContext.kvDPOS = 'dpos';
 ViewContext.keyCandidate = 'candidate'; // 总的候选人
 ViewContext.keyVote = 'vote';
-ViewContext.keyStoke = 'stoke';
+ViewContext.keyStake = 'stake';
 ViewContext.keyNextMiners = 'miner';
 // 每个代表投票的那些人
 ViewContext.keyProducers = 'producers';
@@ -199,7 +199,20 @@ class Context extends ViewContext {
     get database() {
         return this.m_database;
     }
+    removeDuplicate(s) {
+        let s1 = [];
+        let bit = new Map();
+        for (let v of s) {
+            if (!bit.has(v)) {
+                s1.push(v);
+                bit.set(v, 1);
+            }
+        }
+        return s1;
+    }
     async init(candidates, miners) {
+        candidates = this.removeDuplicate(candidates);
+        miners = this.removeDuplicate(miners);
         let kvCurDPOS = (await this.database.getReadWritableKeyValue(ViewContext.kvDPOS)).kv;
         let candiateValues = candidates.map(() => {
             return 0;
@@ -214,7 +227,7 @@ class Context extends ViewContext {
         }
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
-    async finishElection(blockhash) {
+    async finishElection(shuffle_factor) {
         let kvCurDPOS = (await this.database.getReadWritableKeyValue(ViewContext.kvDPOS)).kv;
         let gvr = await this.getVote();
         if (gvr.err) {
@@ -275,7 +288,7 @@ class Context extends ViewContext {
                 creators = currMiners;
             }
         }
-        this._shuffle(blockhash, creators);
+        this._shuffle(shuffle_factor, creators);
         let llr = await kvCurDPOS.llen(ViewContext.keyNextMiners);
         if (llr.err) {
             return { err: llr.err };
@@ -295,36 +308,37 @@ class Context extends ViewContext {
     async mortgage(from, amount) {
         assert(amount.gt(0), 'amount must positive');
         let kvDPos = (await this.database.getReadWritableKeyValue(ViewContext.kvDPOS)).kv;
-        let stokeInfo = await kvDPos.hget(ViewContext.keyStoke, from);
-        let stoke = stokeInfo.err === error_code_1.ErrorCode.RESULT_OK ? stokeInfo.value : new bignumber_js_1.BigNumber(0);
-        await kvDPos.hset(ViewContext.keyStoke, from, stoke.plus(amount));
+        let stakeInfo = await kvDPos.hget(ViewContext.keyStake, from);
+        let stake = stakeInfo.err === error_code_1.ErrorCode.RESULT_OK ? stakeInfo.value : new bignumber_js_1.BigNumber(0);
+        await kvDPos.hset(ViewContext.keyStake, from, stake.plus(amount));
         await this._updatevote(from, amount);
         return { err: error_code_1.ErrorCode.RESULT_OK, returnCode: error_code_1.ErrorCode.RESULT_OK };
     }
     async unmortgage(from, amount) {
         assert(amount.gt(0), 'amount must positive');
         let kvDPos = (await this.database.getReadWritableKeyValue(ViewContext.kvDPOS)).kv;
-        let stokeInfo = await kvDPos.hget(ViewContext.keyStoke, from);
-        if (stokeInfo.err) {
-            return { err: stokeInfo.err };
+        let stakeInfo = await kvDPos.hget(ViewContext.keyStake, from);
+        if (stakeInfo.err) {
+            return { err: stakeInfo.err };
         }
-        let stoke = stokeInfo.value;
-        if (stoke.lt(amount)) {
+        let stake = stakeInfo.value;
+        if (stake.lt(amount)) {
             return { err: error_code_1.ErrorCode.RESULT_OK, returnCode: error_code_1.ErrorCode.RESULT_NOT_ENOUGH };
         }
-        if (stoke.isEqualTo(amount)) {
-            await kvDPos.hdel(ViewContext.keyStoke, from);
+        if (stake.isEqualTo(amount)) {
+            await kvDPos.hdel(ViewContext.keyStake, from);
         }
         else {
-            await kvDPos.hset(ViewContext.keyStoke, from, stoke.minus(amount));
+            await kvDPos.hset(ViewContext.keyStake, from, stake.minus(amount));
         }
         await this._updatevote(from, (new bignumber_js_1.BigNumber(0)).minus(amount));
-        if (stoke.isEqualTo(amount)) {
+        if (stake.isEqualTo(amount)) {
             await kvDPos.hdel(ViewContext.keyProducers, from);
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, returnCode: error_code_1.ErrorCode.RESULT_OK };
     }
     async vote(from, candidates) {
+        candidates = this.removeDuplicate(candidates);
         assert(candidates.length > 0 && candidates.length <= this.globalOptions.dposVoteMaxProducers, 'candidates.length must right');
         let cans = await this.getValidCandidates();
         if (cans.err) {
@@ -348,11 +362,11 @@ class Context extends ViewContext {
             }
         }
         let kvDPos = (await this.database.getReadWritableKeyValue(ViewContext.kvDPOS)).kv;
-        let stokeInfo = await kvDPos.hget(ViewContext.keyStoke, from);
-        if (stokeInfo.err) {
+        let stakeInfo = await kvDPos.hget(ViewContext.keyStake, from);
+        if (stakeInfo.err) {
             return { err: error_code_1.ErrorCode.RESULT_OK, returnCode: error_code_1.ErrorCode.RESULT_NOT_ENOUGH };
         }
-        let stoke = stokeInfo.value;
+        let stake = stakeInfo.value;
         let producerInfo = await kvDPos.hget(ViewContext.keyProducers, from);
         if (producerInfo.err === error_code_1.ErrorCode.RESULT_OK) {
             let producers = producerInfo.value;
@@ -370,12 +384,12 @@ class Context extends ViewContext {
                 }
             }
             // 取消投给先前的那些人
-            await this._updatevote(from, new bignumber_js_1.BigNumber(0).minus(stoke));
+            await this._updatevote(from, new bignumber_js_1.BigNumber(0).minus(stake));
         }
         // 设置新的投票对象
         await kvDPos.hset(ViewContext.keyProducers, from, candidates);
         // 计票
-        await this._updatevote(from, stoke);
+        await this._updatevote(from, stake);
         return { err: error_code_1.ErrorCode.RESULT_OK, returnCode: error_code_1.ErrorCode.RESULT_OK };
     }
     async registerToCandidate(candidate) {
@@ -479,8 +493,8 @@ class Context extends ViewContext {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    _shuffle(blockhash, producers) {
-        let buf = Buffer.from(blockhash);
+    _shuffle(shuffle_factor, producers) {
+        let buf = Buffer.from(shuffle_factor);
         let total = 0;
         for (let i = 0; i < buf.length; i++) {
             total = total + buf[i];

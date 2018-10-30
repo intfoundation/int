@@ -15,12 +15,12 @@ async function main() {
     }
     const dataDir = command.options.get('dataDir');
     const chainCreator = core_1.initChainCreator({ logger });
-    if (command.command === 'memory') {
-        let { err, debuger } = await core_1.createValueMemoryDebuger(chainCreator, dataDir);
+    if (command.command === 'independent') {
+        let { err, debuger } = await core_1.createValueDebuger(chainCreator, dataDir);
         if (err) {
             process.exit();
         }
-        const session = debuger.createSession();
+        const session = debuger.createIndependSession();
         const height = parseInt(command.options.get('height'));
         const accounts = parseInt(command.options.get('accounts'));
         const coinbase = parseInt(command.options.get('coinbase'));
@@ -31,6 +31,20 @@ async function main() {
         }
         const scriptPath = command.options.get('script');
         await runScript(session, scriptPath);
+        process.exit();
+    }
+    else if (command.command === 'chain') {
+        const cvdr = await core_1.createValueDebuger(chainCreator, dataDir);
+        if (cvdr.err) {
+            process.exit();
+        }
+        const sessionDir = command.options.get('sessionDir');
+        const ccsr = await cvdr.debuger.createChainSession(sessionDir);
+        if (ccsr.err) {
+            process.exit();
+        }
+        const scriptPath = command.options.get('script');
+        await runScript(ccsr.session, scriptPath);
         process.exit();
     }
 }

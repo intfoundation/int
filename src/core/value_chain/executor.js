@@ -39,11 +39,11 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
     constructor(listener, tx, logger) {
         super(listener, tx, logger);
         this.m_totalCost = new bignumber_js_1.BigNumber(0);
-        this.m_bytes = new bignumber_js_1.BigNumber(0);
-        this.m_totalLimit = new bignumber_js_1.BigNumber(0);
+        // this.m_bytes = new BigNumber(0);
+        // this.m_totalLimit = new BigNumber(0);
         this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
-        this.m_minTxFee = new bignumber_js_1.BigNumber(5000000000000000); // 单笔 tx 最小费用
-        this.m_maxTxFee = new bignumber_js_1.BigNumber(5000000000000000000); // 单笔 tx 最大费用
+        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
+        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
         this.m_baseLimit = new bignumber_js_1.BigNumber(500); // 基础交易费用
         this.m_getLimit = new bignumber_js_1.BigNumber(20); // get操作费用
         this.m_setLimit = new bignumber_js_1.BigNumber(100); // set操作费用
@@ -53,7 +53,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
     }
     async prepareContext(blockHeader, storage, externContext) {
         let context = await super.prepareContext(blockHeader, storage, externContext);
-        this.calcTxLimit(this.m_tx);
+        let txTotalLimit = this.calcTxLimit(this.m_tx);
         Object.defineProperty(context, 'value', {
             writable: false,
             value: this.m_tx.value
@@ -75,7 +75,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         });
         Object.defineProperty(context, 'totallimit', {
             writable: false,
-            value: this.m_totalLimit
+            value: txTotalLimit
         });
         context.cost = (fee) => {
             let totalCost = this.m_totalCost;
@@ -83,6 +83,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             totalCost = totalCost.plus(fee);
             if (totalCost.gt(txFee)) {
                 this.m_totalCost = txFee;
+                this.m_logger.error(`context cost failed, tx hash ${this.m_tx.hash} total cost ${totalCost}, but fee ${txFee}`);
                 return error_code_1.ErrorCode.RESULT_TX_FEE_NOT_ENOUGH;
             }
             else {
@@ -94,57 +95,59 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
     }
     // 计算单笔tx的 limit
     calcTxLimit(tx) {
-        this.m_bytes = new bignumber_js_1.BigNumber(this.objectToBuffer(tx.input).length);
+        let txTotalLimit = new bignumber_js_1.BigNumber(0);
+        let txInputBytes = new bignumber_js_1.BigNumber(this.objectToBuffer(tx.input).length);
         switch (tx.method) {
             case 'transferTo':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'createToken':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(6))).plus(this.m_createLimit).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(6))).plus(this.m_createLimit).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'transferTokenTo':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(4))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(4))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'transferFrom':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(6))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(6))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'approve':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'freezeAccount':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'burn':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'mintToken':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(3))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'transferOwnership':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'vote':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(5))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(5))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'mortgage':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'unmortgage':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(2))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'register':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'publish':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(3))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             case 'bid':
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_bytes.times(this.m_inputLimit)).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(1))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(1))).plus(txInputBytes.times(this.m_inputLimit)).times(this.m_coefficient);
                 break;
             default:
-                this.m_totalLimit = this.m_totalLimit.plus(this.m_baseLimit).times(this.m_coefficient);
+                txTotalLimit = txTotalLimit.plus(this.m_baseLimit).times(this.m_coefficient);
                 break;
         }
+        return txTotalLimit;
     }
     objectToBuffer(input) {
         let inputString;
@@ -163,22 +166,22 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
                 return { err: nonceErr };
             }
         }
+        // 设置bignumber 小数位数为0
+        bignumber_js_1.BigNumber.set({ DECIMAL_PLACES: 0 });
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, chain_2.ValueChain.kvBalance)).kv;
         let fromAddress = this.m_tx.address;
-        // let nFee: BigNumber = (this.m_tx as ValueTransaction).fee;
-        let nFee = (this.m_tx.limit).times(this.m_tx.price);
-        let nToValue = this.m_tx.value.plus(nFee);
+        let nToValue = this.m_tx.value;
         if (this.m_tx.limit.gt(this.m_maxTxLimit)) {
             this.m_logger.error(`valuetransactionexecutor execute failed, max transaction limit ${this.m_maxTxLimit.toString()}, but user defined ${this.m_tx.limit.toString()}`);
             return { err: error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG };
         }
-        if (this.m_tx.price.gt((this.m_maxTxFee.div(this.m_maxTxLimit)))) {
-            this.m_logger.error(`valuetransactionexecutor execute failed, max transaction price ${(this.m_maxTxFee.div(this.m_maxTxLimit)).toString()}, but user defined ${this.m_tx.price.toString()}`);
-            return { err: error_code_1.ErrorCode.RESULT_PRICE_OUT_OF_RANGE };
+        if (this.m_tx.price.gt((this.m_maxTxPrice))) {
+            this.m_logger.error(`valuetransactionexecutor execute failed, max transaction price ${(this.m_maxTxPrice).toString()}, but user defined ${this.m_tx.price.toString()}`);
+            return { err: error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG };
         }
-        if (this.m_tx.price.lt((this.m_minTxFee.div(this.m_maxTxLimit)))) {
-            this.m_logger.error(`valuetransactionexecutor execute failed, min transaction price ${(this.m_minTxFee.div(this.m_maxTxLimit)).toString()}, but user defined ${this.m_tx.price.toString()}`);
-            return { err: error_code_1.ErrorCode.RESULT_PRICE_OUT_OF_RANGE };
+        if (this.m_tx.price.lt((this.m_minTxPrice))) {
+            this.m_logger.error(`valuetransactionexecutor execute failed, min transaction price ${(this.m_minTxPrice).toString()}, but user defined ${this.m_tx.price.toString()}`);
+            return { err: error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL };
         }
         let receipt = new transaction_1.ValueReceipt();
         let ve = new context_1.Context(kvBalance);
@@ -218,11 +221,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             coinbase = chain_2.ValueChain.sysAddress;
         }
         err = await ve.transferTo(fromAddress, coinbase, receipt.cost);
-        if (err) {
-            return { err };
-        }
-        // 把多扣的费用返回给发送交易的人
-        err = await ve.transferTo(chain_2.ValueChain.sysAddress, fromAddress, nFee.minus(this.m_totalCost));
         if (err) {
             return { err };
         }

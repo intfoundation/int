@@ -17,10 +17,15 @@ class Lock {
         this.m_busy = false;
         this.m_list = [];
     }
-    enter() {
+    enter(bHightPriority) {
         if (this.m_busy) {
             return new Promise((resolve, reject) => {
-                this.m_list.push(new ClassNotfiy(resolve, reject));
+                if (bHightPriority) {
+                    this.m_list.splice(0, 0, new ClassNotfiy(resolve, reject));
+                }
+                else {
+                    this.m_list.push(new ClassNotfiy(resolve, reject));
+                }
             });
         }
         this.m_busy = true;

@@ -48,7 +48,10 @@ class ViewExecutor {
     async execute() {
         let fcall = this.m_handler.getViewMethod(this.m_method);
         if (!fcall) {
-            return { err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT };
+            // 找不到view method时, 错误日志里列出全部可选的method
+            let methods = this.m_handler.getViewMethodNames();
+            this.m_logger.error(`view execute getViewMethod fail, method=${this.m_method}; suport methods [${methods.join(',')} ]`);
+            return { err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT, methods: methods };
         }
         let context = await this.prepareContext(this.m_header, this.m_storage, this.m_externContext);
         try {

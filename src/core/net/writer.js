@@ -94,6 +94,10 @@ class PackageStreamWriter extends events_1.EventEmitter {
         for (; spliceTo < this.m_pending.length; ++spliceTo) {
             let buffer = this.m_pending[spliceTo];
             let sent = this.m_connection.send(buffer);
+            if (sent < 0) {
+                setImmediate(() => { this.emit(WRITER_EVENT.error); });
+                return;
+            }
             this.m_sentLength += sent;
             if (sent < buffer.length) {
                 assert(!this.m_drainListener);
