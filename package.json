@@ -18,6 +18,10 @@
   ],
   "author": "intfoundation",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/intfoundation/int/issues"
+  },
+  "homepage": "https://github.com/intfoundation/int#readme",
   "dependencies": {
     "bdt-p2p": "^0.1.234",
     "bignumber.js": "^6.0.0",
