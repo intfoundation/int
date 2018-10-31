@@ -94,14 +94,14 @@ function verify(md, signature, publicKey) {
 }
 exports.verify = verify;
 function isValidAddress(address) {
-    let buf = base58.decode(address);
-    if (buf.length !== 25) {
-        return false;
-    }
-    let br = new client_1.BufferReader(buf);
-    br.readU8();
-    br.readBytes(20);
     try {
+        let buf = base58.decode(address);
+        if (buf.length !== 25) {
+            return false;
+        }
+        let br = new client_1.BufferReader(buf);
+        br.readU8();
+        br.readBytes(20);
         br.verifyChecksum();
     }
     catch (error) {
@@ -110,3 +110,13 @@ function isValidAddress(address) {
     return true;
 }
 exports.isValidAddress = isValidAddress;
+function isValidSecretKey(secretKey) {
+    var reg = /^[0-9a-fA-F]{64}$/;
+    if (reg.test(secretKey)) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+exports.isValidSecretKey = isValidSecretKey;
