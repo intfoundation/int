@@ -52,7 +52,7 @@ Now you can run INT CLI using following command andywhere
     
 **Usage**
 
-    INT CLI  [ Node: 8.0.0, CLI: 3.0.0]
+    INT CLI  [ Node: 8.0.0, CLI: 3.0.x]
     
     Commands:
         peer                         Start a peer
