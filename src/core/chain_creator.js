@@ -76,7 +76,7 @@ class ChainCreator {
         }
         let handlerPath = constConfig['handler'];
         if (!path.isAbsolute(handlerPath)) {
-            handlerPath = path.join(dataDir, handlerPath);
+            handlerPath = path.join(process.cwd(), handlerPath);
         }
         let typeOptions = constConfig['type'];
         if (!typeOptions || !typeOptions.consensus || !typeOptions.features) {
