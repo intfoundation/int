@@ -52,13 +52,13 @@ class Miner extends events_1.EventEmitter {
     _chainInstance() {
         return new chain_1.Chain(this.m_constructOptions);
     }
-    parseInstanceOptions(node, instanceOptions) {
-        const chainRet = this.m_chain.parseInstanceOptions(node, instanceOptions);
+    parseInstanceOptions(options) {
+        const chainRet = this.m_chain.parseInstanceOptions(options);
         if (chainRet.err) {
             return chainRet;
         }
         let value = chainRet.value;
-        if (instanceOptions.has('genesisMiner')) {
+        if (options.origin.has('genesisMiner')) {
             value.minOutbound = 0;
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
@@ -131,47 +131,115 @@ class Miner extends events_1.EventEmitter {
         await sr.storage.remove();
         return err;
     }
-    async _createBlock(header) {
-        let block = this.chain.newBlock(header);
-        this.m_state = MinerState.executing;
-        this.pushTx(block);
-        await this._decorateBlock(block);
-        let name = Date.now().toString() + header.preBlockHash;
-        let sr = await this.chain.storageManager.createStorage(name, block.header.preBlockHash);
-        if (sr.err) {
-            return { err: sr.err };
-        }
+    async _routineCallback(name, routine) {
         let err;
         do {
-            let nber = await this.chain.newBlockExecutor(block, sr.storage);
-            if (nber.err) {
-                err = nber.err;
+            const rer = await routine.execute();
+            err = rer.err;
+            if (err) {
+                this.m_logger.error(`${name} block execute failed! ret ${err}`);
                 break;
             }
-            err = await nber.executor.execute();
+            err = rer.result.err;
             if (err) {
-                this.m_logger.error(`${this.chain.peerid} execute failed! ret ${err}`);
+                this.m_logger.error(`${name} block execute failed! ret ${err}`);
+                break;
+            }
+            if (this._checkCancel(name)) {
+                err = error_code_1.ErrorCode.RESULT_CANCELED;
+                this.m_logger.error(`${name} block execute canceled! ret ${err}`);
                 break;
             }
             this.m_state = MinerState.mining;
-            err = await this._mineBlock(block);
+            delete this.m_stateContext.routine;
+            err = await this._mineBlock(routine.block);
             if (err) {
                 this.m_logger.error(`${this.chain.peerid} mine block failed! ret ${err}`);
                 break;
             }
+            if (this._checkCancel(name)) {
+                err = error_code_1.ErrorCode.RESULT_CANCELED;
+                this.m_logger.error(`${name} block execute canceled! ret ${err}`);
+                break;
+            }
         } while (false);
+        this._setIdle(name);
         if (err) {
-            await sr.storage.remove();
+            await routine.storage.remove();
             return { err };
         }
-        let ssr = await this.chain.storageManager.createSnapshot(sr.storage, block.hash, true);
+        let ssr = await this.chain.storageManager.createSnapshot(routine.storage, routine.block.hash, true);
         if (ssr.err) {
             return { err: ssr.err };
         }
-        await this.chain.addMinedBlock(block, ssr.snapshot);
-        this.m_state = MinerState.idle;
+        await this.chain.addMinedBlock(routine.block, ssr.snapshot);
         this.m_logger.info(`finish mine a block on block hash: ${this.chain.tipBlockHeader.hash} number: ${this.chain.tipBlockHeader.number}`);
-        return { err, block };
+        return { err: error_code_1.ErrorCode.RESULT_OK, block: routine.block };
+    }
+    _setIdle(name) {
+        if (this._checkCancel(name)) {
+            return;
+        }
+        this.m_state = MinerState.idle;
+        delete this.m_stateContext;
+    }
+    _checkCancel(name) {
+        if (this.m_state <= MinerState.idle) {
+            return true;
+        }
+        if (this.m_state > MinerState.idle) {
+            if (this.m_stateContext.name !== name) {
+                return true;
+            }
+        }
+        return false;
+    }
+    _onCancel(state, context) {
+        if (state === MinerState.executing) {
+            if (context && context.routine) {
+                context.routine.cancel();
+            }
+        }
+    }
+    async _createBlock(header) {
+        let name = Date.now().toString() + header.preBlockHash;
+        if (this.m_state !== MinerState.idle) {
+            if (this.m_state > MinerState.idle) {
+                if (this.m_stateContext.name === name) {
+                    return { err: error_code_1.ErrorCode.RESULT_INVALID_STATE };
+                }
+                else {
+                    let state = this.m_state;
+                    let context = this.m_stateContext;
+                    this.m_state = MinerState.idle;
+                    delete this.m_stateContext;
+                    this._onCancel(state, context);
+                }
+            }
+            else {
+                return { err: error_code_1.ErrorCode.RESULT_INVALID_STATE };
+            }
+        }
+        let block = this.chain.newBlock(header);
+        this.m_state = MinerState.executing;
+        this.m_stateContext = Object.create(null);
+        this.m_stateContext.name = name;
+        this.pushTx(block);
+        await this._decorateBlock(block);
+        let sr = await this.chain.storageManager.createStorage(name, block.header.preBlockHash);
+        if (sr.err) {
+            this._setIdle(name);
+            return { err: sr.err };
+        }
+        const crr = this.chain.routineManager.create({ name, block, storage: sr.storage });
+        if (crr.err) {
+            this._setIdle(name);
+            await sr.storage.remove();
+            return { err: crr.err };
+        }
+        this.m_stateContext.routine = crr.routine;
+        const next = this._routineCallback(name, crr.routine);
+        return await next;
     }
     pushTx(block) {
         let tx = this.chain.pending.popTransaction();

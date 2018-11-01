@@ -10,3 +10,6 @@ __export(require("../block"));
 __export(require("./pending"));
 __export(require("./chain"));
 __export(require("./miner"));
+__export(require("./executor_routine"));
+__export(require("./inprocess_routine"));
+__export(require("./interprocess_routine"));

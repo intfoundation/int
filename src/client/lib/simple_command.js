@@ -63,3 +63,28 @@ function parseCommandNew(argv) {
     return command;
 }
 exports.parseCommandNew = parseCommandNew;
+function parseCommandPeer(argv) {
+    let command = { options: new Map() };
+    let start = 1;
+    let curKey;
+    while (start < argv.length) {
+        let arg = argv[start];
+        if (arg.startsWith('--')) {
+            curKey = arg.substr(2);
+            command.options.set(curKey, true);
+        }
+        else {
+            if (curKey) {
+                command.options.set(curKey, arg);
+                curKey = undefined;
+            }
+            else {
+                console.error(`error command ${arg}, key must start with --`);
+                return undefined;
+            }
+        }
+        ++start;
+    }
+    return command;
+}
+exports.parseCommandPeer = parseCommandPeer;

@@ -80,6 +80,9 @@ class StorageLogSnapshotManager {
     getLogPath(blockHash) {
         return path.join(this.m_logPath, blockHash + '.redo');
     }
+    hasRedoLog(blockHash) {
+        return fs.existsSync(this.getLogPath(blockHash));
+    }
     getRedoLog(blockHash) {
         let redoLogRaw;
         try {

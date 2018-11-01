@@ -16,16 +16,16 @@ class DposMiner extends value_chain_1.ValueMiner {
     _chainInstance() {
         return new chain_1.DposChain(this.m_constructOptions);
     }
-    parseInstanceOptions(node, instanceOptions) {
-        let { err, value } = super.parseInstanceOptions(node, instanceOptions);
+    parseInstanceOptions(options) {
+        let { err, value } = super.parseInstanceOptions(options);
         if (err) {
             return { err };
         }
-        if (!instanceOptions.get('minerSecret')) {
+        if (!options.origin.get('minerSecret')) {
             this.m_logger.error(`invalid instance options not minerSecret`);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
-        value.secret = Buffer.from(instanceOptions.get('minerSecret'), 'hex');
+        value.secret = Buffer.from(options.origin.get('minerSecret'), 'hex');
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(options) {

@@ -9,13 +9,14 @@ const fs = require("fs-extra");
 const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const logger_util_1 = require("../lib/logger_util");
+const tmp_manager_1 = require("../lib/tmp_manager");
 const block_1 = require("../block");
 const storage_1 = require("../storage");
 const storage_2 = require("../storage_sqlite/storage");
-const pending_1 = require("./pending");
 const executor_1 = require("../executor");
+const pending_1 = require("./pending");
 const chain_node_1 = require("./chain_node");
-const util_2 = require("util");
+const executor_routine_1 = require("./executor_routine");
 var ChainState;
 (function (ChainState) {
     ChainState[ChainState["none"] = 0] = "none";
@@ -45,7 +46,7 @@ class Chain extends events_1.EventEmitter {
         this.m_handler = options.handler;
         this.m_globalOptions = Object.create(null);
         Object.assign(this.m_globalOptions, options.globalOptions);
-        this.m_mismatchPath = path.join(this.m_dataDir, 'mismatch');
+        this.m_tmpManager = new tmp_manager_1.TmpManager({ root: this.m_dataDir, logger: this.logger });
     }
     static dataDirValid(dataDir) {
         if (!fs.pathExistsSync(dataDir)) {
@@ -84,6 +85,9 @@ class Chain extends events_1.EventEmitter {
     get _ignoreVerify() {
         return this.m_instanceOptions.ignoreVerify;
     }
+    get _saveMismatch() {
+        return this.m_logger.level === 'debug';
+    }
     get globalOptions() {
         const c = this.m_globalOptions;
         return c;
@@ -114,6 +118,12 @@ class Chain extends events_1.EventEmitter {
     }
     get headerStorage() {
         return this.m_headerStorage;
+    }
+    get routineManager() {
+        return this.m_routineManager;
+    }
+    get tmpManager() {
+        return this.m_tmpManager;
     }
     async _loadGenesis() {
         let genesis = await this.m_headerStorage.getHeader(0);
@@ -184,6 +194,12 @@ class Chain extends events_1.EventEmitter {
         }
         const readonly = options && options.readonly;
         this.m_readonly = readonly;
+        let err;
+        err = this.m_tmpManager.init({ clean: !this.m_readonly });
+        if (err) {
+            this.m_logger.error(`chain init faield for tmp manager init failed `, err);
+            return err;
+        }
         this.m_blockStorage = new block_1.BlockStorage({
             logger: this.m_logger,
             path: this.m_dataDir,
@@ -214,13 +230,14 @@ class Chain extends events_1.EventEmitter {
             blockStorage: this.m_blockStorage,
             readonly
         });
-        let err;
         err = await this.m_headerStorage.init();
         if (err) {
+            this.m_logger.error(`chain init faield for header storage init failed `, err);
             return err;
         }
         this.m_storageManager = new storage_1.StorageManager({
             path: path.join(this.m_dataDir, 'storage'),
+            tmpManager: this.m_tmpManager,
             storageType: storage_2.SqliteStorage,
             logger: this.m_logger,
             headerStorage: this.m_headerStorage,
@@ -254,29 +271,26 @@ class Chain extends events_1.EventEmitter {
         return true;
     }
     _onCheckGlobalOptions(globalOptions) {
-        if (util_2.isNullOrUndefined(globalOptions.txlivetime)) {
+        if (util_1.isNullOrUndefined(globalOptions.txlivetime)) {
             globalOptions.txlivetime = 60 * 60;
         }
-        if (util_2.isNullOrUndefined(globalOptions.maxPengdingCount)) {
+        if (util_1.isNullOrUndefined(globalOptions.maxPengdingCount)) {
             globalOptions.maxPengdingCount = 10000;
         }
-        if (util_2.isNullOrUndefined(globalOptions.warnPengdingCount)) {
+        if (util_1.isNullOrUndefined(globalOptions.warnPengdingCount)) {
             globalOptions.warnPengdingCount = 5000;
         }
         return true;
     }
-    parseInstanceOptions(node, instanceOptions) {
+    parseInstanceOptions(options) {
         let value = Object.create(null);
-        value.node = node;
-        value.ignoreBan = instanceOptions.get('ignoreBan');
-        value.saveMismatch = instanceOptions.get('saveMismatch');
+        value.node = options.parsed.node;
+        value.routineManagerType = options.parsed.routineManagerType;
+        value.ignoreBan = options.origin.get('ignoreBan');
+        value.saveMismatch = options.origin.get('saveMismatch');
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(instanceOptions) {
-        this.m_saveMismatch = !!instanceOptions.saveMismatch;
-        if (this.m_saveMismatch && !fs.existsSync(this.m_mismatchPath)) {
-            fs.ensureDirSync(this.m_mismatchPath);
-        }
         // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state !== ChainState.init) {
             this.m_logger.error(`chain initialize failed for hasn't initComponent`);
@@ -290,15 +304,16 @@ class Chain extends events_1.EventEmitter {
         let _instanceOptions = Object.create(null);
         Object.assign(_instanceOptions, instanceOptions);
         // 初始化时，要同步的peer数目，与这个数目的peer完成同步之后，才开始接收tx，挖矿等等
-        _instanceOptions.initializePeerCount = !util_2.isNullOrUndefined(instanceOptions.initializePeerCount) ? instanceOptions.initializePeerCount : 1;
+        _instanceOptions.initializePeerCount = !util_1.isNullOrUndefined(instanceOptions.initializePeerCount) ? instanceOptions.initializePeerCount : 1;
         // 初始化时，一次请求的最大header数目
-        _instanceOptions.headerReqLimit = !util_2.isNullOrUndefined(instanceOptions.headerReqLimit) ? instanceOptions.headerReqLimit : 2000;
+        _instanceOptions.headerReqLimit = !util_1.isNullOrUndefined(instanceOptions.headerReqLimit) ? instanceOptions.headerReqLimit : 2000;
         // confirm数目，当块的depth超过这个值时，认为时绝对安全的；分叉超过这个depth的两个fork，无法自动合并回去
-        _instanceOptions.confirmDepth = !util_2.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
-        _instanceOptions.ignoreVerify = !util_2.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : 0;
+        _instanceOptions.confirmDepth = !util_1.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
+        _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
         this.m_instanceOptions = _instanceOptions;
         this.m_pending = this._createPending();
         this.m_pending.init();
+        this.m_routineManager = new instanceOptions.routineManagerType(this);
         let baseNode = this._createChainNode();
         let node = new chain_node_1.ChainNode({
             node: baseNode,
@@ -381,7 +396,7 @@ class Chain extends events_1.EventEmitter {
     _createChainNode() {
         return new block_1.RandomOutNode({
             node: this.m_instanceOptions.node,
-            minOutbound: !util_2.isNullOrUndefined(this.m_instanceOptions.minOutbound) ? this.m_instanceOptions.minOutbound : 13,
+            minOutbound: !util_1.isNullOrUndefined(this.m_instanceOptions.minOutbound) ? this.m_instanceOptions.minOutbound : 8,
             checkCycle: this.m_instanceOptions.connectionCheckCycle ? this.m_instanceOptions.connectionCheckCycle : 1000,
             dataDir: this.m_dataDir,
             logger: this.m_logger,
@@ -448,19 +463,13 @@ class Chain extends events_1.EventEmitter {
         if (this.m_state !== ChainState.synced) {
             return error_code_1.ErrorCode.RESULT_INVALID_STATE;
         }
-        // 捕获未知异常
-        try {
-            let err = await this.m_pending.addTransaction(tx);
-            // TODO: 广播要排除tx的来源
-            if (!err) {
-                this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-                this.m_node.broadcast([tx]);
-            }
-            return err;
+        let err = await this.m_pending.addTransaction(tx);
+        // TODO: 广播要排除tx的来源 
+        if (!err) {
+            this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+            this.m_node.broadcast([tx]);
         }
-        catch (e) {
-            return error_code_1.ErrorCode.RESULT_FAILED;
-        }
+        return err;
     }
     async _compareWork(left, right) {
         // TODO: pow 用height并不安全， 因为大bits高height的工作量可能低于小bits低height 的工作量
@@ -709,7 +718,7 @@ class Chain extends events_1.EventEmitter {
                         // 如果options.redoLog=1 同时也请求redo log内容, redo log 会随着block package 一起返回
                         this.m_node.requestBlocks({
                             headers: vsh.toRequest,
-                            redoLog: this._ignoreVerify,
+                            redoLog: this._ignoreVerify ? 1 : 0,
                         }, remote);
                     }
                     else {
@@ -839,14 +848,30 @@ class Chain extends events_1.EventEmitter {
             else if (err !== error_code_1.ErrorCode.RESULT_OK) {
                 return err;
             }
-            // 校验block
-            // 如果options.redoLog对象 不为空，就通过redo, 而不是通过tx校验
-            let vbr = await this.verifyBlock(block, { redoLog: options.redoLog });
-            if (vbr.err) {
-                this.m_logger.error(`add block failed for verify failed for ${vbr.err}`);
-                return vbr.err;
+            const name = `${block.hash}${Date.now()}`;
+            let rr = await this.verifyBlock(name, block, { redoLog: options.redoLog });
+            if (rr.err) {
+                this.m_logger.error(`add block failed for verify failed for ${rr.err}`);
+                return rr.err;
             }
-            if (!vbr.verified) {
+            const routine = rr.routine;
+            const vbr = await rr.next();
+            if (vbr.valid === error_code_1.ErrorCode.RESULT_OK) {
+                this.m_logger.info(`${routine.name} block verified`);
+                assert(routine.storage, `${routine.name} verified ok but storage missed`);
+                let csr = await this.m_storageManager.createSnapshot(routine.storage, block.hash);
+                if (csr.err) {
+                    this.m_logger.error(`${name} verified ok but save snapshot failed`);
+                    await routine.storage.remove();
+                    return csr.err;
+                }
+                let _err = await this._addVerifiedBlock(block, csr.snapshot);
+                if (_err) {
+                    return _err;
+                }
+            }
+            else {
+                this.m_logger.info(`${routine.name} block invalid for `, error_code_1.stringifyErrorCode(vbr.valid));
                 if (options.remote) {
                     this._banConnection(options.remote, block_1.BAN_LEVEL.day);
                 }
@@ -854,12 +879,7 @@ class Chain extends events_1.EventEmitter {
                 if (_err) {
                     return _err;
                 }
-            }
-            else {
-                let _err = await this._addVerifiedBlock(block, vbr.storage);
-                if (_err) {
-                    return _err;
-                }
+                return error_code_1.ErrorCode.RESULT_OK;
             }
         }
         let syncing = false;
@@ -1008,87 +1028,47 @@ class Chain extends events_1.EventEmitter {
         });
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async verifyBlock(block, options) {
+    async verifyBlock(name, block, options) {
         this.m_logger.info(`begin verify block number: ${block.number} hash: ${block.hash} `);
-        let storageName = 'verify';
-        if (options.storageName) {
-            storageName = options.storageName;
-        }
-        let sr = await this.m_storageManager.createStorage(storageName, block.header.preBlockHash);
+        let sr = await this.m_storageManager.createStorage(name, block.header.preBlockHash);
         if (sr.err) {
             this.m_logger.warn(`verify block failed for recover storage to previous block's failed for ${sr.err}`);
             return { err: sr.err };
         }
-        let result;
-        do {
-            let verifyResult;
-            // 通过redo log 来添加block的内容
-            if (options.redoLog) {
-                const redoLog = options.redoLog;
-                this.m_logger.info(`redo log, block[${block.number}, ${block.hash}]`);
-                // 把通过网络请求拿到的redoLog 先保存到本地
-                this.m_storageManager.writeRedoLog(block.hash, redoLog);
-                // 执行redolog
-                let redoError = await redoLog.redoOnStorage(sr.storage);
-                if (redoError) {
-                    this.m_logger.info(`redo error ${redoError}`);
-                    result = { err: redoError };
-                    break;
-                }
-                // 获得storage的hash值
-                let digestResult = await sr.storage.messageDigest();
-                if (digestResult.err) {
-                    this.m_logger.info(`redo log get storage messageDigest error`);
-                    result = { err: digestResult.err };
-                    break;
-                }
-                // 当前的storage hash和header上的storageHash 比较 
-                // 设置verify 结果, 后续流程需要使用 res.valid
-                verifyResult = { err: error_code_1.ErrorCode.RESULT_OK, valid: digestResult.value === block.header.storageHash };
+        const storage = sr.storage;
+        let crr;
+        // 通过redo log 来添加block的内容
+        if (options && options.redoLog) {
+            crr = { err: error_code_1.ErrorCode.RESULT_OK, routine: new VerifyBlockWithRedoLogRoutine({
+                    name,
+                    block,
+                    storage,
+                    redoLog: options.redoLog,
+                    logger: this.logger
+                }) };
+        }
+        else {
+            crr = this.m_routineManager.create({ name, block, storage });
+        }
+        if (crr.err) {
+            await storage.remove();
+            return { err: crr.err };
+        }
+        const routine = crr.routine;
+        const next = async () => {
+            const rr = await routine.verify();
+            if (rr.err || rr.result.err) {
+                await storage.remove();
+                return { err: rr.err };
             }
-            else {
-                let nber = await this.newBlockExecutor(block, sr.storage);
-                if (nber.err) {
-                    result = { err: nber.err };
-                    break;
-                }
-                verifyResult = await nber.executor.verify(this.logger);
-            }
-            if (verifyResult.err) {
-                result = { err: verifyResult.err };
-            }
-            else if (verifyResult.valid) {
-                this.m_logger.info(`block verified`);
-                if (!options.ignoreSnapshot) {
-                    let csr = await this.m_storageManager.createSnapshot(sr.storage, block.hash);
-                    if (csr.err) {
-                        result = { err: csr.err };
-                    }
-                    else {
-                        result = { err: error_code_1.ErrorCode.RESULT_OK, verified: true, storage: csr.snapshot };
-                    }
-                }
-                else {
-                    result = { err: error_code_1.ErrorCode.RESULT_OK, verified: true };
+            if (rr.result.valid !== error_code_1.ErrorCode.RESULT_OK) {
+                if (!(this._saveMismatch && rr.result.valid === error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH)) {
+                    await storage.remove();
                 }
             }
-            else {
-                this.m_logger.info(`block invalid`);
-                if (this.m_saveMismatch && verifyResult.mismatchHash) {
-                    let file = path.join(this.m_storageManager.path, storageName);
-                    try {
-                        if (fs.existsSync(file)) {
-                            fs.copyFileSync(file, path.join(this.m_mismatchPath, verifyResult.mismatchHash));
-                        }
-                    }
-                    catch (e) {
-                    }
-                }
-                result = { err: error_code_1.ErrorCode.RESULT_OK, verified: false };
-            }
-        } while (false);
-        await sr.storage.remove();
-        return result;
+            return rr.result;
+        };
+        return { err: error_code_1.ErrorCode.RESULT_OK, routine, next };
     }
     async addMinedBlock(block, storage) {
         this.m_blockStorage.add(block);
@@ -1242,3 +1222,34 @@ Chain.kvConfig = 'config';
 Chain.dbUser = '__user';
 Chain.s_dbFile = 'database';
 exports.Chain = Chain;
+class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRoutine {
+    constructor(options) {
+        super(options);
+        this.m_redoLog = options.redoLog;
+    }
+    async execute() {
+        return { err: error_code_1.ErrorCode.RESULT_NO_IMP };
+    }
+    async verify() {
+        this.m_logger.info(`redo log, block[${this.block.number}, ${this.block.hash}]`);
+        // 执行redolog
+        let redoError = await this.m_redoLog.redoOnStorage(this.storage);
+        if (redoError) {
+            this.m_logger.error(`redo error ${redoError}`);
+            return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: redoError } };
+        }
+        // 获得storage的hash值
+        let digestResult = await this.storage.messageDigest();
+        if (digestResult.err) {
+            this.m_logger.error(`redo log get storage messageDigest error`);
+            return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: digestResult.err } };
+        }
+        const valid = digestResult.value === this.block.header.storageHash ? error_code_1.ErrorCode.RESULT_OK : error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
+        // 当前的storage hash和header上的storageHash 比较 
+        // 设置verify 结果, 后续流程需要使用 res.valid
+        return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: error_code_1.ErrorCode.RESULT_OK, valid } };
+    }
+    cancel() {
+        // do nothing
+    }
+}

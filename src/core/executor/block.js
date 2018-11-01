@@ -28,26 +28,30 @@ class BlockExecutor {
     async execute() {
         return await this._execute(this.m_block);
     }
-    async verify(logger) {
+    async verify() {
         let oldBlock = this.m_block;
         this.m_block = this.m_block.clone();
         let err = await this.execute();
         if (err) {
             if (err === error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR) {
-                return { err: error_code_1.ErrorCode.RESULT_OK, valid: false };
+                return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR };
             }
             else {
                 return { err };
             }
         }
         if (this.m_block.hash !== oldBlock.hash) {
-            logger.error(`block ${oldBlock.number} hash mismatch!! 
+            this.m_logger.error(`block ${oldBlock.number} hash mismatch!! 
             except storage hash ${oldBlock.header.storageHash}, actual ${this.m_block.header.storageHash}
             except hash ${oldBlock.hash}, actual ${this.m_block.hash}
             `);
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK,
-            valid: this.m_block.hash === oldBlock.hash, mismatchHash: this.m_block.hash };
+        if (this.m_block.hash === oldBlock.hash) {
+            return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_OK };
+        }
+        else {
+            return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH };
+        }
     }
     async _execute(block) {
         this.m_logger.info(`begin execute block ${block.number}`);

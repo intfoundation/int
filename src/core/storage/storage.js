@@ -58,6 +58,7 @@ class Storage extends IReadWritableStorage {
     async remove() {
         await this.uninit();
         try {
+            this.m_logger.debug(`about to remove storage file `, this.m_filePath);
             fs.removeSync(this.m_filePath);
         }
         catch (e) {

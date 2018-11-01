@@ -14,6 +14,7 @@ class Workpool {
             if (!this.workers[index]) {
                 //run for worker
                 let workerParam = JSON.stringify(params);
+                console.log(`worker params `, workerParam.replace(/\\\\/g, '/').replace(/\"/g, '\\"'));
                 this.workers[index] = new worker_1.Worker(this.file, workerParam);
                 this.workers[index].on('exit', (code, signal) => {
                     callback(code, signal, this.workers[index].data);

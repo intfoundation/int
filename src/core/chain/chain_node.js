@@ -324,13 +324,28 @@ class ChainNode extends events_1.EventEmitter {
         let requests = [];
         let addRequesting = (header) => {
             if (this.m_blockStorage.has(header.hash)) {
-                let block = this.m_blockStorage.get(header.hash);
-                assert(block, `block storage load block ${header.hash} failed while file exists`);
-                if (block) {
-                    setImmediate(() => {
-                        this.emit('blocks', { block });
-                    });
-                    return false;
+                if (this.m_blockWithLog) {
+                    let redoLog = this.m_storageManager.getRedoLog(header.hash);
+                    if (redoLog) {
+                        let block = this.m_blockStorage.get(header.hash);
+                        assert(block, `block storage load block ${header.hash} failed while file exists`);
+                        if (block) {
+                            setImmediate(() => {
+                                this.emit('blocks', { block, redoLog });
+                            });
+                            return false;
+                        }
+                    }
+                }
+                else {
+                    let block = this.m_blockStorage.get(header.hash);
+                    assert(block, `block storage load block ${header.hash} failed while file exists`);
+                    if (block) {
+                        setImmediate(() => {
+                            this.emit('blocks', { block });
+                        });
+                        return false;
+                    }
                 }
             }
             let sources = this.m_blockFromMap.get(header.hash);

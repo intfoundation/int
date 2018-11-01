@@ -42,8 +42,6 @@ var ErrorCode;
     ErrorCode[ErrorCode["RESULT_SKIPPED"] = 40] = "RESULT_SKIPPED";
     ErrorCode[ErrorCode["RESULT_FORK_DETECTED"] = 50] = "RESULT_FORK_DETECTED";
     //交易池相关
-    ErrorCode[ErrorCode["RESULT_TX_POOL_ADDRESS_NOT_EXIST"] = 60] = "RESULT_TX_POOL_ADDRESS_NOT_EXIST";
-    ErrorCode[ErrorCode["RESULT_TX_POOL_KEYSTORE_ERROR"] = 61] = "RESULT_TX_POOL_KEYSTORE_ERROR";
     ErrorCode[ErrorCode["RESULT_USER_DEFINE"] = 10000] = "RESULT_USER_DEFINE";
     // token 相关
     ErrorCode[ErrorCode["RESULT_NO_PERMISSIONS"] = 10011] = "RESULT_NO_PERMISSIONS";

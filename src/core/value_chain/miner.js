@@ -24,17 +24,17 @@ class ValueMiner extends chain_1.Miner {
     get chain() {
         return this.m_chain;
     }
-    parseInstanceOptions(node, instanceOptions) {
-        let { err, value } = super.parseInstanceOptions(node, instanceOptions);
+    parseInstanceOptions(options) {
+        let { err, value } = super.parseInstanceOptions(options);
         if (err) {
             return { err };
         }
-        value.coinbase = instanceOptions.get('coinbase');
-        if (!instanceOptions.has('blocklimit')) {
+        value.coinbase = options.origin.get('coinbase');
+        if (!options.origin.has('blocklimit')) {
             console.log(`not exist 'blocklimit' option in command`);
             return { err: error_code_1.ErrorCode.RESULT_PARSE_ERROR };
         }
-        value.blocklimit = new bignumber_js_1.BigNumber(instanceOptions.get('blocklimit'));
+        value.blocklimit = new bignumber_js_1.BigNumber(options.origin.get('blocklimit'));
         if (value.blocklimit.gt(this.m_maxblocklimit)) {
             return { err: error_code_1.ErrorCode.RESULT_BLOCK_LIMIT_TOO_BIG };
         }

@@ -204,6 +204,21 @@ class BlockContent {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    encodeWithoutReceipt(writer) {
+        try {
+            writer.writeU16(this.m_transactions.length);
+            for (let tx of this.m_transactions) {
+                let err = tx.encode(writer);
+                if (err) {
+                    return err;
+                }
+            }
+        }
+        catch (e) {
+            return error_code_1.ErrorCode.RESULT_INVALID_FORMAT;
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
     decode(reader) {
         this.m_transactions = [];
         this.m_receipts = new Map();
@@ -227,6 +242,26 @@ class BlockContent {
                 return err;
             }
             this.m_receipts.set(tx.hash, receipt);
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    decodeWithoutReceipt(reader) {
+        this.m_transactions = [];
+        this.m_receipts = new Map();
+        let txCount;
+        try {
+            txCount = reader.readU16();
+        }
+        catch (e) {
+            return error_code_1.ErrorCode.RESULT_INVALID_FORMAT;
+        }
+        for (let ix = 0; ix < txCount; ++ix) {
+            let tx = new this.m_transactionType();
+            let err = tx.decode(reader);
+            if (err !== error_code_1.ErrorCode.RESULT_OK) {
+                return err;
+            }
+            this.m_transactions.push(tx);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -281,12 +316,26 @@ class Block {
         }
         return this.m_content.encode(writer);
     }
+    encodeWithoutReceipt(writer) {
+        let err = this.m_header.encode(writer);
+        if (err) {
+            return err;
+        }
+        return this.m_content.encodeWithoutReceipt(writer);
+    }
     decode(reader) {
         let err = this.m_header.decode(reader);
         if (err !== error_code_1.ErrorCode.RESULT_OK) {
             return err;
         }
         return this.m_content.decode(reader);
+    }
+    decodeWithoutReceipt(reader) {
+        let err = this.m_header.decode(reader);
+        if (err !== error_code_1.ErrorCode.RESULT_OK) {
+            return err;
+        }
+        return this.m_content.decodeWithoutReceipt(reader);
     }
     verify() {
         // 验证content hash

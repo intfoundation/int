@@ -26,7 +26,12 @@ class ChainHost {
             console.error('chain_host initMiner fail _parseNode');
             return { ret: false };
         }
-        let pr = cr.miner.parseInstanceOptions(node, commandOptions);
+        let routineManagerType = this._parseExecutorRoutine(cr.miner.chain, commandOptions);
+        if (!routineManagerType) {
+            console.error('chain_host initMiner fail _parseExecutorRoutine');
+            return { ret: false };
+        }
+        let pr = cr.miner.parseInstanceOptions({ parsed: { node, routineManagerType }, origin: commandOptions });
         if (pr.err) {
             console.error('chain_host initMiner fail parseInstanceOptions');
             return { ret: false };
@@ -55,7 +60,12 @@ class ChainHost {
         if (!node) {
             return { ret: false };
         }
-        let pr = cr.chain.parseInstanceOptions(node, commandOptions);
+        let routineManagerType = this._parseExecutorRoutine(cr.chain, commandOptions);
+        if (!routineManagerType) {
+            console.error('chain_host initMiner fail _parseExecutorRoutine');
+            return { ret: false };
+        }
+        let pr = cr.chain.parseInstanceOptions({ parsed: { node, routineManagerType }, origin: commandOptions });
         if (pr.err) {
             return { ret: false };
         }
@@ -130,6 +140,17 @@ class ChainHost {
             }
             return ni(commandOptions);
         }
+    }
+    _parseExecutorRoutine(chain, commandOptions) {
+        if (commandOptions.has('executor')) {
+            if (commandOptions.get('executor') === 'inprocess') {
+                return core_1.InprocessRoutineManager;
+            }
+            else if (commandOptions.get('executor') === 'interprocess') {
+                return core_1.InterprocessRoutineManager;
+            }
+        }
+        return core_1.InprocessRoutineManager;
     }
     _parseDataDir(commandOptions) {
         let dataDir = commandOptions.get('dataDir');

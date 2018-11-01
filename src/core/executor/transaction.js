@@ -53,7 +53,7 @@ class TransactionExecutor extends BaseExecutor {
             nonce = nonceInfo.value;
         }
         if (tx.nonce !== nonce + 1) {
-            this.m_logger.error(`methodexecutor, _dealNonce, nonce error,nonce should ${nonce + 1}, but ${tx.nonce}, txhash=${tx.hash}`);
+            this.m_logger.error(`methodexecutor, _dealNonce, nonce error,nonce should ${nonce + 1}, but ${tx.nonce}, txhash=${tx.hash} address=${tx.address}`);
             return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
         }
         await kvr.kv.set(tx.address, tx.nonce);

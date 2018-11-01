@@ -14,6 +14,7 @@ exports.rejectifyErrorCode = rejectify_1.rejectifyErrorCode;
 __export(require("./host/chain_host"));
 const chain_host_1 = require("./host/chain_host");
 const core_1 = require("../core");
+const fs = require("fs-extra");
 let host = new chain_host_1.ChainHost();
 exports.host = host;
 host.registerNet('tcp', (commandOptions) => {
@@ -93,7 +94,12 @@ host.registerNet('bdt', (commandOptions) => {
         // 设置log目录
         file_dir: commandOptions.get('dataDir') + '/log',
     };
-    return new core_1.BdtNode({ host: _host, tcpport, udpport, peerid, snPeer, bdtLoggerOptions: bdt_logger });
+    let initDHTEntry;
+    const initDHTFile = commandOptions.get('dataDir') + '/peers';
+    if (fs.pathExistsSync(initDHTFile)) {
+        initDHTEntry = fs.readJSONSync(initDHTFile);
+    }
+    return new core_1.BdtNode({ host: _host, tcpport, udpport, peerid, snPeer, bdtLoggerOptions: bdt_logger, initDHTEntry });
 });
 const core_2 = require("../core");
 const valueChainDebuger = {

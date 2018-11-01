@@ -4,6 +4,7 @@ const fs = require("fs-extra");
 const path = require("path");
 const error_code_1 = require("./error_code");
 const bignumber_js_1 = require("bignumber.js");
+const tmp_manager_1 = require("./lib/tmp_manager");
 const storage_1 = require("./storage_json/storage");
 const storage_2 = require("./storage_sqlite/storage");
 const value_chain_1 = require("./value_chain");
@@ -28,14 +29,24 @@ class ValueChainDebugSession {
             logger: chain.logger,
             dumpSnapshotManager
         });
+        const tmpManager = new tmp_manager_1.TmpManager({
+            root: options.storageDir,
+            logger: chain.logger
+        });
+        let err = tmpManager.init({ clean: true });
+        if (err) {
+            chain.logger.error(`ValueChainDebugSession init tmpManager init failed `, error_code_1.stringifyErrorCode(err));
+            return err;
+        }
         const storageManager = new storage_3.StorageManager({
+            tmpManager,
             path: options.storageDir,
             storageType: storage_1.JsonStorage,
             logger: chain.logger,
             snapshotManager
         });
         this.m_storageManager = storageManager;
-        let err = await this.m_storageManager.init();
+        err = await this.m_storageManager.init();
         if (err) {
             chain.logger.error(`ValueChainDebugSession init storageManager init failed `, error_code_1.stringifyErrorCode(err));
             return err;
@@ -183,6 +194,12 @@ class ValueIndependDebugSession {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    get curHeader() {
+        return this.m_curHeader;
+    }
+    get storage() {
+        return this.m_storage;
+    }
     async updateHeightTo(height, coinbase, events) {
         if (height <= this.m_curHeader.number) {
             this.debuger.chain.logger.error(`updateHeightTo ${height} failed for current height ${this.m_curHeader.number} is larger`);
@@ -208,13 +225,27 @@ class ValueIndependDebugSession {
         this.m_curHeader = curHeader;
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    transaction(options) {
+    createTransaction(options) {
         const tx = new value_chain_1.ValueTransaction();
-        // tx.fee = new BigNumber(0);
+        tx.limit = new bignumber_js_1.BigNumber(0);
+        tx.price = new bignumber_js_1.BigNumber(0);
         tx.value = new bignumber_js_1.BigNumber(options.value);
         tx.method = options.method;
         tx.input = options.input;
-        // tx.fee = options.fee;
+        tx.limit = options.limit;
+        tx.price = options.price;
+        let pk;
+        if (Buffer.isBuffer(options.caller)) {
+            pk = options.caller;
+        }
+        else {
+            pk = this.m_accounts[options.caller];
+        }
+        tx.nonce = util_1.isNullOrUndefined(options.nonce) ? 0 : options.nonce;
+        tx.sign(pk);
+        return tx;
+    }
+    transaction(options) {
         let pk;
         if (Buffer.isBuffer(options.caller)) {
             pk = options.caller;
@@ -223,9 +254,11 @@ class ValueIndependDebugSession {
             pk = this.m_accounts[options.caller];
         }
         let addr = address_1.addressFromSecretKey(pk);
-        tx.nonce = this.m_fakeNonces.has(addr) ? this.m_fakeNonces.get(addr) : 0;
-        tx.sign(pk);
-        this.m_fakeNonces.set(addr, tx.nonce + 1);
+        const nonce = this.m_fakeNonces.has(addr) ? this.m_fakeNonces.get(addr) : 0;
+        this.m_fakeNonces.set(addr, nonce + 1);
+        const txop = Object.create(options);
+        txop.nonce = nonce;
+        const tx = this.createTransaction(txop);
         return this.debuger.debugTransaction(this.m_storage, this.m_curHeader, tx);
     }
     wage() {

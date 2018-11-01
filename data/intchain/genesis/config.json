@@ -7,11 +7,11 @@
     "global": {
         "minCreateor": 1,
         "maxCreateor": 13,
-        "reSelectionBlocks": 20,
+        "reSelectionBlocks": 17280,
         "blockInterval": 10,
         "timeOffsetToLastBlock": 7200,
         "timeBan": 7200,
-        "unbanBlocks": 100,
+        "unbanBlocks": 1000,
         "dposVoteMaxProducers": 20,
         "maxBlockIntervalOffset": 1
     }

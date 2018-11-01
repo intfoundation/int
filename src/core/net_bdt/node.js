@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const assert = require('assert');
+const assert = require("assert");
 const error_code_1 = require("../error_code");
 const net_1 = require("../net");
 const connection_1 = require("./connection");
@@ -42,9 +42,13 @@ class BdtNode extends net_1.INode {
         // let randomPort = DHTUtil.RandomGenerator.integer(65525, 2048);
         // bdt 里0.0.0.0 只能找到公网ip, 这样会导致单机多进程或单机单进程的节点找不到对方
         // 为了方便测试， 补充加入本机的内网192 IP
+        // 从配置文件里读取初始的DHT表
         let ips = Util.NetHelper.getLocalIPV4().filter((ip) => ip.match(/^192.168.\d+.\d+/));
         let addrList = [this.m_host, ...ips];
-        const dhtEntry = [this.m_options.snPeer];
+        let dhtEntry = [this.m_options.snPeer];
+        if (this.m_options.initDHTEntry) {
+            dhtEntry = dhtEntry.concat(this.m_options.initDHTEntry);
+        }
         let bdtInitParams = {};
         bdtInitParams['peerid'] = this.m_peerid;
         if (this.m_tcpListenPort !== 0) {
@@ -70,7 +74,6 @@ class BdtNode extends net_1.INode {
         if (result !== 0) {
             throw Error(`init p2p peer error ${result}. please check the params`);
         }
-        this.m_snPeerid = this.m_options.snPeer.peerid;
         this.m_dht = p2p.m_dht;
         this.m_bdtStack = p2p.bdtStack;
         // <TODO> ready标记已经不再需要，暂时留着check DHT实现的正确性
