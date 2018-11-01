@@ -31,7 +31,7 @@ async function run(argv) {
         options.set("rpcport", '8555');
     }
     if (!options.has("loggerLevel")) {
-        options.set("loggerLevel", "info");
+        options.set("loggerLevel", "debug");
     }
     if (!options.has("dataDir")) {
         options.set("dataDir", './data/intchain/peerData');
@@ -49,8 +49,10 @@ async function run(argv) {
         exit = true;
     }
 
-    let pubKey = addressClass.createKeyPair()[0];
-    let address = addressClass.addressFromPublicKey(pubKey.toString('hex'));
+    let privateKey = addressClass.createKeyPair()[1];
+    console.log(privateKey);
+    let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
+    console.log(address);
     options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
 
