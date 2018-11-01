@@ -65,7 +65,7 @@ function parseCommandNew(argv) {
 exports.parseCommandNew = parseCommandNew;
 function parseCommandPeer(argv) {
     let command = { options: new Map() };
-    let start = 1;
+    let start = 2;
     let curKey;
     while (start < argv.length) {
         let arg = argv[start];

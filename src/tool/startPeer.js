@@ -4,6 +4,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
 const path = require("path");
 const client_1 = require("../client");
+const addressClass = require("../core/address");
 const pkg = require('../../package.json');
 Error.stackTraceLimit = 1000;
 async function run(argv) {
@@ -47,6 +48,12 @@ async function run(argv) {
         console.log("Usage: --test or --main");
         exit = true;
     }
+
+    let pubKey = addressClass.createKeyPair()[0];
+    let address = addressClass.addressFromPublicKey(pubKey.toString());
+    options.set('peerid', address);
+    options.set("genesis", './data/intchain/genesis');
+
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
