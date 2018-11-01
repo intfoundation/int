@@ -36,11 +36,11 @@ async function run(argv) {
         options.set("dataDir", './data/intchain/peerData');
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TEST1@testsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
         options.set("dataDir", './data/testintchain/peerData');
     }
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST1@testsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_MAIN@testsn.intchain.io@8550@8551");
         options.set("dataDir", './data/intchain/peerData');
     }
     if (!options.has("test") && !options.has("main")) {
