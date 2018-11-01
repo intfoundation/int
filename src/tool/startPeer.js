@@ -50,7 +50,7 @@ async function run(argv) {
     }
 
     let pubKey = addressClass.createKeyPair()[0];
-    let address = addressClass.addressFromPublicKey(pubKey.toString());
+    let address = addressClass.addressFromPublicKey(pubKey.toString('hex'));
     options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
 
