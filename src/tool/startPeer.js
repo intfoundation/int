@@ -50,9 +50,7 @@ async function run(argv) {
     }
 
     let privateKey = addressClass.createKeyPair()[1];
-    console.log(privateKey);
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-    console.log(address);
     options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
 
