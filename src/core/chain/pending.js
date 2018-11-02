@@ -12,6 +12,7 @@ class PendingTransactions extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_queueOpt = [];
+        this.m_temp = new Set();
         this.m_transactions = [];
         this.m_orphanTx = new Map();
         this.m_mapNonce = new Map();
@@ -45,6 +46,10 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
             return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
         }
+        if (this.m_temp.has(tx.hash)) {
+            return error_code_1.ErrorCode.RESULT_TX_EXIST;
+        }
+        this.m_temp.add(tx.hash);
         if (this.isExist(tx)) {
             this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
