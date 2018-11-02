@@ -31,7 +31,7 @@ async function run(argv) {
         options.set("rpcport", '8555');
     }
     if (!options.has("loggerLevel")) {
-        options.set("loggerLevel", "debug");
+        options.set("loggerLevel", "info");
     }
     if (!options.has("dataDir")) {
         options.set("dataDir", './data/intchain/peerData');
