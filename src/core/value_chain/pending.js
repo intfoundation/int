@@ -165,6 +165,18 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         }
         return txs;
     }
+    async getPendingTransactions() {
+        let pt = await super.getPendingTransactions();
+        let pendingTxs = [];
+        if (pt.err) {
+            return { err: pt.err };
+        }
+        for (let i = 0; i < pt.pendingTransactions.length; i++) {
+            let tx = pt.pendingTransactions[i].tx.stringify();
+            pendingTxs.push({ tx: tx, ct: pt.pendingTransactions[i].ct });
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: pendingTxs };
+    }
     // 计算单笔tx的 limit
     calcTxLimit(tx) {
         let txTotalLimit = new bignumber_js_1.BigNumber(0);
