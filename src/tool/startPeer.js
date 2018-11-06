@@ -21,6 +21,12 @@ async function run(argv) {
         }));
     }
     let exit = false;
+    if (options.has("help")) {
+        help();
+    }
+    if (options.has("version")) {
+        version();
+    }
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }
@@ -37,23 +43,21 @@ async function run(argv) {
         options.set("dataDir", './data/intchain/peerData');
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_TEST1@testsn.intchain.io@8550@8551");
         options.set("dataDir", './data/testintchain/peerData');
     }
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_MAIN@testsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_TEST1@testsn.intchain.io@8550@8551");
         options.set("dataDir", './data/intchain/peerData');
     }
     if (!options.has("test") && !options.has("main")) {
         console.log("Usage: --test or --main");
         exit = true;
     }
-
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
-
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");

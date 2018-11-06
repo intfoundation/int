@@ -95,7 +95,7 @@ function verify(md, signature, publicKey) {
 }
 exports.verify = verify;
 function isValidAddress(address) {
-    let subAddress = address.slice(2);
+    let subAddress = address.slice(3);
     try {
         let buf = base58.decode(subAddress);
         if (buf.length !== 25) {
