@@ -46,7 +46,8 @@ function addressFromPublicKey(publicKey) {
     if (util_1.isString(publicKey)) {
         publicKey = Buffer.from(publicKey, 'hex');
     }
-    return base58.encode(pubKeyToBCFormat(publicKey));
+    let address = 'INT' + base58.encode(pubKeyToBCFormat(publicKey));
+    return address;
 }
 exports.addressFromPublicKey = addressFromPublicKey;
 function publicKeyFromSecretKey(secret) {
@@ -94,8 +95,9 @@ function verify(md, signature, publicKey) {
 }
 exports.verify = verify;
 function isValidAddress(address) {
+    let subAddress = address.slice(2);
     try {
-        let buf = base58.decode(address);
+        let buf = base58.decode(subAddress);
         if (buf.length !== 25) {
             return false;
         }
