@@ -2,12 +2,12 @@
 
 Official Node.js implementation of the INT Chain protocol.
 
-## Environment dependence
+### Environment dependence
 
 Building int requires a Node.js (version 8.0 or later).
 You can install it from Node.js official website(https://nodejs.org/en/download/).
 
-## Installation Instructions
+### Installation Instructions
 
 (1) Clone the repository to a directory of your choosing
 
@@ -20,6 +20,34 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
 (3) install node_modules of int project dependency.
     
     npm install
+    
+### Start a miner
+
+    node src/tool/startMiner.js --minerSecret ... --coinbase ... .......
+
+    options:
+        --minerSecret                    It's required to give signature to block
+        --coinbase                       It's required to receive block reward.
+                                         Please keep the private key of the coinbase, do not tell others.
+        --blocklimit                     The max sum of transactions limit in a block. 
+                                         Max value is 80000000,and default value is 50000000.
+        --port                           Network communication port of P2P,default value is 8553|8554.
+        --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
+        --hander                         The location of the handler file, which is the entry of the chain handler
+
+### Start a peer
+
+    node src/tool/startMiner.js .......
+
+    options:
+        --test                           Connect the test net
+        --main                           Connect the main net
+        --dataDir                        Data storage location
+        --peerid                         The id of peer
+        --loggerConsole                  Print log or not
+        --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
+        --rpchost                        the host that peer can communicate by RPC,defaut value is localhost
+        --rpcpot                         the RPC server port，default value is 8555
 
 ## INT Chain CLI
 
