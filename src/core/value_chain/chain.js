@@ -18,8 +18,8 @@ class ValueChain extends chain_1.Chain {
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, ValueChain.kvBalance)).kv;
         let ve = new ValueContext.Context(kvBalance);
         let externContext = Object.create(null);
-        externContext.getBalance = (address) => {
-            return ve.getBalance(address);
+        externContext.getBalance = async (address) => {
+            return await ve.getBalance(address);
         };
         externContext.transferTo = async (address, amount) => {
             return await ve.transferTo(ValueChain.sysAddress, address, amount);
