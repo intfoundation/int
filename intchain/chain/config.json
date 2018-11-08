@@ -1,0 +1,18 @@
+{
+    "handler":"./handler.js",
+    "type": {
+        "consensus":"dpos",
+        "features":[]
+    },
+    "global": {
+        "minCreateor": 1,
+        "maxCreateor": 13,
+        "reSelectionBlocks": 20,
+        "blockInterval": 10,
+        "timeOffsetToLastBlock": 7200,
+        "timeBan": 7200,
+        "unbanBlocks": 100,
+        "dposVoteMaxProducers": 20,
+        "maxBlockIntervalOffset": 1
+    }
+}
