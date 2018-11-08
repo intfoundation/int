@@ -37,7 +37,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
 
 ### Start a peer
 
-    node src/tool/startMiner.js .......
+    node src/tool/startPeer.js .......
 
     options:
         --test                           Connect the test net
