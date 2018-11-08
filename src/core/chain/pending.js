@@ -12,7 +12,6 @@ class PendingTransactions extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_queueOpt = [];
-        this.m_temp = new Set();
         this.m_transactions = [];
         this.m_orphanTx = new Map();
         this.m_mapNonce = new Map();
@@ -36,25 +35,23 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.error(`txhash=${tx.hash} method=${tx.method} has no match listener`);
             return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
         }
-        const err = checker(tx);
+        let err = checker(tx);
         if (err) {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
-            return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
+            return err;
         }
         let nCount = this.getPengdingCount();
         if (nCount >= this.m_maxPengdingCount) {
             this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
             return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
         }
-        if (this.m_temp.has(tx.hash)) {
-            return error_code_1.ErrorCode.RESULT_TX_EXIST;
-        }
-        this.m_temp.add(tx.hash);
         if (this.isExist(tx)) {
             this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
+        //做nonce检查和balance检查
         let opt = { _type: SyncOptType.addTx, param: [{ tx, ct: Date.now() }] };
+        // err = await this._addTx({tx, ct: Date.now()},false);
         this.addPendingOpt(opt);
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -143,11 +140,11 @@ class PendingTransactions extends events_1.EventEmitter {
         if (!txOld) {
             this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
         }
-        this.emit('onAddedTx', txTime.tx);
+        this.emit('txAdded', txTime.tx);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async _addTx(txTime) {
-        if (this.isTimeout(txTime)) {
+    async _addTx(txTime, isOldTx = true) {
+        if (isOldTx && this.isTimeout(txTime)) {
             this.m_logger.warn(`_addTx tx timeout, txhash=${txTime.tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TIMEOUT;
         }
@@ -158,7 +155,7 @@ class PendingTransactions extends events_1.EventEmitter {
             return ret.err;
         }
         if (ret.nonce + 1 > txTime.tx.nonce) {
-            this.m_logger.warn(`_addTx nonce small storagenonce=${ret.nonce},txnonce=${txTime.tx.nonce}, txhash=${txTime.tx.hash}`);
+            // this.m_logger.warn(`_addTx nonce small storagenonce=${ret.nonce!},txnonce=${txTime.tx.nonce}, txhash=${txTime.tx.hash}`);
             return error_code_1.ErrorCode.RESULT_OK;
         }
         let { err, nonce } = await this.getNonce(address);

@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const serializable_1 = require("../serializable");
 const assert = require('assert');
 const error_code_1 = require("../error_code");
 const chain_1 = require("../chain");
@@ -56,6 +55,7 @@ class TransactionExecutor extends BaseExecutor {
             this.m_logger.error(`methodexecutor, _dealNonce, nonce error,nonce should ${nonce + 1}, but ${tx.nonce}, txhash=${tx.hash} address=${tx.address}`);
             return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
         }
+        this.m_logger.info(`_dealNonce, nonce  set nonce ${tx.address} nonce=${tx.nonce}`);
         await kvr.kv.set(tx.address, tx.nonce);
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -81,7 +81,7 @@ class TransactionExecutor extends BaseExecutor {
         }
         receipt.transactionHash = this.m_tx.hash;
         if (receipt.returnCode) {
-            this.m_logger.debug(`handler return code=${receipt.returnCode}, will rollback storage`);
+            this.m_logger.warn(`handler return code=${receipt.returnCode}, will rollback storage`);
             await work.value.rollback();
         }
         else {
@@ -97,7 +97,7 @@ class TransactionExecutor extends BaseExecutor {
     }
     async _execute(env, input) {
         try {
-            this.m_logger.info(`will execute tx ${this.m_tx.hash}: ${this.m_tx.method}, params ${JSON.stringify(this.m_tx.input)}`);
+            this.m_logger.info(`will execute tx ${this.m_tx.hash}: ${this.m_tx.method},from ${this.m_tx.address}, params ${JSON.stringify(this.m_tx.input)}`);
             return await this.m_listener(env, this.m_tx.input);
         }
         catch (e) {
@@ -118,26 +118,17 @@ class TransactionExecutor extends BaseExecutor {
             writable: false,
             value: this.m_tx.address
         });
-        Object.defineProperty(context, 'bytes', {
-            writable: false,
-            value: this.objectToBuffer(this.m_tx.input)
-        });
+        // Object.defineProperty(
+        //     context,'bytes', {
+        //         writable: false,
+        //         value: this.objectToBuffer(this.m_tx.input!)
+        // });
         context.createAddress = () => {
             let buf = Buffer.from(this.m_tx.address + this.m_tx.nonce + this.m_addrIndex);
             this.m_addrIndex++;
             return client_1.addressFromPublicKey(buf);
         };
         return context;
-    }
-    objectToBuffer(input) {
-        let inputString;
-        if (input) {
-            inputString = JSON.stringify(serializable_1.toStringifiable(input, true));
-        }
-        else {
-            inputString = JSON.stringify({});
-        }
-        return Buffer.from(inputString);
     }
 }
 exports.TransactionExecutor = TransactionExecutor;

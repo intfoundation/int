@@ -141,6 +141,7 @@ class StorageLogSnapshotManager {
         let header = hr.header;
         let err = error_code_1.ErrorCode.RESULT_NOT_FOUND;
         let nearestSnapshot;
+        this.m_logger.info(`================================getSnapshot need redo`);
         do {
             let _ssr = await this.m_dumpManager.getSnapshot(header.hash);
             if (!_ssr.err) {

@@ -86,25 +86,25 @@ class BdtNode extends net_1.INode {
     }
     async randomPeers(count, excludes) {
         let res = await this.m_dht.getRandomPeers(count, false);
-        this.m_logger.info(`first find ${res.peerlist.length} peers, ${JSON.stringify(res.peerlist.map((value) => value.peerid))}`);
+        // this.m_logger.info(`first find ${res.peerlist.length} peers, ${JSON.stringify(res.peerlist.map((value: any) => value.peerid))}`);
         const ignore0 = !res || !res.peerlist || res.peerlist.length === 0;
         // 过滤掉自己和种子peer
         let peers = res.peerlist.filter((val) => {
             if (!val.peerid) {
-                this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
+                // this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
                 return false;
             }
             if (this.m_skipList.includes(val.peerid)) {
-                this.m_logger.debug(`exclude ${val.peerid} from skipList`);
+                // this.m_logger.debug(`exclude ${val.peerid} from skipList`);
                 return false;
             }
             if (excludes.includes(val.peerid)) {
-                this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
+                // this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
                 return false;
             }
             let ready = val.getAdditionalInfo('ready');
             if (ready !== 1) {
-                this.m_logger.debug(`exclude ${val.peerid} not ready`);
+                // this.m_logger.debug(`exclude ${val.peerid} not ready`);
                 assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
                 return false;
             }
@@ -112,23 +112,23 @@ class BdtNode extends net_1.INode {
         });
         if (peers.length === 0) {
             peers = this.m_dht.getAllOnlinePeers();
-            this.m_logger.info(`get none from randomPeers, get ${peers.length} from AllOnlinePeers`);
+            // this.m_logger.info(`get none from randomPeers, get ${peers.length} from AllOnlinePeers`);
             peers = peers.filter((val) => {
                 if (!val.peerid) {
-                    this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
+                    // this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
                     return false;
                 }
                 if (this.m_skipList.includes(val.peerid)) {
-                    this.m_logger.debug(`exclude ${val.peerid} from skipList`);
+                    // this.m_logger.debug(`exclude ${val.peerid} from skipList`);
                     return false;
                 }
                 if (excludes.includes(val.peerid)) {
-                    this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
+                    // this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
                     return false;
                 }
                 let ready = val.getAdditionalInfo('ready');
                 if (ready !== 1) {
-                    this.m_logger.debug(`exclude ${val.peerid} not ready`);
+                    // this.m_logger.debug(`exclude ${val.peerid} not ready`);
                     assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
                     return false;
                 }
@@ -136,7 +136,7 @@ class BdtNode extends net_1.INode {
             });
         }
         let peerids = peers.map((value) => value.peerid);
-        this.m_logger.info(`find ${peerids.length} peers after filter, count ${count}, ${JSON.stringify(peerids)}`);
+        // this.m_logger.info(`find ${peerids.length} peers after filter, count ${count}, ${JSON.stringify(peerids)}`);
         // 如果peer数量比传入的count多， 需要随机截取
         if (peerids.length > count) {
             let temp_peerids = [];

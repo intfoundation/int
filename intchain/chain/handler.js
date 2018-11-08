@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("../../src/client");
-const util_1 = require("util");
 const core_1 = require("../../src/core");
+const txPendingChecker = require("../../src/core/chain/tx_pending_checker");
 function registerHandler(handler) {
     handler.genesisListener = async (context) => {
         await context.storage.createKeyValue('bid');
@@ -20,9 +20,9 @@ function registerHandler(handler) {
         }
         // 这里是不是会有一些检查什么的，会让任何人都随便创建Token么?
         // 必须要有tokenid，一条链上tokenid不能重复
-        if (!params.tokenid || !core_1.isValidAddress(params.tokenid)) {
-            return client_1.ErrorCode.RESULT_INVALID_ADDRESS;
-        }
+        // if (!params.tokenid || !isValidAddress(params.tokenid) ) {
+        //     return ErrorCode.RESULT_INVALID_ADDRESS;
+        // }
         let kvRet = await context.storage.createKeyValue(params.tokenid);
         if (kvRet.err) {
             return kvRet.err;
@@ -33,14 +33,8 @@ function registerHandler(handler) {
         await kvRet.kv.set('supply', new client_1.BigNumber(params.amount));
         await kvRet.kv.set('name', params.name);
         await kvRet.kv.set('symbol', params.symbol);
-        // if (params.preBalances) {
-        //     for (let index = 0; index < params.preBalances.length; index++) {
-        //         // 按照address和amount预先初始化钱数
-        //         await kvRet.kv!.set(params.preBalances[index].address, new BigNumber(params.preBalances[index].amount));
-        //     }
-        // }
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.createTokenChecker);
     handler.addTX('transferTokenTo', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
@@ -72,7 +66,7 @@ function registerHandler(handler) {
         await (tokenkv.kv.set(context.caller, fromTotal.minus(amount)));
         await (tokenkv.kv.set(params.to, (await getTokenBalance(tokenkv.kv, params.to)).plus(amount)));
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.transferTokenToChecker);
     /**
      * 转移其它地址的 tokens
      */
@@ -128,7 +122,7 @@ function registerHandler(handler) {
         await tokenkv.kv.set(params.from, fromBalance.minus(amount));
         await tokenkv.kv.set(params.to, toBalance.plus(amount));
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.transferFromChecker);
     /**
      * 授权
      */
@@ -163,7 +157,7 @@ function registerHandler(handler) {
             return senderApproval.err;
         }
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.approveChecker);
     /**
      * 冻结帐户
      */
@@ -188,7 +182,7 @@ function registerHandler(handler) {
         }
         await tokenkv.kv.hset('freeze', freezeAddress, freeze);
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.freezeAccountChecker);
     /**
      * 燃烧
      */
@@ -220,7 +214,7 @@ function registerHandler(handler) {
         await tokenkv.kv.set('supply', totalSupply.value.minus(burnAmount));
         await tokenkv.kv.set(context.caller, callerBalance.minus(burnAmount));
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.burnChecker);
     /**
      * 铸币
      */
@@ -250,7 +244,7 @@ function registerHandler(handler) {
         await tokenkv.kv.set('supply', totalSupply.value.plus(mintAmount));
         await tokenkv.kv.set(owner, ownerBalance.plus(mintAmount));
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.mintTokenChecker);
     /**
      * 转移权限
      */
@@ -276,7 +270,7 @@ function registerHandler(handler) {
             return client_1.ErrorCode.RESULT_NO_PERMISSIONS;
         }
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.transferOwnershipChecker);
     /**
      * 获取 token 总量
      */
@@ -311,39 +305,39 @@ function registerHandler(handler) {
             return err;
         }
         return await context.transferTo(params.to, context.value);
-    });
+    }, txPendingChecker.transferToChecker);
     handler.addTX('vote', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
-        return await context.vote(context.caller, params);
-    });
+        return await context.vote(context.caller, params.candidates);
+    }, txPendingChecker.voteChecker);
     handler.addTX('mortgage', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
-        return await context.mortgage(context.caller, new client_1.BigNumber(params));
-    });
+        return await context.mortgage(context.caller, new client_1.BigNumber(params.amount));
+    }, txPendingChecker.mortgageChecker);
     handler.addTX('unmortgage', async (context, params) => {
         let errC = context.cost(context.totallimit.times(context.price));
         if (errC) {
             return errC;
         }
-        let err = await context.transferTo(context.caller, new client_1.BigNumber(params));
+        let err = await context.transferTo(context.caller, new client_1.BigNumber(params.amount));
         if (err) {
             return err;
         }
-        return await context.unmortgage(context.caller, new client_1.BigNumber(params));
-    });
+        return await context.unmortgage(context.caller, new client_1.BigNumber(params.amount));
+    }, txPendingChecker.unmortgageChecker);
     handler.addTX('register', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
         return await context.register(context.caller);
-    });
+    }, txPendingChecker.registerChecker);
     // 拍卖
     handler.addTX('publish', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
@@ -354,9 +348,9 @@ function registerHandler(handler) {
         // context.value: 最低出价, BigNumber
         // params.duation: 持续时间，单位是block
         // 暂时没有对发布方有value的要求，可以加上发布方要扣除一定数量币的功能
-        if (util_1.isNullOrUndefined(params.name) || !params.duation || params.duation <= 0 || !(params.lowest instanceof client_1.BigNumber)) {
-            return client_1.ErrorCode.RESULT_INVALID_PARAM;
-        }
+        // if (isNullOrUndefined(params.name) || !params.duation || params.duation <= 0 || !(params.lowest instanceof BigNumber)) {
+        //     return ErrorCode.RESULT_INVALID_PARAM;
+        // }
         let bidKV = (await context.storage.getReadWritableKeyValue('bid')).kv;
         let ret = await bidKV.get(params.name);
         if (ret.err === client_1.ErrorCode.RESULT_OK) {
@@ -367,7 +361,7 @@ function registerHandler(handler) {
         await bidKV.set(params.name, { caller: context.caller, value: context.value });
         await bidKV.rpush((context.height + params.duation).toString(), params.name);
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.publishChecker);
     // 出价
     handler.addTX('bid', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
@@ -390,7 +384,7 @@ function registerHandler(handler) {
         // 更新新的出价
         await bidKV.set(params.name, { caller: context.caller, value: context.value });
         return client_1.ErrorCode.RESULT_OK;
-    });
+    }, txPendingChecker.bidChecker);
     // 在块后事件中处理拍卖结果
     handler.addPostBlockListener(async (height) => true, async (context) => {
         context.logger.info(`on BlockHeight ${context.height}`);

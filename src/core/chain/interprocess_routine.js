@@ -22,7 +22,7 @@ class BlockExecutorWorkerRoutine {
         const writer = new writer_1.BufferWriter();
         let err;
         if (params.type === RoutineType.execute) {
-            err = params.block.encodeWithoutReceipt(writer);
+            err = params.block.encode(writer);
         }
         else if (params.type === RoutineType.verify) {
             err = params.block.encode(writer);
@@ -75,7 +75,7 @@ class BlockExecutorWorkerRoutine {
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
         if (message.type === RoutineType.execute) {
-            err = block.decodeWithoutReceipt(new reader_1.BufferReader(blockRaw));
+            err = block.decode(new reader_1.BufferReader(blockRaw));
         }
         else if (message.type === RoutineType.verify) {
             err = block.decode(new reader_1.BufferReader(blockRaw));
@@ -221,6 +221,7 @@ class BlockExecutorWorkerRoutine {
         result.chain = params.chain;
         result.type = params.type;
         do {
+            params.storage.createLogger();
             const nber = await params.chain.newBlockExecutor(params.block, params.storage);
             if (nber.err) {
                 result.err = nber.err;
@@ -299,7 +300,10 @@ class InterprocessRoutine extends executor_routine_1.BlockExecutorRoutine {
         if (result.block) {
             this.m_block = result.block;
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: result.err } };
+        if (result.storage) {
+            this.m_storage = result.storage;
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: result.err, valid: result.valid } };
     }
     async execute() {
         return this._executeOrVerify(RoutineType.execute);

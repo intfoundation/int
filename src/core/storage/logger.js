@@ -4,7 +4,6 @@ class LoggedStorage {
     constructor(storage, logger) {
         this.m_storage = storage;
         this.m_logger = logger;
-        this.m_logger.init();
         this._wrapStorage();
     }
     get logger() {

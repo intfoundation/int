@@ -312,6 +312,10 @@ class Chain extends events_1.EventEmitter {
         _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
         this.m_instanceOptions = _instanceOptions;
         this.m_pending = this._createPending();
+        this.m_pending.on('txAdded', (tx) => {
+            this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+            this.m_node.broadcast([tx]);
+        });
         this.m_pending.init();
         this.m_routineManager = new instanceOptions.routineManagerType(this);
         let baseNode = this._createChainNode();
@@ -464,11 +468,6 @@ class Chain extends events_1.EventEmitter {
             return error_code_1.ErrorCode.RESULT_INVALID_STATE;
         }
         let err = await this.m_pending.addTransaction(tx);
-        // TODO: 广播要排除tx的来源 
-        if (!err) {
-            this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-            this.m_node.broadcast([tx]);
-        }
         return err;
     }
     async _compareWork(left, right) {
@@ -1039,6 +1038,7 @@ class Chain extends events_1.EventEmitter {
         let crr;
         // 通过redo log 来添加block的内容
         if (options && options.redoLog) {
+            this.m_logger.debug(`verify block blocknumber=${block.number}, from log`);
             crr = { err: error_code_1.ErrorCode.RESULT_OK, routine: new VerifyBlockWithRedoLogRoutine({
                     name,
                     block,
@@ -1048,6 +1048,7 @@ class Chain extends events_1.EventEmitter {
                 }) };
         }
         else {
+            this.m_logger.debug(`verify block blocknumber=${block.number}, not from log`);
             crr = this.m_routineManager.create({ name, block, storage });
         }
         if (crr.err) {
@@ -1058,10 +1059,12 @@ class Chain extends events_1.EventEmitter {
         const next = async () => {
             const rr = await routine.verify();
             if (rr.err || rr.result.err) {
+                this.m_logger.error(`verify block failed, blocknumber=${block.number}, rr.err=${rr.err} rr.result!.err=${rr.err ? 0 : rr.result.err}`);
                 await storage.remove();
                 return { err: rr.err };
             }
             if (rr.result.valid !== error_code_1.ErrorCode.RESULT_OK) {
+                this.m_logger.error(`verify block failed, blocknumber=${block.number}, rr.result!.valid !== ErrorCode.RESULT_OK`);
                 if (!(this._saveMismatch && rr.result.valid === error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH)) {
                     await storage.remove();
                 }
@@ -1233,6 +1236,7 @@ class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRout
     async verify() {
         this.m_logger.info(`redo log, block[${this.block.number}, ${this.block.hash}]`);
         // 执行redolog
+        this.storage.createLogger();
         let redoError = await this.m_redoLog.redoOnStorage(this.storage);
         if (redoError) {
             this.m_logger.error(`redo error ${redoError}`);
@@ -1244,6 +1248,7 @@ class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRout
             this.m_logger.error(`redo log get storage messageDigest error`);
             return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: digestResult.err } };
         }
+        this.m_logger.info(`redo log verify, digestResult.value=${digestResult.value}, blockstoragehash=${this.block.header.storageHash}`);
         const valid = digestResult.value === this.block.header.storageHash ? error_code_1.ErrorCode.RESULT_OK : error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
         // 当前的storage hash和header上的storageHash 比较 
         // 设置verify 结果, 后续流程需要使用 res.valid

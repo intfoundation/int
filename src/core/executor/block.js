@@ -26,7 +26,11 @@ class BlockExecutor {
         return new transaction_1.EventExecutor(l, this.m_logger);
     }
     async execute() {
-        return await this._execute(this.m_block);
+        let t1 = Date.now();
+        let ret = await this._execute(this.m_block);
+        let t2 = Date.now();
+        this.m_logger.info(`runblock time====${t2 - t1}, count=${this.m_block.content.transactions.length}`);
+        return ret;
     }
     async verify() {
         let oldBlock = this.m_block;
@@ -55,7 +59,6 @@ class BlockExecutor {
     }
     async _execute(block) {
         this.m_logger.info(`begin execute block ${block.number}`);
-        this.m_storage.createLogger();
         let err = await this.executePreBlockEvent();
         if (err) {
             this.m_logger.error(`blockexecutor execute begin_event failed,errcode=${err},blockhash=${block.hash}`);
@@ -119,6 +122,7 @@ class BlockExecutor {
     async _executeTransactions() {
         let receipts = [];
         // 执行tx
+        this.m_logger.info(`===================count=${this.m_block.content.transactions.length}`);
         for (let tx of this.m_block.content.transactions) {
             const ret = await this.executeTransaction(tx);
             if (ret.err) {
