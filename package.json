@@ -2,9 +2,7 @@
   "name": "int-cli",
   "version": "3.0.1",
   "description": "INT is the new generation of bottom-up created system of IoT and blockchain",
-  "scripts": {
-
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/intfoundation/int"
