@@ -3,4 +3,5 @@ node_modules/
 .DS_Store
 data/testintchain/
 data/intchain/peerData
+data/intchain/minerData
 package-lock.json
