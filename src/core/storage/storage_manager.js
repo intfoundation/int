@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = require("fs-extra");
-const path = require("path");
 const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const storage_1 = require("./storage");
@@ -19,6 +18,7 @@ class StorageManager {
             this.m_snapshotManager = new log_snapshot_manager_1.StorageLogSnapshotManager(options);
         }
         this.m_readonly = !!options.readonly;
+        this.m_tmpManager = options.tmpManager;
     }
     async init() {
         let err = await this.m_snapshotManager.init();
@@ -58,7 +58,7 @@ class StorageManager {
             return { err: error_code_1.ErrorCode.RESULT_NOT_SUPPORT };
         }
         let storage = new this.m_storageType({
-            filePath: path.join(this.m_path, name),
+            filePath: this.m_tmpManager.getPath(`${name}.storage`),
             logger: this.m_logger
         });
         await storage.remove();
@@ -152,13 +152,8 @@ class StorageManager {
     getRedoLog(blockHash) {
         return this.m_snapshotManager.getRedoLog(blockHash);
     }
-    // 对象形式的redo log（通过网络请求, 然后解析buffer获得) 写入至本地文件
-    // 提供给chain层引用
-    writeRedoLog(blockHash, log) {
-        if (this.m_readonly) {
-            return error_code_1.ErrorCode.RESULT_NOT_SUPPORT;
-        }
-        return this.m_snapshotManager.writeRedoLog(blockHash, log);
+    hasRedoLog(blockHash) {
+        return this.m_snapshotManager.hasRedoLog(blockHash);
     }
     async releaseSnapshotView(blockHash) {
         let stub = this.m_views.get(blockHash);

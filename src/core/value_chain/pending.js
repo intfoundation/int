@@ -4,7 +4,6 @@ const chain_1 = require("../chain");
 const error_code_1 = require("../error_code");
 const bignumber_js_1 = require("bignumber.js");
 const chain_2 = require("./chain");
-const serializable_1 = require("../serializable");
 class ValuePendingTransactions extends chain_1.PendingTransactions {
     constructor() {
         super(...arguments);
@@ -13,35 +12,32 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
         this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
         this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
-        this.m_baseLimit = new bignumber_js_1.BigNumber(500); // 基础交易费用
-        this.m_getLimit = new bignumber_js_1.BigNumber(20); // get操作费用
-        this.m_setLimit = new bignumber_js_1.BigNumber(100); // set操作费用
-        this.m_createLimit = new bignumber_js_1.BigNumber(50000); // 建表操作费用
-        this.m_inputLimit = new bignumber_js_1.BigNumber(5); // input数据每个字节费用
-        this.m_coefficient = new bignumber_js_1.BigNumber(40); // 调整系数
     }
-    async addTransaction(tx) {
-        // 设置bignumber 小数位数为0
-        bignumber_js_1.BigNumber.set({ DECIMAL_PLACES: 0 });
-        let bt = this.baseMethodChecker(tx);
+    async onCheck(txTime, txOld) {
+        let ret = await super.onCheck(txTime, txOld);
+        if (ret) {
+            return ret;
+        }
+        let bt = this.baseMethodChecker(txTime.tx);
         if (bt) {
             return bt;
         }
-        let br = await this.getBalance(tx.address);
+        let br = await this.getBalance(txTime.tx.address);
         if (br.err) {
             return br.err;
         }
         let balance = br.value;
-        let totalUse = tx.value.plus(tx.limit.times(tx.price));
+        let txValue = txTime.tx;
+        let totalUse = txValue.value.plus(txValue.limit.times(txValue.price));
+        if (txOld) {
+            let txOldValue = txOld.tx;
+            totalUse = totalUse.minus(txOldValue.value).minus(txOldValue.limit.times(txOldValue.price));
+        }
         if (balance.lt(totalUse)) {
             this.m_logger.error(`onCheck failed, need total ${totalUse.toString()} but balance ${balance.toString()}`);
             return error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
-        let err = await super.addTransaction(tx);
-        if (err) {
-            return err;
-        }
-        return this._updateBalance(tx.address, balance.minus(totalUse));
+        return error_code_1.ErrorCode.RESULT_OK;
     }
     baseMethodChecker(tx) {
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
@@ -60,6 +56,25 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
         }
         return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async onAddedTx(txTime, txOld) {
+        let br = await this.getBalance(txTime.tx.address);
+        if (br.err) {
+            return br.err;
+        }
+        let balance = br.value;
+        let txValue = txTime.tx;
+        let valueFee = txValue.limit.times(txValue.price);
+        if (txOld) {
+            let txOldValue = txOld.tx;
+            let oldFee = txOldValue.limit.times(txOldValue.price);
+            balance = balance.plus(oldFee).plus(txOldValue.value).minus(valueFee).minus(txValue.value);
+        }
+        else {
+            balance = balance.minus(valueFee).minus(txValue.value);
+        }
+        this.m_balance.set(txTime.tx.address, balance);
+        return await super.onAddedTx(txTime);
     }
     async updateTipBlock(header) {
         this.m_balance = new Map();
@@ -105,19 +120,6 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         }
         return error_code_1.ErrorCode.RESULT_FEE_TOO_SMALL;
     }
-    async _updateBalance(address, v) {
-        let br = await this.getStorageBalance(address);
-        if (br.err) {
-            return br.err;
-        }
-        if (br.value.isEqualTo(v) && this.m_balance.has(address)) {
-            this.m_balance.delete(address);
-        }
-        else {
-            this.m_balance.set(address, v);
-        }
-        return error_code_1.ErrorCode.RESULT_OK;
-    }
     addToQueue(txTime, pos) {
         pos = 0;
         for (let i = 0; i < this.m_transactions.length; i++) {
@@ -131,33 +133,16 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         }
         this.m_transactions.splice(pos, 0, txTime);
     }
-    async onReplaceTx(txNew, txOld) {
-        let br = await this.getBalance(txNew.address);
-        if (br.err) {
-            return;
-        }
-        // await this._updateBalance(txNew.address as string, br.value!.plus(txOld.value).minus(txNew.value).plus(txOld.fee).minus(txNew.fee));
-        await this._updateBalance(txNew.address, br.value.plus(txOld.value).minus(txNew.value).plus(txOld.limit.times(txOld.price)).minus(txNew.limit.times(txNew.price)));
-        return;
-    }
     popTransactionWithFee(maxLimit) {
         let txs = [];
         let total = new bignumber_js_1.BigNumber(0);
-        while (true) {
-            let pt = this._popTransaction(1);
-            if (pt.length === 0) {
-                break;
-            }
-            let txTotalLimit = this.calcTxLimit(pt[0].tx);
-            // total = total.plus((pt[0].tx as ValueTransaction).limit.times((pt[0].tx as ValueTransaction).price));
-            total = total.plus(txTotalLimit);
+        for (let pos = 0; pos < this.m_transactions.length; pos++) {
+            total = total.plus(this.m_transactions[pos].tx.limit);
             if (total.gt(maxLimit)) {
                 this.m_logger.info(`popTransactionWithFee finished, total limit ${total.toString()}, max limit ${maxLimit.toString()}`);
-                this.m_transactions.unshift(pt[0]);
                 break;
             }
-            this.m_logger.info(`popTransactionWithFee, tx total limit ${txTotalLimit.toString()}, total limit ${total.toString()}`);
-            txs.push(pt[0].tx);
+            txs.push(this.m_transactions[pos].tx);
         }
         return txs;
     }
@@ -172,81 +157,6 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             pendingTxs.push({ tx: tx, ct: pt.pendingTransactions[i].ct });
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: pendingTxs };
-    }
-    // 计算执行tx的 limit
-    calcTxLimit(tx) {
-        let txTotalLimit = new bignumber_js_1.BigNumber(0);
-        switch (tx.method) {
-            case 'transferTo':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'createToken':
-                txTotalLimit = this.calcLimit(tx.input, 6, 0, true);
-                break;
-            case 'transferTokenTo':
-                txTotalLimit = this.calcLimit(tx.input, 2, 4, false);
-                break;
-            case 'transferFrom':
-                txTotalLimit = this.calcLimit(tx.input, 3, 6, false);
-                break;
-            case 'approve':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'freezeAccount':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'burn':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'mintToken':
-                txTotalLimit = this.calcLimit(tx.input, 2, 3, false);
-                break;
-            case 'transferOwnership':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'vote':
-                txTotalLimit = this.calcLimit(tx.input, 2, 5, false);
-                break;
-            case 'mortgage':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'unmortgage':
-                txTotalLimit = this.calcLimit(tx.input, 3, 2, false);
-                break;
-            case 'register':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'publish':
-                txTotalLimit = this.calcLimit(tx.input, 3, 1, false);
-                break;
-            case 'bid':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            default:
-                txTotalLimit = this.calcLimit(tx.input, 0, 0, false);
-                break;
-        }
-        return txTotalLimit;
-    }
-    objectToBuffer(input) {
-        let inputString;
-        if (input) {
-            inputString = JSON.stringify(serializable_1.toStringifiable(input, true));
-        }
-        else {
-            inputString = JSON.stringify({});
-        }
-        return Buffer.from(inputString);
-    }
-    calcLimit(input, setN, getN, create) {
-        let txTotalLimit = new bignumber_js_1.BigNumber(0);
-        let txInputBytes = new bignumber_js_1.BigNumber(this.objectToBuffer(input).length);
-        txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(setN))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(getN))).plus(txInputBytes.times(this.m_inputLimit));
-        if (create) {
-            txTotalLimit = txTotalLimit.plus(this.m_createLimit);
-        }
-        txTotalLimit = txTotalLimit.times(this.m_coefficient);
-        return txTotalLimit;
     }
 }
 exports.ValuePendingTransactions = ValuePendingTransactions;

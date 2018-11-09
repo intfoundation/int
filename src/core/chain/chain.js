@@ -9,13 +9,15 @@ const fs = require("fs-extra");
 const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const logger_util_1 = require("../lib/logger_util");
+const tmp_manager_1 = require("../lib/tmp_manager");
 const block_1 = require("../block");
 const storage_1 = require("../storage");
 const storage_2 = require("../storage_sqlite/storage");
-const pending_1 = require("./pending");
 const executor_1 = require("../executor");
+const pending_1 = require("./pending");
 const chain_node_1 = require("./chain_node");
-const util_2 = require("util");
+const executor_routine_1 = require("./executor_routine");
+const client_1 = require("../../client");
 var ChainState;
 (function (ChainState) {
     ChainState[ChainState["none"] = 0] = "none";
@@ -45,7 +47,8 @@ class Chain extends events_1.EventEmitter {
         this.m_handler = options.handler;
         this.m_globalOptions = Object.create(null);
         Object.assign(this.m_globalOptions, options.globalOptions);
-        this.m_mismatchPath = path.join(this.m_dataDir, 'mismatch');
+        this.m_tmpManager = new tmp_manager_1.TmpManager({ root: this.m_dataDir, logger: this.logger });
+        this.m_networkCreator = options.networkCreator;
     }
     static dataDirValid(dataDir) {
         if (!fs.pathExistsSync(dataDir)) {
@@ -84,6 +87,12 @@ class Chain extends events_1.EventEmitter {
     get _ignoreVerify() {
         return this.m_instanceOptions.ignoreVerify;
     }
+    get _saveMismatch() {
+        return this.m_logger.level === 'debug';
+    }
+    get _morkSnapshot() {
+        return true;
+    }
     get globalOptions() {
         const c = this.m_globalOptions;
         return c;
@@ -106,14 +115,17 @@ class Chain extends events_1.EventEmitter {
     get node() {
         return this.m_node;
     }
-    get peerid() {
-        return this.m_node.base.peerid;
-    }
     get handler() {
         return this.m_handler;
     }
     get headerStorage() {
         return this.m_headerStorage;
+    }
+    get routineManager() {
+        return this.m_routineManager;
+    }
+    get tmpManager() {
+        return this.m_tmpManager;
     }
     async _loadGenesis() {
         let genesis = await this.m_headerStorage.getHeader(0);
@@ -174,6 +186,25 @@ class Chain extends events_1.EventEmitter {
         // TODO: compare with globalOptions
         return error_code_1.ErrorCode.RESULT_OK;
     }
+    newNetwork(options) {
+        let parsed = Object.create(this._defaultNetworkOptions());
+        parsed.dataDir = this.m_dataDir;
+        parsed.headerStorage = this.headerStorage;
+        parsed.blockHeaderType = this._getBlockHeaderType();
+        parsed.transactionType = this._getTransactionType();
+        parsed.receiptType = this._getReceiptType();
+        parsed.node = options.node;
+        parsed.logger = this.m_logger;
+        if (options.netType) {
+            parsed.nettype = options.netType;
+        }
+        const cr = this.m_networkCreator.create({ parsed, origin: new Map() });
+        if (cr.err) {
+            return { err: cr.err };
+        }
+        cr.network.setInstanceOptions(options);
+        return cr;
+    }
     async initComponents(options) {
         // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state >= ChainState.init) {
@@ -184,6 +215,12 @@ class Chain extends events_1.EventEmitter {
         }
         const readonly = options && options.readonly;
         this.m_readonly = readonly;
+        let err;
+        err = this.m_tmpManager.init({ clean: !this.m_readonly });
+        if (err) {
+            this.m_logger.error(`chain init faield for tmp manager init failed `, err);
+            return err;
+        }
         this.m_blockStorage = new block_1.BlockStorage({
             logger: this.m_logger,
             path: this.m_dataDir,
@@ -214,13 +251,14 @@ class Chain extends events_1.EventEmitter {
             blockStorage: this.m_blockStorage,
             readonly
         });
-        let err;
         err = await this.m_headerStorage.init();
         if (err) {
+            this.m_logger.error(`chain init faield for header storage init failed `, err);
             return err;
         }
         this.m_storageManager = new storage_1.StorageManager({
             path: path.join(this.m_dataDir, 'storage'),
+            tmpManager: this.m_tmpManager,
             storageType: storage_2.SqliteStorage,
             logger: this.m_logger,
             headerStorage: this.m_headerStorage,
@@ -254,29 +292,71 @@ class Chain extends events_1.EventEmitter {
         return true;
     }
     _onCheckGlobalOptions(globalOptions) {
-        if (util_2.isNullOrUndefined(globalOptions.txlivetime)) {
+        if (util_1.isNullOrUndefined(globalOptions.txlivetime)) {
             globalOptions.txlivetime = 60 * 60;
         }
-        if (util_2.isNullOrUndefined(globalOptions.maxPengdingCount)) {
+        if (util_1.isNullOrUndefined(globalOptions.maxPengdingCount)) {
             globalOptions.maxPengdingCount = 10000;
         }
-        if (util_2.isNullOrUndefined(globalOptions.warnPengdingCount)) {
+        if (util_1.isNullOrUndefined(globalOptions.warnPengdingCount)) {
             globalOptions.warnPengdingCount = 5000;
         }
         return true;
     }
-    parseInstanceOptions(node, instanceOptions) {
+    parseInstanceOptions(options) {
         let value = Object.create(null);
-        value.node = node;
-        value.ignoreBan = instanceOptions.get('ignoreBan');
-        value.saveMismatch = instanceOptions.get('saveMismatch');
+        value.routineManagerType = options.parsed.routineManagerType;
+        value.saveMismatch = options.origin.get('saveMismatch');
+        const ops = [];
+        if (options.origin.get('net')) {
+            ops.push({
+                parsed: this._defaultNetworkOptions(),
+                origin: options.origin
+            });
+        }
+        else if (options.origin.get('netConfig')) {
+            let _path = options.origin.get('netConfig');
+            if (!path.isAbsolute(_path)) {
+                _path = path.join(process.cwd(), _path);
+            }
+            let netConfig;
+            try {
+                netConfig = fs.readJsonSync(_path);
+            }
+            catch (e) {
+                this.m_logger.error(`read net config ${_path} failed `, e);
+                return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
+            }
+            if (!util_1.isArray(netConfig) || !netConfig[0] || !util_1.isObject(netConfig[0])) {
+                this.m_logger.error(`read net config ${_path} must contain array of config `);
+                return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
+            }
+            ops.push({
+                parsed: this._defaultNetworkOptions(),
+                origin: client_1.MapFromObject(netConfig[0])
+            });
+            for (let c of netConfig.slice(1)) {
+                ops.push({
+                    parsed: {},
+                    origin: client_1.MapFromObject(c)
+                });
+            }
+        }
+        else {
+            this.m_logger.error(`config should has net or netConfig`);
+            return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
+        }
+        value.networks = [];
+        for (let o of ops) {
+            const pnr = this._parseNetwork(o);
+            if (pnr.err) {
+                return { err: pnr.err };
+            }
+            value.networks.push(pnr.network);
+        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(instanceOptions) {
-        this.m_saveMismatch = !!instanceOptions.saveMismatch;
-        if (this.m_saveMismatch && !fs.existsSync(this.m_mismatchPath)) {
-            fs.ensureDirSync(this.m_mismatchPath);
-        }
         // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state !== ChainState.init) {
             this.m_logger.error(`chain initialize failed for hasn't initComponent`);
@@ -284,24 +364,30 @@ class Chain extends events_1.EventEmitter {
         }
         let err = await this._loadGenesis();
         if (err) {
+            this.m_logger.error(`chain initialize failed for load genesis ${err}`);
             return err;
         }
         this.m_state = ChainState.syncing;
         let _instanceOptions = Object.create(null);
         Object.assign(_instanceOptions, instanceOptions);
         // 初始化时，要同步的peer数目，与这个数目的peer完成同步之后，才开始接收tx，挖矿等等
-        _instanceOptions.initializePeerCount = !util_2.isNullOrUndefined(instanceOptions.initializePeerCount) ? instanceOptions.initializePeerCount : 1;
+        _instanceOptions.initializePeerCount = !util_1.isNullOrUndefined(instanceOptions.initializePeerCount) ? instanceOptions.initializePeerCount : 1;
         // 初始化时，一次请求的最大header数目
-        _instanceOptions.headerReqLimit = !util_2.isNullOrUndefined(instanceOptions.headerReqLimit) ? instanceOptions.headerReqLimit : 2000;
+        _instanceOptions.headerReqLimit = !util_1.isNullOrUndefined(instanceOptions.headerReqLimit) ? instanceOptions.headerReqLimit : 2000;
         // confirm数目，当块的depth超过这个值时，认为时绝对安全的；分叉超过这个depth的两个fork，无法自动合并回去
-        _instanceOptions.confirmDepth = !util_2.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
-        _instanceOptions.ignoreVerify = !util_2.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : 0;
+        _instanceOptions.confirmDepth = !util_1.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
+        _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
         this.m_instanceOptions = _instanceOptions;
         this.m_pending = this._createPending();
+        this.m_pending.on('txAdded', (tx) => {
+            this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+            this.m_node.broadcast([tx]);
+        });
         this.m_pending.init();
-        let baseNode = this._createChainNode();
+        this.m_routineManager = new instanceOptions.routineManagerType(this);
         let node = new chain_node_1.ChainNode({
-            node: baseNode,
+            networks: _instanceOptions.networks,
+            logger: this.m_logger,
             blockStorage: this.m_blockStorage,
             storageManager: this.m_storageManager,
             blockWithLog: !!this._ignoreVerify
@@ -317,24 +403,26 @@ class Chain extends events_1.EventEmitter {
             for (let tx of transactions) {
                 const _err = await this._addTransaction(tx);
                 if (_err === error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR) {
-                    this._banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                    this._banConnection(conn.fullRemote, block_1.BAN_LEVEL.forever);
                     break;
                 }
             }
         });
-        this.m_node.base.on('ban', (remote) => {
+        this.m_node.on('ban', (remote) => {
             this._onConnectionError(remote);
         });
-        this.m_node.base.on('error', (connRemotePeer) => {
-            this._onConnectionError(connRemotePeer);
+        this.m_node.on('error', (remote) => {
+            this._onConnectionError(remote);
         });
         err = await this._loadChain();
         if (err) {
+            this.m_logger.error(`chain initialize failed for load chain ${err}`);
             return err;
         }
         // init chainnode in _initialBlockDownload
         err = await this._initialBlockDownload();
         if (err) {
+            this.m_logger.error(`chain initialize failed for initial block download ${err}`);
             return err;
         }
         err = await new Promise(async (resolve) => {
@@ -344,11 +432,13 @@ class Chain extends events_1.EventEmitter {
             });
         });
         if (err) {
+            this.m_logger.error(`chain initialize failed for first tip ${err}`);
             return err;
         }
         // 初始化完成之后开始监听，这样初始化中的节点不会被作为初始化的sync 节点
         err = await this.m_node.listen();
         if (err) {
+            this.m_logger.error(`chain initialize failed for listen ${err}`);
             return err;
         }
         return error_code_1.ErrorCode.RESULT_OK;
@@ -378,19 +468,27 @@ class Chain extends events_1.EventEmitter {
             warnPendingCount: this.m_globalOptions.warnPengdingCount
         });
     }
-    _createChainNode() {
-        return new block_1.RandomOutNode({
-            node: this.m_instanceOptions.node,
-            minOutbound: !util_2.isNullOrUndefined(this.m_instanceOptions.minOutbound) ? this.m_instanceOptions.minOutbound : 13,
-            checkCycle: this.m_instanceOptions.connectionCheckCycle ? this.m_instanceOptions.connectionCheckCycle : 1000,
-            dataDir: this.m_dataDir,
-            logger: this.m_logger,
-            headerStorage: this.m_headerStorage,
-            blockHeaderType: this._getBlockHeaderType(),
-            transactionType: this._getTransactionType(),
-            receiptType: this._getReceiptType(),
-            ignoreBan: this.m_instanceOptions.ignoreBan
-        });
+    _defaultNetworkOptions() {
+        return { netType: 'random' };
+    }
+    _parseNetwork(options) {
+        let parsed = Object.create(options.parsed);
+        parsed.dataDir = this.m_dataDir;
+        parsed.headerStorage = this.headerStorage;
+        parsed.blockHeaderType = this._getBlockHeaderType();
+        parsed.transactionType = this._getTransactionType();
+        parsed.receiptType = this._getReceiptType();
+        parsed.logger = this.m_logger;
+        const ncr = this.m_networkCreator.create({ parsed, origin: options.origin });
+        if (ncr.err) {
+            return { err: ncr.err };
+        }
+        const por = ncr.network.parseInstanceOptions(options);
+        if (por.err) {
+            return { err: por.err };
+        }
+        ncr.network.setInstanceOptions(por.value);
+        return { err: error_code_1.ErrorCode.RESULT_OK, network: ncr.network };
     }
     async _loadChain() {
         assert(this.m_headerStorage);
@@ -418,18 +516,22 @@ class Chain extends events_1.EventEmitter {
             return gsv.err;
         }
         this.m_refSnapshots.push(tip.hash);
-        let mork = tip.number - 2 * this._confirmDepth;
-        mork = mork >= 0 ? mork : 0;
-        if (mork !== tip.number) {
-            let hr = await this.m_headerStorage.getHeader(mork);
-            if (hr.err) {
-                return hr.err;
+        if (this._morkSnapshot) {
+            let mork = tip.number - 2 * this._confirmDepth;
+            mork = mork >= 0 ? mork : 0;
+            if (mork !== tip.number) {
+                let hr = await this.m_headerStorage.getHeader(mork);
+                if (hr.err) {
+                    return hr.err;
+                }
+                this.logger.info(`=============_updateTip get 2,number=${mork},hash=${hr.header.hash}`);
+                gsv = await this.m_storageManager.getSnapshotView(hr.header.hash);
+                this.logger.info(`=============_updateTip get 2 1,number=${mork},hash=${hr.header.hash}`);
+                if (gsv.err) {
+                    return gsv.err;
+                }
+                this.m_refSnapshots.push(hr.header.hash);
             }
-            gsv = await this.m_storageManager.getSnapshotView(hr.header.hash);
-            if (gsv.err) {
-                return gsv.err;
-            }
-            this.m_refSnapshots.push(hr.header.hash);
         }
         this.m_storageManager.recycleSnapShot();
         let err = await this.m_pending.updateTipBlock(tip);
@@ -448,19 +550,8 @@ class Chain extends events_1.EventEmitter {
         if (this.m_state !== ChainState.synced) {
             return error_code_1.ErrorCode.RESULT_INVALID_STATE;
         }
-        // 捕获未知异常
-        try {
-            let err = await this.m_pending.addTransaction(tx);
-            // TODO: 广播要排除tx的来源
-            if (!err) {
-                this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-                this.m_node.broadcast([tx]);
-            }
-            return err;
-        }
-        catch (e) {
-            return error_code_1.ErrorCode.RESULT_FAILED;
-        }
+        let err = await this.m_pending.addTransaction(tx);
+        return err;
     }
     async _compareWork(left, right) {
         // TODO: pow 用height并不安全， 因为大bits高height的工作量可能低于小bits低height 的工作量
@@ -492,8 +583,8 @@ class Chain extends events_1.EventEmitter {
         if (!pendingBlocks.adding) {
             while (pendingBlocks.sequence.length) {
                 pendingBlocks.adding = pendingBlocks.sequence.shift();
-                let { block, remote, storage, redoLog } = pendingBlocks.adding;
-                await this._addBlock(block, { remote, storage, redoLog });
+                let { block, from, storage, redoLog } = pendingBlocks.adding;
+                await this._addBlock(block, { remote: from, storage, redoLog });
                 pendingBlocks.hashes.delete(block.hash);
                 delete pendingBlocks.adding;
             }
@@ -506,7 +597,8 @@ class Chain extends events_1.EventEmitter {
             if (hi >= this.m_pendingHeaders.length) {
                 break;
             }
-            if (this.m_pendingHeaders[hi].remote === remote) {
+            const ph = this.m_pendingHeaders[hi];
+            if (ph.from === remote) {
                 this.m_pendingHeaders.splice(hi, 1);
             }
             else {
@@ -520,7 +612,7 @@ class Chain extends events_1.EventEmitter {
                 break;
             }
             let params = pendingBlocks.sequence[bi];
-            if (params.remote === remote) {
+            if (params.from === remote) {
                 pendingBlocks.sequence.splice(bi, 1);
                 pendingBlocks.hashes.delete(params.block.hash);
             }
@@ -536,25 +628,15 @@ class Chain extends events_1.EventEmitter {
             if (!connSync) {
                 return error_code_1.ErrorCode.RESULT_NOT_FOUND;
             }
-            this.m_node.base.banConnection(remote, level);
+            this.m_node.banConnection(remote, level);
         }
         else {
             connSync = remote;
-            this.m_node.base.banConnection(connSync.conn.getRemote(), level);
+            this.m_node.banConnection(connSync.conn.fullRemote, level);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async _continueSyncWithConnection(from) {
-        let connSync;
-        if (typeof from === 'string') {
-            connSync = this.m_connSyncMap.get(from);
-            if (!connSync) {
-                return error_code_1.ErrorCode.RESULT_NOT_FOUND;
-            }
-        }
-        else {
-            connSync = from;
-        }
+    async _continueSyncWithConnection(connSync) {
         if (connSync.moreHeaders) {
             connSync.lastRequestHeader = connSync.lastRecvHeader.hash;
             let limit = await this._calcuteReqLimit(connSync.lastRequestHeader, this._headerReqLimit);
@@ -566,9 +648,9 @@ class Chain extends events_1.EventEmitter {
             delete connSync.moreHeaders;
             if (this.m_state === ChainState.syncing) {
                 let syncedCount = 0;
-                let out = this.m_node.base.node.getOutbounds();
+                let out = this.m_node.getOutbounds();
                 for (let conn of out) {
-                    let _connSync = this.m_connSyncMap.get(conn.getRemote());
+                    let _connSync = this.m_connSyncMap.get(conn.fullRemote);
                     if (_connSync && _connSync.state === ChainState.synced) {
                         ++syncedCount;
                     }
@@ -583,7 +665,7 @@ class Chain extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     _createSyncedConnection(from) {
-        let conn = this.m_node.base.node.getConnection(from);
+        let conn = this.m_node.getConnection(from);
         if (!conn) {
             return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
         }
@@ -593,19 +675,16 @@ class Chain extends events_1.EventEmitter {
     }
     async _beginSyncWithConnection(from, fromHeader) {
         let connSync;
-        if (typeof from === 'string') {
-            connSync = this.m_connSyncMap.get(from);
-            if (!connSync) {
-                let conn = this.m_node.base.node.getConnection(from);
-                if (!conn) {
-                    return error_code_1.ErrorCode.RESULT_NOT_FOUND;
-                }
-                connSync = { state: ChainState.syncing, conn, reqLimit: this._headerReqLimit };
-                this.m_connSyncMap.set(from, connSync);
-            }
+        if (from.connSync) {
+            connSync = from.connSync;
         }
         else {
-            connSync = from;
+            const conn = from.conn;
+            connSync = this.m_connSyncMap.get(conn.fullRemote);
+            if (!connSync) {
+                connSync = { state: ChainState.syncing, conn, reqLimit: this._headerReqLimit };
+                this.m_connSyncMap.set(conn.fullRemote, connSync);
+            }
         }
         connSync.state = ChainState.syncing;
         connSync.lastRequestHeader = fromHeader;
@@ -664,15 +743,15 @@ class Chain extends events_1.EventEmitter {
         return { err: error_code_1.ErrorCode.RESULT_OK, toRequest };
     }
     async _addHeaders(params) {
-        let { remote, headers, request, error } = params;
-        let connSync = this.m_connSyncMap.get(remote);
+        let { from, headers, request, error } = params;
+        let connSync = this.m_connSyncMap.get(from);
         if (request && !connSync) {
             // 非广播的headers一定请求过
             return error_code_1.ErrorCode.RESULT_NOT_FOUND;
         }
         if (!connSync) {
             // 广播过来的可能没有请求过header，此时创建conn sync
-            let cr = this._createSyncedConnection(remote);
+            let cr = this._createSyncedConnection(from);
             if (cr.err) {
                 return cr.err;
             }
@@ -681,21 +760,21 @@ class Chain extends events_1.EventEmitter {
         if (connSync.state === ChainState.syncing) {
             if (request && request.from) {
                 if (request.from !== connSync.lastRequestHeader) {
-                    this.m_logger.error(`request ${connSync.lastRequestHeader} from ${remote} while got headers from ${request.from}`);
-                    this._banConnection(remote, block_1.BAN_LEVEL.forever);
+                    this.m_logger.error(`request ${connSync.lastRequestHeader} from ${from} while got headers from ${request.from}`);
+                    this._banConnection(from, block_1.BAN_LEVEL.forever);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
                 if (error === error_code_1.ErrorCode.RESULT_OK) {
                     // 现有机制下，不可能ok并返回空，干掉
                     if (!headers.length) {
-                        this._banConnection(remote, block_1.BAN_LEVEL.forever);
+                        this._banConnection(from, block_1.BAN_LEVEL.forever);
                         return error_code_1.ErrorCode.RESULT_OK;
                     }
-                    this.m_logger.info(`get headers [${headers[0].hash}, ${headers[headers.length - 1].hash}] from ${remote} at syncing`);
+                    this.m_logger.info(`get headers [${headers[0].hash}, ${headers[headers.length - 1].hash}] from ${from} at syncing`);
                     let vsh = await this._verifyAndSaveHeaders(headers);
                     // 找不到的header， 或者验证header出错， 都干掉
                     if (vsh.err === error_code_1.ErrorCode.RESULT_NOT_FOUND || vsh.err === error_code_1.ErrorCode.RESULT_INVALID_BLOCK) {
-                        this._banConnection(remote, block_1.BAN_LEVEL.forever);
+                        this._banConnection(from, block_1.BAN_LEVEL.forever);
                         return error_code_1.ErrorCode.RESULT_OK;
                     }
                     else if (vsh.err) {
@@ -707,10 +786,10 @@ class Chain extends events_1.EventEmitter {
                     if (vsh.toRequest.length) {
                         // 向conn 发出block请求
                         // 如果options.redoLog=1 同时也请求redo log内容, redo log 会随着block package 一起返回
-                        this.m_node.requestBlocks({
+                        this.m_node.requestBlocks(from, {
                             headers: vsh.toRequest,
-                            redoLog: this._ignoreVerify,
-                        }, remote);
+                            redoLog: this._ignoreVerify ? 1 : 0,
+                        });
                     }
                     else {
                         // 继续同步header回来
@@ -732,24 +811,24 @@ class Chain extends events_1.EventEmitter {
                     return await this._beginSyncWithConnection(connSync, hsr.header.hash);
                 }
                 else {
-                    assert(false, `get header with syncing from ${remote} with err ${error}`);
+                    assert(false, `get header with syncing from ${from} with err ${error}`);
                 }
             }
             else if (!request) {
                 // 广播来的直接忽略
             }
             else {
-                this.m_logger.error(`invalid header request ${request} response when syncing with ${remote}`);
-                this._banConnection(remote, block_1.BAN_LEVEL.forever);
+                this.m_logger.error(`invalid header request ${request} response when syncing with ${from}`);
+                this._banConnection(from, block_1.BAN_LEVEL.forever);
             }
         }
         else if (connSync.state === ChainState.synced) {
             if (!request) {
-                this.m_logger.info(`get headers [${headers[0].hash}, ${headers[headers.length - 1].hash}] from ${remote} at synced`);
+                this.m_logger.info(`get headers [${headers[0].hash}, ${headers[headers.length - 1].hash}] from ${from} at synced`);
                 let vsh = await this._verifyAndSaveHeaders(headers);
                 // 验证header出错干掉
                 if (vsh.err === error_code_1.ErrorCode.RESULT_INVALID_BLOCK) {
-                    this._banConnection(remote, block_1.BAN_LEVEL.day);
+                    this._banConnection(from, block_1.BAN_LEVEL.day);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
                 else if (vsh.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
@@ -765,12 +844,12 @@ class Chain extends events_1.EventEmitter {
                     return vsh.err;
                 }
                 connSync.lastRecvHeader = headers[headers.length - 1];
-                this.m_node.requestBlocks({ headers: vsh.toRequest }, remote);
+                this.m_node.requestBlocks(from, { headers: vsh.toRequest });
             }
             else {
                 // 不是广播来来的都不对
-                this.m_logger.error(`invalid header request ${request} response when synced with ${remote}`);
-                this._banConnection(remote, block_1.BAN_LEVEL.forever);
+                this.m_logger.error(`invalid header request ${request} response when synced with ${from}`);
+                this._banConnection(from, block_1.BAN_LEVEL.forever);
             }
         }
         return error_code_1.ErrorCode.RESULT_OK;
@@ -839,14 +918,30 @@ class Chain extends events_1.EventEmitter {
             else if (err !== error_code_1.ErrorCode.RESULT_OK) {
                 return err;
             }
-            // 校验block
-            // 如果options.redoLog对象 不为空，就通过redo, 而不是通过tx校验
-            let vbr = await this.verifyBlock(block, { redoLog: options.redoLog });
-            if (vbr.err) {
-                this.m_logger.error(`add block failed for verify failed for ${vbr.err}`);
-                return vbr.err;
+            const name = `${block.hash}${Date.now()}`;
+            let rr = await this.verifyBlock(name, block, { redoLog: options.redoLog });
+            if (rr.err) {
+                this.m_logger.error(`add block failed for verify failed for ${rr.err}`);
+                return rr.err;
             }
-            if (!vbr.verified) {
+            const routine = rr.routine;
+            const vbr = await rr.next();
+            if (vbr.valid === error_code_1.ErrorCode.RESULT_OK) {
+                this.m_logger.info(`${routine.name} block verified`);
+                assert(routine.storage, `${routine.name} verified ok but storage missed`);
+                let csr = await this.m_storageManager.createSnapshot(routine.storage, block.hash);
+                if (csr.err) {
+                    this.m_logger.error(`${name} verified ok but save snapshot failed`);
+                    await routine.storage.remove();
+                    return csr.err;
+                }
+                let _err = await this._addVerifiedBlock(block, csr.snapshot);
+                if (_err) {
+                    return _err;
+                }
+            }
+            else {
+                this.m_logger.info(`${routine.name} block invalid for `, error_code_1.stringifyErrorCode(vbr.valid));
                 if (options.remote) {
                     this._banConnection(options.remote, block_1.BAN_LEVEL.day);
                 }
@@ -854,12 +949,7 @@ class Chain extends events_1.EventEmitter {
                 if (_err) {
                     return _err;
                 }
-            }
-            else {
-                let _err = await this._addVerifiedBlock(block, vbr.storage);
-                if (_err) {
-                    return _err;
-                }
+                return error_code_1.ErrorCode.RESULT_OK;
             }
         }
         let syncing = false;
@@ -896,8 +986,8 @@ class Chain extends events_1.EventEmitter {
                     hr.headers = hr.headers.slice(1);
                 }
                 this.m_node.broadcast(hr.headers, { filter: (conn) => {
-                        this.m_logger.debug(`broadcast to ${conn.getRemote()}: ${!broadcastExcept.has(conn.getRemote())}`);
-                        return !broadcastExcept.has(conn.getRemote());
+                        this.m_logger.debug(`broadcast to ${conn.fullRemote}: ${!broadcastExcept.has(conn.fullRemote)}`);
+                        return !broadcastExcept.has(conn.fullRemote);
                     } });
                 this.m_logger.info(`broadcast tip headers from number: ${hr.headers[0].number} hash: ${hr.headers[0].hash} to number: ${this.m_tip.number} hash: ${this.m_tip.hash}`);
             }
@@ -996,7 +1086,7 @@ class Chain extends events_1.EventEmitter {
             }
             return err;
         }
-        this.m_node.base.on('outbound', async (conn) => {
+        this.m_node.on('outbound', async (conn) => {
             let syncPeer = conn;
             assert(syncPeer);
             let hr = await this.m_headerStorage.getHeader((this.m_tip.number > this._confirmDepth) ? (this.m_tip.number - this._confirmDepth) : 0);
@@ -1004,91 +1094,51 @@ class Chain extends events_1.EventEmitter {
                 return hr.err;
             }
             assert(hr.header);
-            return await this._beginSyncWithConnection(conn.getRemote(), hr.header.hash);
+            return await this._beginSyncWithConnection({ conn }, hr.header.hash);
         });
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async verifyBlock(block, options) {
+    async verifyBlock(name, block, options) {
         this.m_logger.info(`begin verify block number: ${block.number} hash: ${block.hash} `);
-        let storageName = 'verify';
-        if (options.storageName) {
-            storageName = options.storageName;
-        }
-        let sr = await this.m_storageManager.createStorage(storageName, block.header.preBlockHash);
+        let sr = await this.m_storageManager.createStorage(name, block.header.preBlockHash);
         if (sr.err) {
             this.m_logger.warn(`verify block failed for recover storage to previous block's failed for ${sr.err}`);
             return { err: sr.err };
         }
-        let result;
-        do {
-            let verifyResult;
-            // 通过redo log 来添加block的内容
-            if (options.redoLog) {
-                const redoLog = options.redoLog;
-                this.m_logger.info(`redo log, block[${block.number}, ${block.hash}]`);
-                // 把通过网络请求拿到的redoLog 先保存到本地
-                this.m_storageManager.writeRedoLog(block.hash, redoLog);
-                // 执行redolog
-                let redoError = await redoLog.redoOnStorage(sr.storage);
-                if (redoError) {
-                    this.m_logger.info(`redo error ${redoError}`);
-                    result = { err: redoError };
-                    break;
-                }
-                // 获得storage的hash值
-                let digestResult = await sr.storage.messageDigest();
-                if (digestResult.err) {
-                    this.m_logger.info(`redo log get storage messageDigest error`);
-                    result = { err: digestResult.err };
-                    break;
-                }
-                // 当前的storage hash和header上的storageHash 比较 
-                // 设置verify 结果, 后续流程需要使用 res.valid
-                verifyResult = { err: error_code_1.ErrorCode.RESULT_OK, valid: digestResult.value === block.header.storageHash };
+        const storage = sr.storage;
+        let crr;
+        // 通过redo log 来添加block的内容
+        if (options && options.redoLog) {
+            crr = { err: error_code_1.ErrorCode.RESULT_OK, routine: new VerifyBlockWithRedoLogRoutine({
+                    name,
+                    block,
+                    storage,
+                    redoLog: options.redoLog,
+                    logger: this.logger
+                }) };
+        }
+        else {
+            crr = this.m_routineManager.create({ name, block, storage });
+        }
+        if (crr.err) {
+            await storage.remove();
+            return { err: crr.err };
+        }
+        const routine = crr.routine;
+        const next = async () => {
+            const rr = await routine.verify();
+            if (rr.err || rr.result.err) {
+                await storage.remove();
+                return { err: rr.err };
             }
-            else {
-                let nber = await this.newBlockExecutor(block, sr.storage);
-                if (nber.err) {
-                    result = { err: nber.err };
-                    break;
-                }
-                verifyResult = await nber.executor.verify(this.logger);
-            }
-            if (verifyResult.err) {
-                result = { err: verifyResult.err };
-            }
-            else if (verifyResult.valid) {
-                this.m_logger.info(`block verified`);
-                if (!options.ignoreSnapshot) {
-                    let csr = await this.m_storageManager.createSnapshot(sr.storage, block.hash);
-                    if (csr.err) {
-                        result = { err: csr.err };
-                    }
-                    else {
-                        result = { err: error_code_1.ErrorCode.RESULT_OK, verified: true, storage: csr.snapshot };
-                    }
-                }
-                else {
-                    result = { err: error_code_1.ErrorCode.RESULT_OK, verified: true };
+            if (rr.result.valid !== error_code_1.ErrorCode.RESULT_OK) {
+                if (!(this._saveMismatch && rr.result.valid === error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH)) {
+                    await storage.remove();
                 }
             }
-            else {
-                this.m_logger.info(`block invalid`);
-                if (this.m_saveMismatch && verifyResult.mismatchHash) {
-                    let file = path.join(this.m_storageManager.path, storageName);
-                    try {
-                        if (fs.existsSync(file)) {
-                            fs.copyFileSync(file, path.join(this.m_mismatchPath, verifyResult.mismatchHash));
-                        }
-                    }
-                    catch (e) {
-                    }
-                }
-                result = { err: error_code_1.ErrorCode.RESULT_OK, verified: false };
-            }
-        } while (false);
-        await sr.storage.remove();
-        return result;
+            return rr.result;
+        };
+        return { err: error_code_1.ErrorCode.RESULT_OK, routine, next };
     }
     async addMinedBlock(block, storage) {
         this.m_blockStorage.add(block);
@@ -1242,3 +1292,35 @@ Chain.kvConfig = 'config';
 Chain.dbUser = '__user';
 Chain.s_dbFile = 'database';
 exports.Chain = Chain;
+class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRoutine {
+    constructor(options) {
+        super(options);
+        this.m_redoLog = options.redoLog;
+    }
+    async execute() {
+        return { err: error_code_1.ErrorCode.RESULT_NO_IMP };
+    }
+    async verify() {
+        this.m_logger.info(`redo log, block[${this.block.number}, ${this.block.hash}]`);
+        // 执行redolog
+        this.storage.createLogger();
+        let redoError = await this.m_redoLog.redoOnStorage(this.storage);
+        if (redoError) {
+            this.m_logger.error(`redo error ${redoError}`);
+            return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: redoError } };
+        }
+        // 获得storage的hash值
+        let digestResult = await this.storage.messageDigest();
+        if (digestResult.err) {
+            this.m_logger.error(`redo log get storage messageDigest error`);
+            return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: digestResult.err } };
+        }
+        const valid = digestResult.value === this.block.header.storageHash ? error_code_1.ErrorCode.RESULT_OK : error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
+        // 当前的storage hash和header上的storageHash 比较 
+        // 设置verify 结果, 后续流程需要使用 res.valid
+        return { err: error_code_1.ErrorCode.RESULT_OK, result: { err: error_code_1.ErrorCode.RESULT_OK, valid } };
+    }
+    cancel() {
+        // do nothing
+    }
+}

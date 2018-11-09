@@ -47,7 +47,7 @@ export enum ErrorCode {
     RESULT_SKIPPED = 40,
 
     RESULT_FORK_DETECTED = 50,
-    
+
     // token 相关
     RESULT_NO_PERMISSIONS = 10011, // 没有权限
     RESULT_IS_FROOZEN = 10012, // 帐户已冻结
@@ -186,7 +186,6 @@ export type ExecutorContext = {
 
 export type TransactionContext = {
     caller: string;
-    bytes: Buffer;
     storage: IReadWritableDataBase;
     emit: (name: string, param?: any) => void;
     createAddress: () => string;

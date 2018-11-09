@@ -241,7 +241,7 @@ class ChainServer {
             await promisify(resp.end.bind(resp))();
         });
         this.m_server.on('getPeers', async (args, resp) => {
-            let peers = this.m_chain.node.base.node.dumpConns();
+            let peers = this.m_chain.node.getNetwork().node.dumpConns();
             await promisify(resp.write.bind(resp)(JSON.stringify(peers)));
             await promisify(resp.end.bind(resp)());
         });

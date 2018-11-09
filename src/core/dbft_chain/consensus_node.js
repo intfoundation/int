@@ -21,11 +21,10 @@ var ConsensusState;
 (function (ConsensusState) {
     ConsensusState[ConsensusState["none"] = 0] = "none";
     ConsensusState[ConsensusState["waitingCreate"] = 1] = "waitingCreate";
-    ConsensusState[ConsensusState["blockCreated"] = 2] = "blockCreated";
-    ConsensusState[ConsensusState["waitingProposal"] = 3] = "waitingProposal";
-    ConsensusState[ConsensusState["waitingVerify"] = 4] = "waitingVerify";
-    ConsensusState[ConsensusState["waitingAgree"] = 5] = "waitingAgree";
-    ConsensusState[ConsensusState["waitingBlock"] = 6] = "waitingBlock";
+    ConsensusState[ConsensusState["waitingProposal"] = 2] = "waitingProposal";
+    ConsensusState[ConsensusState["waitingVerify"] = 3] = "waitingVerify";
+    ConsensusState[ConsensusState["waitingAgree"] = 4] = "waitingAgree";
+    ConsensusState[ConsensusState["waitingBlock"] = 5] = "waitingBlock";
     ConsensusState[ConsensusState["changeViewSent"] = 10] = "changeViewSent";
     ConsensusState[ConsensusState["changeViewSucc"] = 11] = "changeViewSucc";
 })(ConsensusState || (ConsensusState = {}));
@@ -34,7 +33,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
         super();
         this.m_changeView = new Map();
         this.m_currView = 0;
-        this.m_node = options.node;
+        this.m_network = options.network;
         this.m_globalOptions = options.globalOptions;
         this.m_state = ConsensusState.none;
         this.m_secret = options.secret;
@@ -45,14 +44,14 @@ class DbftConsensusNode extends events_1.EventEmitter {
                 this._beginSyncWithNode(conn);
             }
         };
-        let connOut = this.m_node.node.getOutbounds();
+        let connOut = this.m_network.node.getOutbounds();
         initBound(connOut);
-        let connIn = this.m_node.node.getInbounds();
+        let connIn = this.m_network.node.getInbounds();
         initBound(connIn);
-        this.m_node.on('inbound', (conn) => {
+        this.m_network.on('inbound', (conn) => {
             this._beginSyncWithNode(conn);
         });
-        this.m_node.on('outbound', (conn) => {
+        this.m_network.on('outbound', (conn) => {
             this._beginSyncWithNode(conn);
         });
     }
@@ -63,14 +62,14 @@ class DbftConsensusNode extends events_1.EventEmitter {
         return super.once(event, listener);
     }
     get base() {
-        return this.m_node;
+        return this.m_network;
     }
     get logger() {
-        return this.m_node.logger;
+        return this.m_network.logger;
     }
     async init() {
         // await this.m_node.init();
-        let hr = await this.m_node.headerStorage.getHeader(0);
+        let hr = await this.m_network.headerStorage.getHeader(0);
         if (hr.err) {
             this.logger.error(`dbft consensus node init failed for ${hr.err}`);
             return hr.err;
@@ -111,7 +110,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
             else {
                 this._resetTimer();
             }
-            this.m_node.setValidators(nextMiners);
+            this.m_network.setValidators(nextMiners);
         }
     }
     async agreeProposal(block) {
@@ -129,8 +128,21 @@ class DbftConsensusNode extends events_1.EventEmitter {
             this.logger.error(`agreeProposal block ${block.header.hash} ${block.number} in invalid context block ${this.m_tip.header.hash} ${this.m_tip.header.number}`);
             return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
+        this.m_state = ConsensusState.waitingAgree;
+        let newContext = {
+            curView: curContext.curView,
+            block,
+            signs: new Map()
+        };
+        // 可能已经收到了其他节点的验证信息
+        for (let [k, v] of curContext.preSigns) {
+            if (v.hash === block.hash) {
+                newContext.signs.set(k, v.signInfo);
+            }
+        }
+        this.m_context = newContext;
         const sign = libAddress.sign(block.hash, this.m_secret);
-        this._sendPrepareResponse(curContext.block, sign);
+        this._sendPrepareResponse(block, sign);
         this._onPrepareResponse({ hash: block.hash, pubkey: this.m_pubkey, sign });
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -139,7 +151,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
         if (!this.m_tip) {
             return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
-        if (this.m_state !== ConsensusState.blockCreated) {
+        if (this.m_state !== ConsensusState.waitingProposal) {
             this.logger.warn(`dbft conensus newProposal ${block.header.hash}  ${block.header.number} while not in blockCreated state`);
             return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
@@ -147,22 +159,25 @@ class DbftConsensusNode extends events_1.EventEmitter {
             this.logger.warn(`dbft conensus newProposal ${block.header.hash}  ${block.header.number} while in another context ${this.m_tip.header.hash} ${this.m_tip.header.number}`);
             return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
-        this.logger.info(`newProposal miners=${JSON.stringify(this.m_node.getValidators())}, blockhash=${block.hash}`);
-        if (this.m_node.getValidators().length > 1) {
+        this.logger.info(`newProposal miners=${JSON.stringify(this.m_network.getValidators())}, blockhash=${block.hash}`);
+        if (this.m_network.getValidators().length > 1) {
             let i = 0;
         }
+        // 先对不完整的块进行签名，保证block的正常发送
+        block.header.updateContent(block.content);
+        let err = block.header.signBlock(this.m_secret);
+        block.header.updateHash();
+        if (err) {
+            return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
+        }
         this._sendPrepareRequest(block);
-        this.m_state = ConsensusState.waitingAgree;
-        const sign = libAddress.sign(block.hash, this.m_secret);
+        this.m_state = ConsensusState.waitingVerify;
         let curContext = {
             curView: this.m_currView,
             block,
-            signs: new Map()
+            preSigns: new Map()
         };
         this.m_context = curContext;
-        setImmediate(() => {
-            this._onPrepareResponse({ hash: block.hash, pubkey: this.m_pubkey, sign });
-        });
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async _resetTimer() {
@@ -191,9 +206,10 @@ class DbftConsensusNode extends events_1.EventEmitter {
             return;
         }
         if (this.m_state === ConsensusState.waitingCreate) {
-            this.m_state = ConsensusState.blockCreated;
+            this.m_state = ConsensusState.waitingProposal;
             let newContext = {
-                curView: this.m_currView
+                curView: this.m_currView,
+                preSigns: new Map()
             };
             this.m_context = newContext;
             let now = Date.now() / 1000;
@@ -205,8 +221,13 @@ class DbftConsensusNode extends events_1.EventEmitter {
         }
         else {
             // 超时，发起changeview
-            let newView = this.m_currView + 1;
-            this.m_currView++;
+            let newView = 0;
+            if (this.m_state === ConsensusState.changeViewSent) {
+                newView = this.m_context.expectView + 1;
+            }
+            else {
+                newView = this.m_currView + 1;
+            }
             this.logger.debug(`${this.m_address} _onTimeout changeview ${newView}`);
             const sign = libAddress.sign(Buffer.from(digest.md5(Buffer.from(this.m_tip.header.hash + newView.toString(), 'hex')).toString('hex')), this.m_secret);
             this._sendChangeView(newView, sign);
@@ -224,7 +245,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
         let err = block.encode(writer);
         let data = writer.render();
         let pkg = chain_1.PackageStreamWriter.fromPackage(DBFT_SYNC_CMD_TYPE.prepareRequest, null, data.length).writeData(data);
-        this.m_node.broadcastToValidators(pkg);
+        this.m_network.broadcastToValidators(pkg);
     }
     _sendPrepareResponse(block, sign) {
         let writer = new writer_1.BufferWriter();
@@ -232,7 +253,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
         writer.writeBytes(sign);
         let data = writer.render();
         let pkg = chain_1.PackageStreamWriter.fromPackage(DBFT_SYNC_CMD_TYPE.prepareResponse, { hash: block.hash }, data.length).writeData(data);
-        this.m_node.broadcastToValidators(pkg);
+        this.m_network.broadcastToValidators(pkg);
     }
     _sendChangeView(newView, sign) {
         let writer = new writer_1.BufferWriter();
@@ -240,7 +261,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
         writer.writeBytes(sign);
         let data = writer.render();
         let pkg = chain_1.PackageStreamWriter.fromPackage(DBFT_SYNC_CMD_TYPE.changeview, { newView }, data.length).writeData(data);
-        this.m_node.broadcastToValidators(pkg);
+        this.m_network.broadcastToValidators(pkg);
     }
     _beginSyncWithNode(conn) {
         conn.on('pkg', async (pkg) => {
@@ -251,21 +272,22 @@ class DbftConsensusNode extends events_1.EventEmitter {
                 if (err) {
                     // TODO: ban it
                     // this.base.banConnection();
-                    this.logger.error(`recv invalid prepareRequest from `, conn.getRemote());
+                    this.logger.error(`recv invalid prepareRequest from `, conn.fullRemote);
                     return;
                 }
                 if (!block.header.verifySign()) {
                     // TODO: ban it
                     // this.base.banConnection();
-                    this.logger.error(`recv invalid signature prepareRequest from `, conn.getRemote());
+                    this.logger.error(`recv invalid signature prepareRequest from `, conn.fullRemote);
                     return;
                 }
                 if (!block.verify()) {
                     // TODO: ban it
                     // this.base.banConnection();
-                    this.logger.error(`recv invalid block in prepareRequest from `, conn.getRemote());
+                    this.logger.error(`recv invalid block in prepareRequest from `, conn.fullRemote);
                     return;
                 }
+                block.header.updateHash();
                 this._onPrepareRequest({ block }, conn);
             }
             else if (pkg.header.cmdType === DBFT_SYNC_CMD_TYPE.prepareResponse) {
@@ -286,7 +308,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
                 if (!libAddress.verify(hash, sign, pubkey)) {
                     // TODO: ban it
                     // this.base.banConnection();
-                    this.logger.error(`prepareResponse verify sign invalid`);
+                    this.logger.error(`prepareResponse verify sign invalid hash=${hash},pubkey=${pubkey.toString('hex')},sign=${sign.toString('hex')}`);
                     return;
                 }
                 if (libAddress.addressFromPublicKey(pubkey) === this.m_address) {
@@ -373,22 +395,15 @@ class DbftConsensusNode extends events_1.EventEmitter {
             if (header.miner !== due) {
                 // TODO: ban it
                 // this.base.banConnection();
-                this.logger.error(`_onPrepareRequest recv prepareRequest's block ${pkg.block.header.hash} ${pkg.block.header.number} ${header.miner} not match due miner ${due}`);
+                this.logger.error(`_onPrepareRequest recv prepareRequest's block ${pkg.block.header.hash} number=${pkg.block.header.number} miner=${header.miner},pubkey=${header.pubkey.toString('hex')} not match due miner ${due}`);
                 return;
             }
             this.m_state = ConsensusState.waitingVerify;
             let newContext = {
                 curView: curContext.curView,
                 block: pkg.block,
-                signs: new Map()
+                preSigns: curContext.preSigns
             };
-            // 可能已经收到了其他节点的验证信息
-            let signs = curContext.preSigns.get(pkg.block.hash);
-            if (signs) {
-                for (let [k, v] of signs) {
-                    newContext.signs.set(k, v);
-                }
-            }
             this.m_context = newContext;
             this.logger.info(`_onPrepareRequest, bdft consensus enter waitingVerify ${header.hash} ${header.number}`);
             this.emit('verifyBlock', pkg.block);
@@ -410,34 +425,24 @@ class DbftConsensusNode extends events_1.EventEmitter {
             return;
         }
         assert(this.m_context);
-        if (this.m_state === ConsensusState.waitingProposal) {
-            const address = libAddress.addressFromPublicKey(pkg.pubkey);
-            if (this.m_tip.nextMiners.indexOf(address) < 0) {
-                this.logger.warn(`_onPrepareResponse {ConsensusState.waitingProposal} got ${address} 's sign not in next miners, `);
-                return;
-            }
-            let curContext = this.m_context;
-            let signs = curContext.preSigns.get(pkg.hash);
-            if (!signs) {
-                signs = new Map();
-                curContext.preSigns.set(pkg.hash, signs);
-            }
-            signs.set(address, { pubkey: pkg.pubkey, sign: pkg.sign });
-            this.logger.info(`_onPrepareResponse {ConsensusState.waitingProposal} receive correct signed prepare response from ${address} hash=${pkg.hash}`);
+        const address = libAddress.addressFromPublicKey(pkg.pubkey);
+        if (this.m_tip.nextMiners.indexOf(address) < 0) {
+            this.logger.warn(`_onPrepareResponse got ${address} 's sign not in next miners`);
             return;
         }
+        if (this.m_state !== ConsensusState.waitingAgree) {
+            let curContext = this.m_context;
+            if (curContext.preSigns.has(address)) {
+                this.logger.warn(`_onPrepareResponse {not ConsensusState.waitingProposal} got ${address} 's duplicated sign`);
+                return;
+            }
+            curContext.preSigns.set(address, { hash: pkg.hash, signInfo: { pubkey: pkg.pubkey, sign: pkg.sign } });
+            this.logger.info(`_onPrepareResponse {not ConsensusState.waitingProposal} receive correct signed prepare response from ${address} hash=${pkg.hash}`);
+        }
         else {
-            let oldState = this.m_state;
             let curContext = this.m_context;
             if (curContext.block.hash !== pkg.hash) {
                 this.logger.warn(`_onPrepareResponse got ${pkg.hash} while waiting ${curContext.block.hash}`);
-                return;
-            }
-            const address = libAddress.addressFromPublicKey(pkg.pubkey);
-            if (this.m_tip.nextMiners.indexOf(address) < 0) {
-                this.logger.warn(`_onPrepareResponse got ${address} 's sign not in next miners`);
-                // TODO: ban it
-                // this.base.banConnection();
                 return;
             }
             if (curContext.signs.has(address)) {
@@ -453,12 +458,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
                 for (let s of curContext.signs.values()) {
                     signs.push(s);
                 }
-                if (oldState === ConsensusState.waitingAgree) {
-                    this.emit('primaryMineBlock', curContext.block, signs);
-                }
-                else {
-                    this.emit('otherMineBlock', curContext.block, signs);
-                }
+                this.emit('mineBlock', curContext.block, signs);
             }
         }
     }

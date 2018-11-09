@@ -67,8 +67,11 @@ class BlockHeader extends serializable_1.SerializableWithHash {
         return root.toString('hex');
     }
     _genReceiptHash(receipts) {
+        if (!receipts.size) {
+            return encoding_1.Encoding.NULL_HASH;
+        }
         let writer = new serializable_1.BufferWriter();
-        for (const receipt of receipts) {
+        for (const [tx, receipt] of receipts.entries()) {
             receipt.encode(writer);
         }
         return digest.hash256(writer.render()).toString('hex');
@@ -127,6 +130,8 @@ class BlockHeader extends serializable_1.SerializableWithHash {
         obj.timestamp = this.timestamp;
         obj.preBlock = this.preBlockHash;
         obj.merkleRoot = this.merkleRoot;
+        obj.storageHash = this.m_storageHash;
+        obj.m_receiptHash = this.m_receiptHash;
         return obj;
     }
 }
@@ -143,7 +148,8 @@ class BlockContent {
         return t;
     }
     get receipts() {
-        return this.m_receipts.values();
+        const r = this.m_receipts;
+        return r;
     }
     hasTransaction(txHash) {
         for (const tx of this.m_transactions) {
@@ -187,16 +193,24 @@ class BlockContent {
         try {
             writer.writeU16(this.m_transactions.length);
             for (let tx of this.m_transactions) {
-                let err = tx.encode(writer);
+                const err = tx.encode(writer);
                 if (err) {
                     return err;
                 }
-                let r = this.m_receipts.get(tx.hash);
-                assert(r);
-                err = r.encode(writer);
-                if (err) {
-                    return err;
+            }
+            if (this.m_transactions.length && this.m_receipts.size) {
+                writer.writeU16(this.m_transactions.length);
+                for (let tx of this.m_transactions) {
+                    let r = this.m_receipts.get(tx.hash);
+                    assert(r);
+                    const err = r.encode(writer);
+                    if (err) {
+                        return err;
+                    }
                 }
+            }
+            else {
+                writer.writeU16(0);
             }
         }
         catch (e) {
@@ -221,12 +235,15 @@ class BlockContent {
                 return err;
             }
             this.m_transactions.push(tx);
+        }
+        const rs = reader.readU16();
+        for (let ix = 0; ix < rs; ++ix) {
             let receipt = new this.m_receiptType();
-            err = receipt.decode(reader);
+            const err = receipt.decode(reader);
             if (err !== error_code_1.ErrorCode.RESULT_OK) {
                 return err;
             }
-            this.m_receipts.set(tx.hash, receipt);
+            this.m_receipts.set(receipt.transactionHash, receipt);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }

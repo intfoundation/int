@@ -80,6 +80,9 @@ class StorageLogSnapshotManager {
     getLogPath(blockHash) {
         return path.join(this.m_logPath, blockHash + '.redo');
     }
+    hasRedoLog(blockHash) {
+        return fs.existsSync(this.getLogPath(blockHash));
+    }
     getRedoLog(blockHash) {
         let redoLogRaw;
         try {
@@ -115,12 +118,12 @@ class StorageLogSnapshotManager {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async getSnapshot(blockHash) {
-        this.m_logger.debug(`getting snapshot ${blockHash}`);
+        this.m_logger.info(`getting snapshot ${blockHash}`);
         // 只能在storage manager 的实现中调用，在storage manager中保证不会以相同block hash重入
         let ssr = await this.m_dumpManager.getSnapshot(blockHash);
         if (!ssr.err) {
             assert(this.m_snapshots.get(blockHash));
-            this.m_logger.debug(`get snapshot ${blockHash} directly from dump`);
+            this.m_logger.info(`get snapshot ${blockHash} directly from dump`);
             ++this.m_snapshots.get(blockHash).ref;
             return ssr;
         }
@@ -138,6 +141,7 @@ class StorageLogSnapshotManager {
         let header = hr.header;
         let err = error_code_1.ErrorCode.RESULT_NOT_FOUND;
         let nearestSnapshot;
+        this.m_logger.info(`================================getSnapshot need redo blockHash=${blockHash}`);
         do {
             let _ssr = await this.m_dumpManager.getSnapshot(header.hash);
             if (!_ssr.err) {
@@ -150,6 +154,7 @@ class StorageLogSnapshotManager {
                 err = _ssr.err;
                 break;
             }
+            blockPath.push(header.hash);
             let _hr = await this.m_headerStorage.getHeader(header.preBlockHash);
             if (_hr.err) {
                 this.m_logger.error(`get snapshot ${blockHash} failed for get header ${header.preBlockHash} failed ${hr.err}`);
@@ -157,7 +162,6 @@ class StorageLogSnapshotManager {
                 break;
             }
             header = _hr.header;
-            blockPath.push(header.hash);
         } while (true);
         if (err) {
             this.m_logger.error(`get snapshot ${blockHash} failed for ${err}`);

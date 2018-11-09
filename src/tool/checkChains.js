@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("../client");
+const sqlite = require("sqlite");
+const sqlite3 = require("sqlite3");
+const fs = require("fs-extra");
 let mainpeer;
 let mainclient;
 let cache = new Map();
@@ -35,6 +38,43 @@ class PeerHelper {
     }
     getLatestHeight() {
         return this.m_latest;
+    }
+}
+class SqliteChainClient extends client_1.ChainClient {
+    constructor(options) {
+        super(options);
+        this.m_dataDir = options.host;
+    }
+    async init() {
+        if (!this.m_headerStorage) {
+            this.m_db = await sqlite.open(this.m_dataDir + '/' + client_1.Chain.s_dbFile, { mode: sqlite3.OPEN_READONLY });
+            let config = fs.readJSONSync(this.m_dataDir + '/config.json');
+            let blockHeaderType = client_1.BlockHeader;
+            switch (config.type.consensus) {
+                case 'dpos':
+                    blockHeaderType = client_1.DposBlockHeader;
+                    break;
+                case 'pow':
+                    blockHeaderType = client_1.PowBlockHeader;
+                    break;
+                case 'dbft':
+                    blockHeaderType = client_1.DbftBlockHeader;
+                default:
+                    break;
+            }
+            this.m_headerStorage = new client_1.HeaderStorage({
+                logger: this.m_logger,
+                blockHeaderType,
+                db: this.m_db,
+                blockStorage: undefined,
+                readonly: true
+            });
+        }
+    }
+    async getBlock(params) {
+        await this.init();
+        let cr = await this.m_headerStorage.getHeader(params.which);
+        return { err: cr.err, block: cr.header };
     }
 }
 async function checkDiff(peer1, peer2) {
@@ -82,10 +122,10 @@ async function main() {
         let [name, host, port] = peer.split(':');
         if (!mainpeer) {
             mainpeer = name;
-            mainclient = new client_1.ChainClient({ host, port: parseInt(port), logger });
+            mainclient = port ? new client_1.ChainClient({ host, port: parseInt(port), logger }) : new SqliteChainClient({ host, port: 0, logger });
         }
         else {
-            await checkDiff({ name: mainpeer, client: mainclient }, { name, client: new client_1.ChainClient({ host, port: parseInt(port), logger }) });
+            await checkDiff({ name: mainpeer, client: mainclient }, { name, client: port ? new client_1.ChainClient({ host, port: parseInt(port), logger }) : new SqliteChainClient({ host, port: 0, logger }) });
         }
     }
 }

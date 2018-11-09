@@ -2,29 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require('assert');
 const error_code_1 = require("../error_code");
-const Lock_1 = require("../lib/Lock");
 const address_1 = require("../address");
 const value_chain_1 = require("../value_chain");
 const chain_1 = require("./chain");
-const validators_node_1 = require("./validators_node");
 const consensus_node_1 = require("./consensus_node");
 class DbftMinerChain extends chain_1.DbftChain {
-    _createChainNode() {
-        let node = new validators_node_1.ValidatorsNode({
-            node: this.m_instanceOptions.node,
+    _defaultNetworkOptions() {
+        return {
+            netType: 'validators',
+            initialValidator: this.globalOptions.superAdmin,
             minConnectionRate: this.globalOptions.agreeRateNumerator / this.globalOptions.agreeRateDenominator,
-            dataDir: this.m_dataDir,
-            logger: this.m_logger,
-            headerStorage: this.m_headerStorage,
-            blockHeaderType: this._getBlockHeaderType(),
-            transactionType: this._getTransactionType(),
-            receiptType: this._getReceiptType(),
-            ignoreBan: this.m_instanceOptions.ignoreBan,
-        });
-        // 这里用sa的adderss初始化吧， sa部署的时候过略非miner地址的连接；
-        //      因为没有同步之前无法知道当前的validators是哪些
-        node.setValidators([this.globalOptions.superAdmin]);
-        return node;
+        };
     }
     get headerStorage() {
         return this.m_headerStorage;
@@ -38,8 +26,6 @@ class DbftMinerChain extends chain_1.DbftChain {
 class DbftMiner extends value_chain_1.ValueMiner {
     constructor(options) {
         super(options);
-        this.m_mineLock = new Lock_1.Lock();
-        this.m_verifyLock = new Lock_1.Lock();
         this.m_miningBlocks = new Map();
     }
     get chain() {
@@ -51,17 +37,33 @@ class DbftMiner extends value_chain_1.ValueMiner {
     _chainInstance() {
         return new DbftMinerChain(this.m_constructOptions);
     }
-    parseInstanceOptions(node, instanceOptions) {
-        let { err, value } = super.parseInstanceOptions(node, instanceOptions);
+    parseInstanceOptions(options) {
+        let { err, value } = super.parseInstanceOptions(options);
         if (err) {
             return { err };
         }
-        if (!instanceOptions.get('minerSecret')) {
+        if (!options.origin.get('minerSecret')) {
             this.m_logger.error(`invalid instance options not minerSecret`);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
-        value.minerSecret = Buffer.from(instanceOptions.get('minerSecret'), 'hex');
+        value.minerSecret = Buffer.from(options.origin.get('minerSecret'), 'hex');
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
+    }
+    async _createBlock(header) {
+        const block = this.chain.newBlock(header);
+        this.pushTx(block);
+        await this._decorateBlock(block);
+        const cer = await this._createExecuteRoutine(block);
+        if (cer.err) {
+            return { err: cer.err };
+        }
+        // first broadcast，then execute
+        const err = await this.m_consensusNode.newProposal(cer.routine.block);
+        if (err) {
+            this._setIdle(cer.routine.name);
+            return { err };
+        }
+        return cer.next();
     }
     async initialize(options) {
         this.m_secret = options.minerSecret;
@@ -75,7 +77,7 @@ class DbftMiner extends value_chain_1.ValueMiner {
             return err;
         }
         this.m_consensusNode = new consensus_node_1.DbftConsensusNode({
-            node: this.m_chain.node.base,
+            network: this.m_chain.node.getNetwork(),
             globalOptions: this.m_chain.globalOptions,
             secret: this.m_secret
         });
@@ -91,12 +93,10 @@ class DbftMiner extends value_chain_1.ValueMiner {
             return err;
         }
         this.m_consensusNode.on('createBlock', async (header) => {
-            // TODO:有可能重入么？先用lock
             if (header.preBlockHash !== this.chain.tipBlockHeader.hash) {
                 this.m_logger.warn(`mine block skipped`);
                 return;
             }
-            this.m_mineLock.enter();
             this.m_logger.info(`begin create block ${header.hash} ${header.number} ${header.view}`);
             let cbr = await this._createBlock(header);
             if (cbr.err) {
@@ -105,49 +105,25 @@ class DbftMiner extends value_chain_1.ValueMiner {
             else {
                 this.m_logger.info(`create block finsihed `);
             }
-            this.m_mineLock.leave();
         });
         this.m_consensusNode.on('verifyBlock', async (block) => {
-            // TODO:有可能重入么？先用lock
-            let hr = await this.chain.headerStorage.getHeader(block.header.hash);
-            if (!hr.err) {
-                this.m_logger.error(`verify block already added to chain ${block.header.hash} ${block.header.number}`);
-                return;
-            }
-            else if (hr.err !== error_code_1.ErrorCode.RESULT_NOT_FOUND) {
-                this.m_logger.error(`get header failed for `, hr.err);
-                return;
-            }
             this.m_logger.info(`begin verify block ${block.hash} ${block.number}`);
-            this.m_verifyLock.enter();
-            let vr = await this.chain.verifyBlock(block, { storageName: 'consensVerify', ignoreSnapshot: false });
-            this.m_verifyLock.leave();
-            if (vr.err) {
-                this.m_logger.error(`verify block failed `, vr.err);
+            const cer = await this._createExecuteRoutine(block);
+            if (cer.err) {
+                this.m_logger.error(`dbft verify block failed `, cer.err);
                 return;
             }
-            if (vr.verified) {
-                this.m_consensusNode.agreeProposal(block);
-            }
-            else {
-                // TODO: 传回去？
+            const nr = await cer.next();
+            if (nr.err) {
+                this.m_logger.error(`dbft verify block failed `, nr.err);
+                return;
             }
         });
-        this.m_consensusNode.on('primaryMineBlock', async (block, signs) => {
+        this.m_consensusNode.on('mineBlock', async (block, signs) => {
             block.header.setSigns(signs);
             assert(this.m_miningBlocks.has(block.hash));
             const resolve = this.m_miningBlocks.get(block.hash);
             resolve(error_code_1.ErrorCode.RESULT_OK);
-        });
-        this.m_consensusNode.on('otherMineBlock', async (block, signs) => {
-            block.header.setSigns(signs);
-            let gss = await this.chain.storageManager.getSnapshot(block.hash);
-            if (gss.err) {
-                this.m_logger.error(`getSnapshot failed `, gss.err);
-                return;
-            }
-            await this.chain.addMinedBlock(block, gss.snapshot);
-            this.chain.storageManager.releaseSnapshot(block.hash);
         });
         return err;
     }
@@ -169,17 +145,15 @@ class DbftMiner extends value_chain_1.ValueMiner {
         await this._updateTip(tipBlock);
     }
     async _mineBlock(block) {
-        this.m_logger.info(`${this.peerid} create block, sign ${this.m_address}`);
-        block.header.signBlock(this.m_secret);
+        this.m_logger.info(`create block, sign ${this.m_address}`);
         block.header.updateHash();
-        this.m_consensusNode.newProposal(block);
         return new Promise((resolve) => {
-            assert(!this.m_miningBlocks.has(block.hash));
             if (this.m_miningBlocks.has(block.hash)) {
                 resolve(error_code_1.ErrorCode.RESULT_SKIPPED);
                 return;
             }
             this.m_miningBlocks.set(block.hash, resolve);
+            this.m_consensusNode.agreeProposal(block);
         });
     }
 }

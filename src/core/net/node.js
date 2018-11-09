@@ -23,10 +23,28 @@ class INode extends events_1.EventEmitter {
         this.m_outConn = [];
         this.m_remoteMap = new Map();
         this.m_peerid = options.peerid;
+        this.m_network = options.network;
         this.m_logger = logger_util_1.initLogger(options);
     }
     async randomPeers(count, excludes) {
         return { err: error_code_1.ErrorCode.RESULT_NO_IMP, peers: [] };
+    }
+    static isValidPeerid(peerid) {
+        return -1 === peerid.indexOf('^');
+    }
+    static isValidNetwork(network) {
+        return -1 === network.indexOf('^');
+    }
+    static fullPeerid(network, peerid) {
+        return `${network}^${peerid}`;
+    }
+    static splitFullPeerid(fpeerid) {
+        const spliter = fpeerid.indexOf('^');
+        if (-1 === spliter) {
+            return undefined;
+        }
+        const parts = fpeerid.split('^');
+        return { network: parts[0], peerid: parts[1] };
     }
     set genesisHash(genesis_hash) {
         this.m_genesis = genesis_hash;
@@ -37,15 +55,18 @@ class INode extends events_1.EventEmitter {
     get peerid() {
         return this.m_peerid;
     }
+    get network() {
+        return this.m_network;
+    }
     async init() {
     }
     dumpConns() {
         let ret = [];
         this.m_inConn.forEach((element) => {
-            ret.push(` <= ${element.getRemote()}`);
+            ret.push(` <= ${element.remote}`);
         });
         this.m_outConn.forEach((element) => {
-            ret.push(` => ${element.getRemote()}`);
+            ret.push(` => ${element.remote}`);
         });
         return ret;
     }
@@ -74,7 +95,8 @@ class INode extends events_1.EventEmitter {
             return { err: result.err, peerid };
         }
         let conn = result.conn;
-        conn.setRemote(peerid);
+        conn.remote = peerid;
+        conn.network = this.network;
         let ver = new version_1.Version();
         conn.version = ver;
         if (!this.m_genesis || !this.m_peerid) {
@@ -152,26 +174,26 @@ class INode extends events_1.EventEmitter {
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
             }
-            if (sent.has(conn.getRemote())) {
+            if (sent.has(conn.remote)) {
                 continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sent.set(conn.getRemote(), 1);
+                sent.set(conn.remote, 1);
             }
         }
         for (let conn of this.m_outConn) {
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
             }
-            if (sent.has(conn.getRemote())) {
+            if (sent.has(conn.remote)) {
                 continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sent.set(conn.getRemote(), 1);
+                sent.set(conn.remote, 1);
             }
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
@@ -233,7 +255,7 @@ class INode extends events_1.EventEmitter {
                 index++;
             }
         } while (false);
-        this.m_remoteMap.delete(conn.getRemote());
+        this.m_remoteMap.delete(conn.remote);
         if (destroy) {
             conn.destroy();
         }
@@ -257,19 +279,20 @@ class INode extends events_1.EventEmitter {
                 inbound.version = ver;
                 let err = ver.decode(dataReader);
                 if (err) {
-                    this.m_logger.warn(`recv version in invalid format from ${inbound.getRemote()} `);
+                    this.m_logger.warn(`recv version in invalid format from ${inbound.remote} `);
                     inbound.close();
                     return;
                 }
                 // 检查对方包里的genesis_hash是否对应得上
                 if (ver.genesis !== this.m_genesis) {
-                    this.m_logger.warn(`recv version genesis ${ver.genesis} not match ${this.m_genesis} from ${inbound.getRemote()} `);
+                    this.m_logger.warn(`recv version genesis ${ver.genesis} not match ${this.m_genesis} from ${inbound.remote} `);
                     inbound.close();
                     return;
                 }
                 // 忽略网络传输时间
                 let nTimeDelta = ver.timestamp - Date.now();
-                inbound.setRemote(ver.peerid);
+                inbound.remote = ver.peerid;
+                inbound.network = this.network;
                 inbound.setTimeDelta(nTimeDelta);
                 let isSupport = true;
                 let ackWriter = writer_1.PackageStreamWriter.fromPackage(CMD_TYPE.versionAck, { isSupport, timestamp: Date.now() }, 0);
@@ -278,7 +301,7 @@ class INode extends events_1.EventEmitter {
                     inbound.close();
                     return;
                 }
-                let other = this.getConnection(inbound.getRemote());
+                let other = this.getConnection(inbound.remote);
                 if (other) {
                     if (inbound.version.compare(other.version) > 0) {
                         inbound.close();
@@ -327,9 +350,12 @@ class INode extends events_1.EventEmitter {
                 // 接收到 reader的传出来的error 事件后, emit ban事件, 给上层的chain_node去做处理
                 // 这里只需要emit给上层, 最好不要处理其他逻辑
                 this.m_reader.on('error', (err, column) => {
-                    let remote = this.getRemote();
+                    let remote = this.remote;
                     thisNode.emit('ban', remote);
                 });
+            }
+            get fullRemote() {
+                return INode.fullPeerid(this.network, this.remote);
             }
             addPendingWriter(writer) {
                 let onFinish = () => {

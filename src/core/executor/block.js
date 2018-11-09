@@ -26,32 +26,39 @@ class BlockExecutor {
         return new transaction_1.EventExecutor(l, this.m_logger);
     }
     async execute() {
-        return await this._execute(this.m_block);
+        let t1 = Date.now();
+        let ret = await this._execute(this.m_block);
+        let t2 = Date.now();
+        this.m_logger.info(`runblock time====${t2 - t1}, count=${this.m_block.content.transactions.length}`);
+        return ret;
     }
-    async verify(logger) {
+    async verify() {
         let oldBlock = this.m_block;
         this.m_block = this.m_block.clone();
         let err = await this.execute();
         if (err) {
             if (err === error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR) {
-                return { err: error_code_1.ErrorCode.RESULT_OK, valid: false };
+                return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR };
             }
             else {
                 return { err };
             }
         }
         if (this.m_block.hash !== oldBlock.hash) {
-            logger.error(`block ${oldBlock.number} hash mismatch!! 
+            this.m_logger.error(`block ${oldBlock.number} hash mismatch!! 
             except storage hash ${oldBlock.header.storageHash}, actual ${this.m_block.header.storageHash}
             except hash ${oldBlock.hash}, actual ${this.m_block.hash}
             `);
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK,
-            valid: this.m_block.hash === oldBlock.hash, mismatchHash: this.m_block.hash };
+        if (this.m_block.hash === oldBlock.hash) {
+            return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_OK };
+        }
+        else {
+            return { err: error_code_1.ErrorCode.RESULT_OK, valid: error_code_1.ErrorCode.RESULT_VERIFY_NOT_MATCH };
+        }
     }
     async _execute(block) {
         this.m_logger.info(`begin execute block ${block.number}`);
-        this.m_storage.createLogger();
         let err = await this.executePreBlockEvent();
         if (err) {
             this.m_logger.error(`blockexecutor execute begin_event failed,errcode=${err},blockhash=${block.hash}`);

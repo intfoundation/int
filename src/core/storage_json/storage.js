@@ -486,9 +486,15 @@ class JsonStorage extends storage_1.Storage {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async messageDigest() {
-        let buf = await fs.readFile(this.m_filePath);
-        let hash = digest.hash256(buf).toString('hex');
-        return { err: error_code_1.ErrorCode.RESULT_OK, value: hash };
+        try {
+            const raw = JSON.stringify(this.m_root, undefined, 4);
+            let hash = digest.hash256(Buffer.from(raw, 'utf8')).toString('hex');
+            return { err: error_code_1.ErrorCode.RESULT_OK, value: hash };
+        }
+        catch (e) {
+            this.m_logger.error('json storage messagedigest exception ', e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
     }
     async getReadableDataBase(name) {
         let err = storage_1.Storage.checkDataBaseName(name);

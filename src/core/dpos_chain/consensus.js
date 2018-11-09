@@ -74,6 +74,7 @@ class ViewContext {
     async getNextMiners() {
         let kvElectionDPOS = (await this.database.getReadableKeyValue(ViewContext.kvDPOS)).kv;
         let llr = await kvElectionDPOS.llen(ViewContext.keyNextMiners);
+        console.log("new miners count:", llr);
         if (llr.err) {
             return { err: llr.err };
         }
@@ -81,6 +82,7 @@ class ViewContext {
         if (lrr.err) {
             return { err: lrr.err };
         }
+        console.log("new miners:", lrr.value);
         return { err: error_code_1.ErrorCode.RESULT_OK, creators: lrr.value };
     }
     async getStake(address) {

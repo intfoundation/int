@@ -40,8 +40,8 @@ var ErrorCode;
     ErrorCode[ErrorCode["RESULT_TX_CHECKER_ERROR"] = 38] = "RESULT_TX_CHECKER_ERROR";
     ErrorCode[ErrorCode["RESULT_TX_FEE_NOT_ENOUGH"] = 39] = "RESULT_TX_FEE_NOT_ENOUGH";
     ErrorCode[ErrorCode["RESULT_SKIPPED"] = 40] = "RESULT_SKIPPED";
+    ErrorCode[ErrorCode["RESULT_TX_ADD_TOO_FREQUENTLY"] = 41] = "RESULT_TX_ADD_TOO_FREQUENTLY";
     ErrorCode[ErrorCode["RESULT_FORK_DETECTED"] = 50] = "RESULT_FORK_DETECTED";
-    //交易池相关
     ErrorCode[ErrorCode["RESULT_USER_DEFINE"] = 10000] = "RESULT_USER_DEFINE";
     // token 相关
     ErrorCode[ErrorCode["RESULT_NO_PERMISSIONS"] = 10011] = "RESULT_NO_PERMISSIONS";
@@ -168,6 +168,9 @@ function stringifyErrorCode(err) {
     }
     else if (err === ErrorCode.RESULT_FORK_DETECTED) {
         return 'fork detected';
+    }
+    else if (err === ErrorCode.RESULT_TX_ADD_TOO_FREQUENTLY) {
+        return 'add tx too frequently';
     }
     else if (err > ErrorCode.RESULT_USER_DEFINE) {
         return `user defined errorcode ${err}`;

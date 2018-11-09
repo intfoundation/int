@@ -4,10 +4,9 @@ const error_code_1 = require("../error_code");
 const net_1 = require("net");
 const net_2 = require("../net");
 const connection_1 = require("./connection");
-const assert = require('assert');
 class TcpNode extends net_2.INode {
     constructor(options) {
-        super({ peerid: options.peerid, logger: options.logger, loggerOptions: options.loggerOptions });
+        super({ network: options.network, peerid: options.peerid, logger: options.logger, loggerOptions: options.loggerOptions });
         this.m_options = Object.create(null);
         Object.assign(this.m_options, options);
         this.m_server = new net_1.Server();
@@ -72,6 +71,7 @@ class TcpNode extends net_2.INode {
             });
             this.m_server.once('error', (e) => {
                 this.m_server.removeAllListeners('listening');
+                this.m_logger.error(`tcp listen on ${this.m_options.host}:${this.m_options.port} error `, e);
                 resolve(error_code_1.ErrorCode.RESULT_EXCEPTION);
             });
         });

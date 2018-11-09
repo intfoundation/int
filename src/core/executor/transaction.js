@@ -55,7 +55,6 @@ class TransactionExecutor extends BaseExecutor {
             this.m_logger.error(`methodexecutor, _dealNonce, nonce error,nonce should ${nonce + 1}, but ${tx.nonce}, txhash=${tx.hash} address=${tx.address}`);
             return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
         }
-        this.m_logger.info(`_dealNonce, nonce  set nonce ${tx.address} nonce=${tx.nonce}`);
         await kvr.kv.set(tx.address, tx.nonce);
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -118,11 +117,6 @@ class TransactionExecutor extends BaseExecutor {
             writable: false,
             value: this.m_tx.address
         });
-        // Object.defineProperty(
-        //     context,'bytes', {
-        //         writable: false,
-        //         value: this.objectToBuffer(this.m_tx.input!)
-        // });
         context.createAddress = () => {
             let buf = Buffer.from(this.m_tx.address + this.m_tx.nonce + this.m_addrIndex);
             this.m_addrIndex++;

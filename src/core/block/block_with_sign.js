@@ -20,6 +20,19 @@ function instance(superClass) {
         get miner() {
             return Address.addressFromPublicKey(this.m_pubkey);
         }
+        encode(writer) {
+            try {
+                writer.writeBytes(this.m_sign);
+            }
+            catch (e) {
+                return error_code_1.ErrorCode.RESULT_INVALID_FORMAT;
+            }
+            return super.encode(writer);
+        }
+        decode(reader) {
+            this.m_sign = reader.readBytes(64);
+            return super.decode(reader);
+        }
         _encodeHashContent(writer) {
             let err = super._encodeHashContent(writer);
             if (err) {
@@ -27,7 +40,6 @@ function instance(superClass) {
             }
             try {
                 writer.writeBytes(this.m_pubkey);
-                writer.writeBytes(this.m_sign);
             }
             catch (e) {
                 return error_code_1.ErrorCode.RESULT_INVALID_FORMAT;
@@ -40,7 +52,6 @@ function instance(superClass) {
                 return err;
             }
             this.m_pubkey = reader.readBytes(33);
-            this.m_sign = reader.readBytes(64);
             return error_code_1.ErrorCode.RESULT_OK;
         }
         signBlock(secret) {

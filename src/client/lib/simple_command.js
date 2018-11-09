@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 function parseCommand(argv) {
-    console.log(argv);
     if (argv.length < 3) {
         console.log('no enough command');
         return;
@@ -65,7 +64,7 @@ function parseCommandNew(argv) {
 exports.parseCommandNew = parseCommandNew;
 function parseCommandPeer(argv) {
     let command = { options: new Map() };
-    let start = 1;
+    let start = 2;
     let curKey;
     while (start < argv.length) {
         let arg = argv[start];

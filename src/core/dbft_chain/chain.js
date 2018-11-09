@@ -12,6 +12,14 @@ class DbftChain extends value_chain_1.ValueChain {
     constructor(options) {
         super(options);
     }
+    // 都不需要验证内容
+    get _ignoreVerify() {
+        return true;
+    }
+    // 不会分叉
+    get _morkSnapshot() {
+        return false;
+    }
     async newBlockExecutor(block, storage) {
         let kvBalance = (await storage.getKeyValue(value_chain_1.Chain.dbSystem, value_chain_1.ValueChain.kvBalance)).kv;
         let ve = new ValueContext.Context(kvBalance);

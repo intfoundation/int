@@ -12,7 +12,7 @@ const chain_1 = require("./chain");
 class PowMiner extends value_chain_1.ValueMiner {
     constructor(options) {
         super(options);
-        const filename = path.resolve(__dirname, 'pow_worker.js');
+        const filename = path.resolve(__dirname, '../../routine/pow_worker.js');
         this.workpool = new workpool_1.Workpool(filename, 1);
     }
     _chainInstance() {
@@ -41,14 +41,14 @@ class PowMiner extends value_chain_1.ValueMiner {
     }
     async _mineBlock(block) {
         // 这里计算bits
-        this.m_logger.info(`${this.peerid} begin mine Block (${block.number})`);
+        this.m_logger.info(`begin mine Block (${block.number})`);
         let tr = await consensus.getTarget(block.header, this.m_chain);
         if (tr.err) {
             return tr.err;
         }
         assert(tr.target !== undefined);
         if (tr.target === 0) {
-            console.error(`cannot get target bits for block ${block.number}`);
+            // console.error(`cannot get target bits for block ${block.number}`);
             return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
         }
         block.header.bits = tr.target;
@@ -56,7 +56,7 @@ class PowMiner extends value_chain_1.ValueMiner {
         let ret = await this._calcuteBlockHashWorkpool(block.header, { start: 0, end: consensus.INT32_MAX }, { start: 0, end: consensus.INT32_MAX });
         if (ret === error_code_1.ErrorCode.RESULT_OK) {
             block.header.updateHash();
-            this.m_logger.info(`${this.peerid} mined Block (${block.number}) target ${block.header.bits} : ${block.header.hash}`);
+            this.m_logger.info(`mined Block (${block.number}) target ${block.header.bits} : ${block.header.hash}`);
         }
         return ret;
     }
@@ -66,12 +66,15 @@ class PowMiner extends value_chain_1.ValueMiner {
      * @param tipBlock
      */
     async _onTipBlock(chain, tipBlock) {
-        this.m_logger.info(`${this.peerid} onTipBlock ${tipBlock.number} : ${tipBlock.hash}`);
-        if (this.m_state === value_chain_1.MinerState.mining) {
-            this.m_logger.info(`${this.peerid} cancel mining`);
+        this.m_logger.info(`onTipBlock ${tipBlock.number} : ${tipBlock.hash}`);
+        this._createBlock(this._newHeader());
+    }
+    _onCancel(state, context) {
+        super._onCancel(state, context);
+        if (state === value_chain_1.MinerState.mining) {
+            this.m_logger.info(`cancel mining`);
             this.workpool.stop();
         }
-        this._createBlock(this._newHeader());
     }
     async _calcuteBlockHashWorkpool(blockHeader, nonceRange, nonce1Range) {
         return new Promise((reslove, reject) => {

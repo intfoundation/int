@@ -56,11 +56,17 @@ class TcpConnection extends net_1.IConnection {
         }
         return Promise.resolve();
     }
-    getRemote() {
+    get remote() {
         return this.m_remote;
     }
-    setRemote(s) {
+    set remote(s) {
         this.m_remote = s;
+    }
+    get network() {
+        return this.m_network;
+    }
+    set network(s) {
+        this.m_network = s;
     }
     getTimeDelta() {
         return this.m_nTimeDelta;

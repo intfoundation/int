@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const events_1 = require("events");
-const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const storage_1 = require("../storage");
 const block_1 = require("../block");
@@ -38,23 +37,12 @@ class ChainNode extends events_1.EventEmitter {
             }
         };
         // net/node
-        this.m_node = options.node;
+        this.m_logger = options.logger;
+        this.m_networks = options.networks.slice();
         this.m_blockStorage = options.blockStorage;
         this.m_storageManager = options.storageManager;
         this.m_blockWithLog = options.blockWithLog;
         this.m_initBlockWnd = options.initBlockWnd ? options.initBlockWnd : 10;
-        this.m_node.on('inbound', (conn) => {
-            this._beginSyncWithNode(conn);
-        });
-        this.m_node.on('outbound', (conn) => {
-            this._beginSyncWithNode(conn);
-        });
-        this.m_node.on('error', (connRemotePeer, err) => {
-            this._onConnectionError(connRemotePeer);
-        });
-        this.m_node.on('ban', (remote) => {
-            this._onRemoveConnection(remote);
-        });
         this.m_blockTimeout = options.blockTimeout ? options.blockTimeout : 10000;
         this.m_headersTimeout = options.headersTimeout ? options.headersTimeout : 30000;
         this.m_reqTimeoutTimer = setInterval(() => {
@@ -68,23 +56,90 @@ class ChainNode extends events_1.EventEmitter {
         return super.once(event, listener);
     }
     async init() {
-        await this.m_node.init();
-        return this.m_node.initialOutbounds();
+        let inits = [];
+        for (const node of this.m_networks) {
+            node.on('inbound', (conn) => {
+                this._beginSyncWithNode(node, conn);
+                this.emit('inbound', conn);
+            });
+            node.on('outbound', (conn) => {
+                this._beginSyncWithNode(node, conn);
+                this.emit('outbound', conn);
+            });
+            node.on('error', (remote, err) => {
+                this._onConnectionError(remote);
+                this.emit('error', net_1.INode.fullPeerid(node.name, remote));
+            });
+            node.on('ban', (remote) => {
+                this._onRemoveConnection(remote);
+                this.emit('ban', net_1.INode.fullPeerid(node.name, remote));
+            });
+            inits.push(node.init());
+        }
+        let results = await Promise.all(inits);
+        if (results[0]) {
+            return results[0];
+        }
+        let initOutbounds = [];
+        for (const node of this.m_networks) {
+            initOutbounds.push(node.initialOutbounds());
+        }
+        results = await Promise.all(initOutbounds);
+        return results[0];
     }
     uninit() {
         this.removeAllListeners('blocks');
         this.removeAllListeners('headers');
         this.removeAllListeners('transactions');
-        return this.m_node.uninit();
+        let uninits = [];
+        for (const node of this.m_networks) {
+            uninits.push(node.uninit());
+        }
+        return Promise.all(uninits);
     }
     get logger() {
-        return this.m_node.logger;
+        return this.m_logger;
     }
     async listen() {
-        return this.m_node.listen();
+        let listens = [];
+        for (const node of this.m_networks) {
+            listens.push(node.listen());
+        }
+        const results = await Promise.all(listens);
+        for (const err of results) {
+            if (err) {
+                return err;
+            }
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
     }
-    get base() {
-        return this.m_node;
+    getNetwork(network) {
+        if (network) {
+            for (const node of this.m_networks) {
+                if (node.name === network) {
+                    return node;
+                }
+            }
+            return undefined;
+        }
+        else {
+            return this.m_networks[0];
+        }
+    }
+    getConnection(fullremote) {
+        const { network, peerid } = net_1.INode.splitFullPeerid(fullremote);
+        const node = this.getNetwork(network);
+        if (!node) {
+            return;
+        }
+        return node.node.getConnection(peerid);
+    }
+    getOutbounds() {
+        let arr = [];
+        for (const node of this.m_networks) {
+            arr.push(...node.node.getOutbounds());
+        }
+        return arr;
     }
     broadcast(content, options) {
         if (!content.length) {
@@ -118,10 +173,12 @@ class ChainNode extends events_1.EventEmitter {
             pwriter.writeData(raw);
         }
         assert(pwriter);
-        this.m_node.node.broadcast(pwriter, options);
+        for (const node of this.m_networks) {
+            node.node.broadcast(pwriter, options);
+        }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    _beginSyncWithNode(conn) {
+    _beginSyncWithNode(network, conn) {
         // TODO: node 层也要做封禁，比如发送无法解析的pkg， 过大， 过频繁的请求等等
         conn.on('pkg', async (pkg) => {
             if (pkg.header.cmdType === SYNC_CMD_TYPE.tx) {
@@ -130,21 +187,21 @@ class ChainNode extends events_1.EventEmitter {
                 let txes = [];
                 let err = error_code_1.ErrorCode.RESULT_OK;
                 for (let ix = 0; ix < pkg.body.count; ++ix) {
-                    let tx = this.base.newTransaction();
+                    let tx = network.newTransaction();
                     if (tx.decode(txReader) !== error_code_1.ErrorCode.RESULT_OK) {
-                        this.logger.warn(`receive invalid format transaction from ${conn.getRemote()}`);
+                        this.logger.warn(`receive invalid format transaction from ${conn.fullRemote}`);
                         err = error_code_1.ErrorCode.RESULT_INVALID_PARAM;
                         break;
                     }
                     if (!tx.verifySignature()) {
-                        this.logger.warn(`receive invalid signature transaction ${tx.hash} from ${conn.getRemote()}`);
+                        this.logger.warn(`receive invalid signature transaction ${tx.hash} from ${conn.fullRemote}`);
                         err = error_code_1.ErrorCode.RESULT_INVALID_TOKEN;
                         break;
                     }
                     txes.push(tx);
                 }
                 if (err) {
-                    this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                    network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
                 }
                 else {
                     if (txes.length) {
@@ -152,7 +209,7 @@ class ChainNode extends events_1.EventEmitter {
                         for (let tx of txes) {
                             hashs.push(tx.hash);
                         }
-                        this.logger.debug(`receive transaction from ${conn.getRemote()} ${JSON.stringify(hashs)}`);
+                        this.logger.debug(`receive transaction from ${conn.fullRemote} ${JSON.stringify(hashs)}`);
                         this.emit('transactions', conn, txes);
                     }
                 }
@@ -166,9 +223,9 @@ class ChainNode extends events_1.EventEmitter {
                     let err = error_code_1.ErrorCode.RESULT_OK;
                     let preHeader;
                     for (let ix = 0; ix < pkg.body.count; ++ix) {
-                        let header = this.base.newBlockHeader();
+                        let header = network.newBlockHeader();
                         if (header.decode(headerReader) !== error_code_1.ErrorCode.RESULT_OK) {
-                            this.logger.warn(`receive invalid format header from ${conn.getRemote()}`);
+                            this.logger.warn(`receive invalid format header from ${conn.fullRemote}`);
                             err = error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
                             break;
                         }
@@ -176,7 +233,7 @@ class ChainNode extends events_1.EventEmitter {
                             // 广播或者用from请求的header必须连续
                             if (preHeader) {
                                 if (!preHeader.isPreBlock(header)) {
-                                    this.logger.warn(`receive headers not in sequence from ${conn.getRemote()}`);
+                                    this.logger.warn(`receive headers not in sequence from ${conn.fullRemote}`);
                                     err = error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
                                     break;
                                 }
@@ -187,46 +244,46 @@ class ChainNode extends events_1.EventEmitter {
                     }
                     if (err) {
                         // 发错的header的peer怎么处理
-                        this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                        network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
                         return;
                     }
                     // 用from请求的返回的第一个跟from不一致
                     if (headers.length && pkg.body.request && headers[0].preBlockHash !== pkg.body.request.from) {
-                        this.logger.warn(`receive headers ${headers[0].preBlockHash} not match with request ${pkg.body.request.from} from ${conn.getRemote()}`);
-                        this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                        this.logger.warn(`receive headers ${headers[0].preBlockHash} not match with request ${pkg.body.request.from} from ${conn.fullRemote}`);
+                        network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
                         return;
                     }
                     // 任何返回 gensis 的都不对
                     if (headers.length) {
                         if (headers[0].number === 0) {
-                            this.logger.warn(`receive genesis header from ${conn.getRemote()}`);
-                            this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                            this.logger.warn(`receive genesis header from ${conn.fullRemote}`);
+                            network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
                             return;
                         }
                     }
                 }
                 else if (pkg.body.error === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
-                    let ghr = await this.base.headerStorage.getHeader(0);
+                    let ghr = await network.headerStorage.getHeader(0);
                     if (ghr.err) {
                         return;
                     }
                     // from用gensis请求的返回没有
                     if (pkg.body.request && pkg.body.request.from === ghr.header.hash) {
-                        this.logger.warn(`receive can't get genesis header ${pkg.body.request.from} from ${conn.getRemote()}`);
-                        this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+                        this.logger.warn(`receive can't get genesis header ${pkg.body.request.from} from ${conn.fullRemote}`);
+                        network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
                         return;
                     }
                 }
-                if (!this._onRecvHeaders(conn.getRemote(), time, pkg.body.request)) {
+                if (!this._onRecvHeaders(conn.fullRemote, time, pkg.body.request)) {
                     return;
                 }
-                this.emit('headers', { remote: conn.getRemote(), headers, request: pkg.body.request, error: pkg.body.error });
+                this.emit('headers', { from: conn.fullRemote, headers, request: pkg.body.request, error: pkg.body.error });
             }
             else if (pkg.header.cmdType === SYNC_CMD_TYPE.getHeader) {
                 this._responseHeaders(conn, pkg.body);
             }
             else if (pkg.header.cmdType === SYNC_CMD_TYPE.block) {
-                this._handlerBlockPackage(conn, pkg);
+                this._handlerBlockPackage(network, conn, pkg);
             }
             else if (pkg.header.cmdType === SYNC_CMD_TYPE.getBlock) {
                 this._responseBlocks(conn, pkg.body);
@@ -237,7 +294,7 @@ class ChainNode extends events_1.EventEmitter {
     // 然后emit到chain层
     // @param conn 网络连接
     // @param pgk  block 数据包
-    _handlerBlockPackage(conn, pkg) {
+    _handlerBlockPackage(network, conn, pkg) {
         let buffer = pkg.copyData();
         let blockReader;
         let redoLogReader;
@@ -265,56 +322,44 @@ class ChainNode extends events_1.EventEmitter {
         }
         if (pkg.body.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
             // 请求的block肯定已经从header里面确定remote有，直接禁掉
-            this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+            network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
             return;
         }
         // 构造block对象
-        let block = this.base.newBlock();
+        let block = network.newBlock();
         if (block.decode(blockReader) !== error_code_1.ErrorCode.RESULT_OK) {
-            this.logger.warn(`receive block invalid format from ${conn.getRemote()}`);
-            this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.forever);
+            this.logger.warn(`receive block invalid format from ${conn.fullRemote}`);
+            network.banConnection(conn.remote, block_1.BAN_LEVEL.forever);
             return;
         }
         if (!block.verify()) {
-            this.logger.warn(`receive block not match header ${block.header.hash} from ${conn.getRemote()}`);
-            this.m_node.banConnection(conn.getRemote(), block_1.BAN_LEVEL.day); // 可能分叉？
+            this.logger.warn(`receive block not match header ${block.header.hash} from ${conn.fullRemote}`);
+            network.banConnection(conn.remote, block_1.BAN_LEVEL.day); // 可能分叉？
             return;
         }
-        let err = this._onRecvBlock(block, conn.getRemote());
+        let err = this._onRecvBlock(block, conn.fullRemote);
         if (err) {
             return;
         }
         // 数据emit 到chain层
-        this.emit('blocks', { remote: conn.getRemote(), block, redoLog });
+        this.emit('blocks', { from: conn.fullRemote, block, redoLog });
     }
     requestHeaders(from, options) {
-        let conn;
-        this.logger.debug(`request headers from ${util_1.isString(from) ? from : from.getRemote()} with options `, options);
-        if (typeof from === 'string') {
-            let connRequesting = this._getConnRequesting(from);
-            if (!connRequesting) {
-                this.logger.debug(`request headers from ${from} skipped for connection not found with options `, options);
-                return error_code_1.ErrorCode.RESULT_NOT_FOUND;
-            }
-            conn = connRequesting.conn;
-        }
-        else {
-            conn = from;
-        }
-        if (this.m_requestingHeaders.get(conn.getRemote())) {
-            this.logger.warn(`request headers ${options} from ${conn.getRemote()} skipped for former headers request existing`);
+        this.logger.debug(`request headers from  with options ${from.fullRemote}`, options);
+        if (this.m_requestingHeaders.get(from.fullRemote)) {
+            this.logger.warn(`request headers ${options} from ${from.fullRemote} skipped for former headers request existing`);
             return error_code_1.ErrorCode.RESULT_ALREADY_EXIST;
         }
-        this.m_requestingHeaders.set(conn.getRemote(), {
+        this.m_requestingHeaders.set(from.fullRemote, {
             time: Date.now() / 1000,
             req: Object.assign(Object.create(null), options)
         });
         let writer = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.getHeader, options);
-        conn.addPendingWriter(writer);
+        from.addPendingWriter(writer);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     // 这里必须实现成同步的
-    requestBlocks(options, from) {
+    requestBlocks(from, options) {
         this.logger.debug(`request blocks from ${from} with options `, options);
         let connRequesting = this._getConnRequesting(from);
         if (!connRequesting) {
@@ -324,13 +369,28 @@ class ChainNode extends events_1.EventEmitter {
         let requests = [];
         let addRequesting = (header) => {
             if (this.m_blockStorage.has(header.hash)) {
-                let block = this.m_blockStorage.get(header.hash);
-                assert(block, `block storage load block ${header.hash} failed while file exists`);
-                if (block) {
-                    setImmediate(() => {
-                        this.emit('blocks', { block });
-                    });
-                    return false;
+                if (this.m_blockWithLog) {
+                    let redoLog = this.m_storageManager.getRedoLog(header.hash);
+                    if (redoLog) {
+                        let block = this.m_blockStorage.get(header.hash);
+                        assert(block, `block storage load block ${header.hash} failed while file exists`);
+                        if (block) {
+                            setImmediate(() => {
+                                this.emit('blocks', { block, redoLog });
+                            });
+                            return false;
+                        }
+                    }
+                }
+                else {
+                    let block = this.m_blockStorage.get(header.hash);
+                    assert(block, `block storage load block ${header.hash} failed while file exists`);
+                    if (block) {
+                        setImmediate(() => {
+                            this.emit('blocks', { block });
+                        });
+                        return false;
+                    }
                 }
             }
             let sources = this.m_blockFromMap.get(header.hash);
@@ -389,37 +449,32 @@ class ChainNode extends events_1.EventEmitter {
             this.m_pendingBlock.sequence.splice(this.m_pendingBlock.sequence.indexOf(hash), 1);
         }
     }
-    _getConnRequesting(remote) {
-        let connRequesting = this.m_requestingBlock.connMap.get(remote);
+    _getConnRequesting(fpid) {
+        let connRequesting = this.m_requestingBlock.connMap.get(fpid);
         if (!connRequesting) {
-            let conn = this.m_node.node.getConnection(remote);
+            const { network, peerid } = net_1.INode.splitFullPeerid(fpid);
+            const node = this.getNetwork(network);
+            if (!node) {
+                return;
+            }
+            let conn = node.node.getConnection(peerid);
             // TODO: 取不到这个conn的时候要处理
             // assert(conn, `no connection to ${remote}`);
-            this.logger.error(`non connection to ${remote}`);
+            this.logger.error(`non connection to ${fpid}`);
             if (!conn) {
                 return;
             }
             connRequesting = { hashes: new Set(), wnd: this.m_initBlockWnd, conn: conn };
-            this.m_requestingBlock.connMap.set(remote, connRequesting);
+            this.m_requestingBlock.connMap.set(fpid, connRequesting);
         }
         return connRequesting;
     }
-    _requestBlockFromConnection(hash, from) {
-        let connRequesting;
-        if (typeof from === 'string') {
-            connRequesting = this._getConnRequesting(from);
-            if (!connRequesting) {
-                return error_code_1.ErrorCode.RESULT_NOT_FOUND;
-            }
-        }
-        else {
-            connRequesting = from;
-        }
-        this.logger.debug(`request block ${hash} from ${connRequesting.conn.getRemote()}`);
+    _requestBlockFromConnection(hash, connRequesting) {
+        this.logger.debug(`request block ${hash} from ${connRequesting.conn.fullRemote}`);
         let writer = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.getBlock, { hash, redoLog: this.m_blockWithLog ? 1 : 0 });
         connRequesting.conn.addPendingWriter(writer);
         connRequesting.hashes.add(hash);
-        this.m_requestingBlock.hashMap.set(hash, { from: connRequesting.conn.getRemote(), time: Date.now() / 1000 });
+        this.m_requestingBlock.hashMap.set(hash, { remote: connRequesting.conn.fullRemote, time: Date.now() / 1000 });
         return error_code_1.ErrorCode.RESULT_OK;
     }
     _onFreeBlockWnd(connRequesting) {
@@ -435,7 +490,7 @@ class ChainNode extends events_1.EventEmitter {
             if (!sources) {
                 return error_code_1.ErrorCode.RESULT_EXCEPTION;
             }
-            if (sources.has(connRequesting.conn.getRemote())) {
+            if (sources.has(connRequesting.conn.fullRemote)) {
                 this._requestBlockFromConnection(hash, connRequesting);
                 pending.sequence.splice(index, 1);
                 pending.hashes.delete(hash);
@@ -449,11 +504,11 @@ class ChainNode extends events_1.EventEmitter {
             ++index;
         } while (true);
     }
-    _onRecvHeaders(from, time, request) {
+    _onRecvHeaders(fpid, time, request) {
         let valid = true;
         if (request) {
             // 返回没有请求过的headers， 要干掉
-            let rh = this.m_requestingHeaders.get(from);
+            let rh = this.m_requestingHeaders.get(fpid);
             if (rh) {
                 for (let key of Object.keys(request)) {
                     if (request[key] !== rh.req[key]) {
@@ -470,32 +525,32 @@ class ChainNode extends events_1.EventEmitter {
                 valid = false;
             }
             if (valid) {
-                this.m_requestingHeaders.delete(from);
+                this.m_requestingHeaders.delete(fpid);
             }
         }
         else {
             // TODO: 过频繁的广播header, 要干掉
         }
         if (!valid) {
-            this.m_node.banConnection(from, block_1.BAN_LEVEL.forever);
+            this._banConnection(fpid, block_1.BAN_LEVEL.forever);
         }
         return valid;
     }
-    _onRecvBlock(block, from) {
-        let connRequesting = this.m_requestingBlock.connMap.get(from);
+    _onRecvBlock(block, remote) {
+        let connRequesting = this.m_requestingBlock.connMap.get(remote);
         if (!connRequesting) {
-            this.logger.error(`requesting info on ${from} missed, skip it`);
+            this.logger.error(`requesting info on ${remote} missed, skip it`);
             return error_code_1.ErrorCode.RESULT_NOT_FOUND;
         }
         let stub = this.m_requestingBlock.hashMap.get(block.hash);
-        assert(stub, `recv block ${block.hash} from ${from} that never request`);
+        assert(stub, `recv block ${block.hash} from ${remote} that never request`);
         if (!stub) {
-            this.m_node.banConnection(from, block_1.BAN_LEVEL.day);
+            this._banConnection(remote, block_1.BAN_LEVEL.day);
             return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
         }
-        this.logger.debug(`recv block hash: ${block.hash} number: ${block.number} from ${from}`);
+        this.logger.debug(`recv block hash: ${block.hash} number: ${block.number} from ${remote}`);
         this.m_blockStorage.add(block);
-        assert(stub.from === from, `request ${block.hash} from ${stub.from} while recv from ${from}`);
+        assert(stub.remote === remote, `request ${block.hash} from ${stub.remote} while recv from ${remote}`);
         this.m_requestingBlock.hashMap.delete(block.hash);
         connRequesting.hashes.delete(block.hash);
         this.m_blockFromMap.delete(block.hash);
@@ -541,15 +596,25 @@ class ChainNode extends events_1.EventEmitter {
         }
         this.m_requestingHeaders.delete(remote);
     }
+    banConnection(remote, level) {
+        return this._banConnection(remote, level);
+    }
+    _banConnection(remote, level) {
+        const { network, peerid } = net_1.INode.splitFullPeerid(remote);
+        const node = this.getNetwork(network);
+        if (node) {
+            node.banConnection(peerid, level);
+        }
+    }
     _onReqTimeoutTimer(now) {
         for (let hash of this.m_requestingBlock.hashMap.keys()) {
             let stub = this.m_requestingBlock.hashMap.get(hash);
-            let fromRequesting = this.m_requestingBlock.connMap.get(stub.from);
+            let fromRequesting = this.m_requestingBlock.connMap.get(stub.remote);
             if (now - stub.time > this.m_blockTimeout) {
                 this.m_cc.onBlockTimeout(this, hash, fromRequesting);
                 // close it 
                 if (fromRequesting.wnd < 1) {
-                    this.m_node.banConnection(stub.from, block_1.BAN_LEVEL.hour);
+                    this._banConnection(stub.remote, block_1.BAN_LEVEL.hour);
                 }
             }
         }
@@ -558,18 +623,19 @@ class ChainNode extends events_1.EventEmitter {
             let rh = this.m_requestingHeaders.get(remote);
             if (now - rh.time > this.m_headersTimeout) {
                 this.logger.debug(`header request timeout from ${remote} timeout with options `, rh.req);
-                this.m_node.banConnection(remote, block_1.BAN_LEVEL.hour);
+                this._banConnection(remote, block_1.BAN_LEVEL.hour);
             }
         }
     }
     async _responseBlocks(conn, req) {
         assert(this.m_blockStorage);
-        this.logger.info(`receive block request from ${conn.getRemote()} with ${JSON.stringify(req)}`);
+        this.logger.info(`receive block request from ${conn.fullRemote} with ${JSON.stringify(req)}`);
         let bwriter = new writer_1.BufferWriter();
         let block = this.m_blockStorage.get(req.hash);
         if (!block) {
             this.logger.crit(`cannot get Block ${req.hash} from blockStorage`);
-            assert(false, `${this.m_node.peerid} cannot get Block ${req.hash} from blockStorage`);
+            const node = this.getNetwork(conn.network);
+            assert(false, `${conn.fullRemote} cannot get Block ${req.hash} from blockStorage`);
             return error_code_1.ErrorCode.RESULT_OK;
         }
         let err = block.encode(bwriter);
@@ -607,17 +673,18 @@ class ChainNode extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async _responseHeaders(conn, req) {
-        this.logger.info(`receive header request from ${conn.getRemote()} with ${JSON.stringify(req)}`);
+        const node = this.getNetwork(conn.network);
+        this.logger.info(`receive header request from ${conn.fullRemote} with ${JSON.stringify(req)}`);
         if (req.from) {
             let hwriter = new writer_1.BufferWriter();
             let respErr = error_code_1.ErrorCode.RESULT_OK;
             let headerCount = 0;
             do {
-                let tipResult = await this.base.headerStorage.getHeader('latest');
+                let tipResult = await node.headerStorage.getHeader('latest');
                 if (tipResult.err) {
                     return tipResult.err;
                 }
-                let heightResult = await this.m_node.headerStorage.getHeightOnBest(req.from);
+                let heightResult = await node.headerStorage.getHeightOnBest(req.from);
                 if (heightResult.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
                     respErr = error_code_1.ErrorCode.RESULT_NOT_FOUND;
                     break;
@@ -634,7 +701,7 @@ class ChainNode extends events_1.EventEmitter {
                 else {
                     headerCount = req.limit;
                 }
-                let hr = await this.base.headerStorage.getHeader(heightResult.height + headerCount);
+                let hr = await node.headerStorage.getHeader(heightResult.height + headerCount);
                 if (hr.err) {
                     // 中间changeBest了，返回not found
                     if (hr.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
@@ -645,7 +712,7 @@ class ChainNode extends events_1.EventEmitter {
                         return hr.err;
                     }
                 }
-                let hsr = await this.base.headerStorage.getHeader(hr.header.hash, -headerCount + 1);
+                let hsr = await node.headerStorage.getHeader(hr.header.hash, -headerCount + 1);
                 if (hsr.err) {
                     return hsr.err;
                 }

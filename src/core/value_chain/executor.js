@@ -168,7 +168,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         return txTotalLimit;
     }
     async execute(blockHeader, storage, externContext, flag) {
-        this.m_logger.info(`-----------will execute tx ${this.m_tx.hash}: ${this.m_tx.method},from ${this.m_tx.address}, params ${JSON.stringify(this.m_tx.input)}`);
         if (!(flag && flag.ignoreNoce)) {
             let nonceErr = await this._dealNonce(this.m_tx, storage);
             if (nonceErr !== error_code_1.ErrorCode.RESULT_OK) {
@@ -200,7 +199,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         let receipt = new transaction_1.ValueReceipt();
         let ve = new context_1.Context(kvBalance);
         if ((await ve.getBalance(fromAddress)).lt(nToValue)) {
-            this.m_logger.error(`--------value not enough need ${nToValue.toString()} but ${(await ve.getBalance(fromAddress)).toString()}`);
+            this.m_logger.error(`methodexecutor failed for value not enough need ${nToValue.toString()} but ${(await ve.getBalance(fromAddress)).toString()} address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             receipt.returnCode = error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
             receipt.transactionHash = this.m_tx.hash;
             return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
@@ -208,12 +207,12 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         let context = await this.prepareContext(blockHeader, storage, externContext);
         let work = await storage.beginTransaction();
         if (work.err) {
-            this.m_logger.error(`--------beginTransaction failed`);
+            this.m_logger.error(`methodexecutor failed for beginTransaction failed,address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             return { err: work.err };
         }
         let err = await ve.transferTo(fromAddress, chain_2.ValueChain.sysAddress, nToValue);
         if (err) {
-            this.m_logger.error(`--------transferTo sysAddress failed`);
+            this.m_logger.error(`methodexecutor failed for transferTo sysAddress failed,address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             await work.value.rollback();
             return { err };
         }
@@ -221,7 +220,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         receipt.cost = this.m_totalCost;
         assert(util_1.isNumber(receipt.returnCode), `invalid handler return code ${receipt.returnCode}`);
         if (!util_1.isNumber(receipt.returnCode)) {
-            this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=`, receipt.returnCode);
+            this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=${receipt.returnCode},address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
         receipt.transactionHash = this.m_tx.hash;

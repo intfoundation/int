@@ -81,11 +81,6 @@ class DbftBlockHeader extends value_chain_1.BlockWithSign(value_chain_1.ValueBlo
         return this._verifySign();
     }
     async verify(chain) {
-        // 先验证签名是否正确
-        if (!this._verifySign()) {
-            chain.logger.error(`verify block ${this.number} sign error!`);
-            return { err: error_code_1.ErrorCode.RESULT_OK, valid: false };
-        }
         // 从某个设施验证pubkey是否在列表中,是否轮到这个节点出块
         return await this._verifySigns(chain);
     }
@@ -113,6 +108,11 @@ class DbftBlockHeader extends value_chain_1.BlockWithSign(value_chain_1.ValueBlo
         }
         const valid = context_1.DbftContext.isAgreeRateReached(chain.globalOptions, miners.size, verified.size);
         return { err: error_code_1.ErrorCode.RESULT_OK, valid };
+    }
+    stringify() {
+        let obj = super.stringify();
+        obj.view = this.m_view;
+        return obj;
     }
 }
 exports.DbftBlockHeader = DbftBlockHeader;

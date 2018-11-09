@@ -51,7 +51,8 @@ async function run(argv) {
     options.set("bdt_log_level", "info");
     options.set("saveMismatch", true);
     options.set("dataDir", './data/intchain/minerData');
-    options.set("sn", "SN_PEER_TEST1@testsn.intchain.io@8550@8551");
+    // options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
+    options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {

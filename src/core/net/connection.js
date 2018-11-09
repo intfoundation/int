@@ -18,11 +18,6 @@ class IConnection extends events_1.EventEmitter {
     destroy() {
         return Promise.resolve();
     }
-    getRemote() {
-        return '';
-    }
-    setRemote(s) {
-    }
     getTimeDelta() {
         return 0;
     }

@@ -1,10 +1,13 @@
-2018-11-08T07:28:08.948Z - info: create storage genesis storage_manager.js:67
-2018-11-08T07:28:08.959Z - info: begin execute block 0 block.js:53
-2018-11-08T07:28:08.963Z - debug: execute event on 0 transaction.js:142
-2018-11-08T07:28:08.965Z - debug: event handler commit storage transaction.js:163
-2018-11-08T07:28:08.966Z - debug: execute event on 0 transaction.js:142
-2018-11-08T07:28:08.966Z - info: on BlockHeight 0 handler.js:390
-2018-11-08T07:28:08.967Z - debug: event handler commit storage transaction.js:163
-2018-11-08T07:28:08.971Z - info: creating snapshot 46dabf6b718b8e312c6a07110254806bdf9ec6ab19c288c3aa0a60a0ed0a00e3 dump_snapshot_manager.js:34
-2018-11-08T07:28:08.975Z - debug: getting snapshot 46dabf6b718b8e312c6a07110254806bdf9ec6ab19c288c3aa0a60a0ed0a00e3 log_snapshot_manager.js:118
-2018-11-08T07:28:08.975Z - debug: get snapshot 46dabf6b718b8e312c6a07110254806bdf9ec6ab19c288c3aa0a60a0ed0a00e3 directly from dump log_snapshot_manager.js:123
+2018-11-08T14:36:03.080Z - debug: about to remove storage file  /Users/ali/WebstormProjects/INTChain3.0/data/intchain/genesis/tmp/genesis.storage storage.js:65
+2018-11-08T14:36:03.080Z - info: create storage genesis storage_manager.js:67
+2018-11-08T14:36:03.091Z - info: begin execute block 0 block.js:61
+2018-11-08T14:36:03.093Z - debug: execute event on 0 transaction.js:136
+2018-11-08T14:36:03.094Z - debug: event handler commit storage transaction.js:157
+2018-11-08T14:36:03.095Z - debug: execute event on 0 transaction.js:136
+2018-11-08T14:36:03.096Z - info: on BlockHeight 0 handler.js:390
+2018-11-08T14:36:03.096Z - debug: event handler commit storage transaction.js:157
+2018-11-08T14:36:03.099Z - info: runblock time====9, count=0 block.js:32
+2018-11-08T14:36:03.100Z - info: creating snapshot f4d46df1c5c92cbc617d8a3e0f9a0c7036991bea18141e9ae9f0268c73d62e94 dump_snapshot_manager.js:34
+2018-11-08T14:36:03.104Z - info: getting snapshot f4d46df1c5c92cbc617d8a3e0f9a0c7036991bea18141e9ae9f0268c73d62e94 log_snapshot_manager.js:121
+2018-11-08T14:36:03.104Z - info: get snapshot f4d46df1c5c92cbc617d8a3e0f9a0c7036991bea18141e9ae9f0268c73d62e94 directly from dump log_snapshot_manager.js:126
+2018-11-08T14:36:03.110Z - debug: about to remove storage file  /Users/ali/WebstormProjects/INTChain3.0/data/intchain/genesis/tmp/genesis.storage storage.js:65

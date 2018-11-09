@@ -6,7 +6,6 @@ const core_1 = require("../../core");
 const rpc_1 = require("./rpc");
 class ChainHost {
     constructor() {
-        this.m_net = new Map();
     }
     async initMiner(commandOptions) {
         let dataDir = this._parseDataDir(commandOptions);
@@ -21,12 +20,12 @@ class ChainHost {
             console.error('chain_host initMiner fail createMinerInstance');
             return { ret: false };
         }
-        let node = this._parseNode(commandOptions);
-        if (!node) {
-            console.error('chain_host initMiner fail _parseNode');
+        let routineManagerType = this._parseExecutorRoutine(cr.miner.chain, commandOptions);
+        if (!routineManagerType) {
+            console.error('chain_host initMiner fail _parseExecutorRoutine');
             return { ret: false };
         }
-        let pr = cr.miner.parseInstanceOptions(node, commandOptions);
+        let pr = cr.miner.parseInstanceOptions({ parsed: { routineManagerType }, origin: commandOptions });
         if (pr.err) {
             console.error('chain_host initMiner fail parseInstanceOptions');
             return { ret: false };
@@ -51,11 +50,12 @@ class ChainHost {
         if (cr.err) {
             return { ret: false };
         }
-        let node = this._parseNode(commandOptions);
-        if (!node) {
+        let routineManagerType = this._parseExecutorRoutine(cr.chain, commandOptions);
+        if (!routineManagerType) {
+            console.error('chain_host initMiner fail _parseExecutorRoutine');
             return { ret: false };
         }
-        let pr = cr.chain.parseInstanceOptions(node, commandOptions);
+        let pr = cr.chain.parseInstanceOptions({ parsed: { routineManagerType }, origin: commandOptions });
         if (pr.err) {
             return { ret: false };
         }
@@ -121,15 +121,16 @@ class ChainHost {
         loggerOptions.file = { root: loggerPath };
         return core_1.initLogger({ loggerOptions });
     }
-    _parseNode(commandOptions) {
-        if (commandOptions.get('net')) {
-            let ni = this.m_net.get(commandOptions.get('net'));
-            if (!ni) {
-                console.error('invalid net');
-                return undefined;
+    _parseExecutorRoutine(chain, commandOptions) {
+        if (commandOptions.has('executor')) {
+            if (commandOptions.get('executor') === 'inprocess') {
+                return core_1.InprocessRoutineManager;
             }
-            return ni(commandOptions);
+            else if (commandOptions.get('executor') === 'interprocess') {
+                return core_1.InterprocessRoutineManager;
+            }
         }
+        return core_1.InprocessRoutineManager;
     }
     _parseDataDir(commandOptions) {
         let dataDir = commandOptions.get('dataDir');
@@ -158,9 +159,6 @@ class ChainHost {
         }
         fs.copySync(_path, dataDir);
         return dataDir;
-    }
-    registerNet(net, instance) {
-        this.m_net.set(net, instance);
     }
 }
 ChainHost.CREATE_TIP = `command: create --package [packageDir] --dataDir [dataDir] --[genesisConfig] [genesisConfig] --[externalHandler]`;
