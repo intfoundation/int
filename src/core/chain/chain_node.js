@@ -481,12 +481,13 @@ class ChainNode extends events_1.EventEmitter {
         let pending = this.m_pendingBlock;
         let index = 0;
         do {
-            if (!pending.sequence.length) {
+            if (!pending.sequence.length
+                || index >= pending.sequence.length) {
                 break;
             }
             let hash = pending.sequence[index];
             let sources = this.m_blockFromMap.get(hash);
-            assert(sources, `to request block ${hash} from unknown source`);
+            // assert(sources, `to request block ${hash} from unknown source`);
             if (!sources) {
                 return error_code_1.ErrorCode.RESULT_EXCEPTION;
             }

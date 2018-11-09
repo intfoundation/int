@@ -146,7 +146,7 @@ class HeaderStorage {
             else {
                 let headerEntry = this.m_cacheHash.get(arg);
                 if (headerEntry) {
-                    this.m_logger.debug(`get header storage directly from cache hash: ${headerEntry.blockheader.hash} number: ${headerEntry.blockheader.number} verified: ${headerEntry.verified}`);
+                    // this.m_logger.debug(`get header storage directly from cache hash: ${headerEntry.blockheader.hash} number: ${headerEntry.blockheader.number} verified: ${headerEntry.verified}`);
                     return { err: error_code_1.ErrorCode.RESULT_OK, header: headerEntry.blockheader, verified: headerEntry.verified };
                 }
                 try {

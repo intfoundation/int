@@ -9,9 +9,9 @@
         "maxCreateor": 13,
         "reSelectionBlocks": 360,
         "blockInterval": 10,
-        "timeOffsetToLastBlock": 180,
-        "timeBan": 720,
-        "unbanBlocks": 180,
+        "timeOffsetToLastBlock": 1800,
+        "timeBan": 3600,
+        "unbanBlocks": 100,
         "dposVoteMaxProducers": 20,
         "maxBlockIntervalOffset": 1
     }
