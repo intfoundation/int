@@ -45,7 +45,7 @@ var ErrorCode;
     ErrorCode[ErrorCode["RESULT_USER_DEFINE"] = 10000] = "RESULT_USER_DEFINE";
     // token 相关
     ErrorCode[ErrorCode["RESULT_NO_PERMISSIONS"] = 10011] = "RESULT_NO_PERMISSIONS";
-    ErrorCode[ErrorCode["RESULT_IS_FROOZEN"] = 10012] = "RESULT_IS_FROOZEN";
+    ErrorCode[ErrorCode["RESULT_IS_FROZEN"] = 10012] = "RESULT_IS_FROZEN";
     ErrorCode[ErrorCode["RESULT_INVALID_ADDRESS"] = 10013] = "RESULT_INVALID_ADDRESS";
     // 交易费用
     ErrorCode[ErrorCode["RESULT_LIMIT_NOT_ENOUGH"] = 10021] = "RESULT_LIMIT_NOT_ENOUGH";
@@ -171,6 +171,39 @@ function stringifyErrorCode(err) {
     }
     else if (err === ErrorCode.RESULT_TX_ADD_TOO_FREQUENTLY) {
         return 'add tx too frequently';
+    }
+    else if (err === ErrorCode.RESULT_NO_PERMISSIONS) {
+        return 'have no permissions';
+    }
+    else if (err === ErrorCode.RESULT_IS_FROZEN) {
+        return 'address is frozen';
+    }
+    else if (err === ErrorCode.RESULT_INVALID_ADDRESS) {
+        return 'invalid address';
+    }
+    else if (err === ErrorCode.RESULT_LIMIT_NOT_ENOUGH) {
+        return 'limit not enough';
+    }
+    else if (err === ErrorCode.RESULT_LIMIT_TOO_BIG) {
+        return 'limit too big';
+    }
+    else if (err === ErrorCode.RESULT_LIMIT_TOO_SMALL) {
+        return 'limit too small';
+    }
+    else if (err === ErrorCode.RESULT_BLOCK_LIMIT_TOO_BIG) {
+        return 'block limit too big';
+    }
+    else if (err === ErrorCode.RESULT_PRICE_TOO_BIG) {
+        return 'price too big';
+    }
+    else if (err === ErrorCode.RESULT_PRICE_TOO_SMALL) {
+        return 'price too samll';
+    }
+    else if (err === ErrorCode.RESULT_ADDRESS_NOT_EXIST) {
+        return 'address not exist';
+    }
+    else if (err === ErrorCode.RESULT_KEYSTORE_ERROR) {
+        return 'keystore error';
     }
     else if (err > ErrorCode.RESULT_USER_DEFINE) {
         return `user defined errorcode ${err}`;
