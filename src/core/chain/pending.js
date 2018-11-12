@@ -145,7 +145,7 @@ class PendingTransactions extends events_1.EventEmitter {
                 this.m_mapNonce = new Map();
                 this.m_transactions = [];
             }
-            else if (opt._type === SyncOptType.addTx) {
+            else if (this.m_currAdding._type === SyncOptType.addTx) {
                 await this._addTx(this.m_currAdding.param);
             }
             this.m_currAdding = undefined;
