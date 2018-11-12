@@ -4,23 +4,22 @@ const chain_1 = require("../chain");
 const error_code_1 = require("../error_code");
 const bignumber_js_1 = require("bignumber.js");
 const chain_2 = require("./chain");
+const serializable_1 = require("../serializable");
 class ValuePendingTransactions extends chain_1.PendingTransactions {
     constructor() {
         super(...arguments);
         this.m_balance = new Map();
-        this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
-        this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
-        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
-        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
+        this.m_baseLimit = new bignumber_js_1.BigNumber(500); // 基础交易费用
+        this.m_getLimit = new bignumber_js_1.BigNumber(20); // get操作费用
+        this.m_setLimit = new bignumber_js_1.BigNumber(100); // set操作费用
+        this.m_createLimit = new bignumber_js_1.BigNumber(50000); // 建表操作费用
+        this.m_inputLimit = new bignumber_js_1.BigNumber(5); // input数据每个字节费用
+        this.m_coefficient = new bignumber_js_1.BigNumber(40); // 调整系数
     }
     async onCheck(txTime, txOld) {
         let ret = await super.onCheck(txTime, txOld);
         if (ret) {
             return ret;
-        }
-        let bt = this.baseMethodChecker(txTime.tx);
-        if (bt) {
-            return bt;
         }
         let br = await this.getBalance(txTime.tx.address);
         if (br.err) {
@@ -36,24 +35,6 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         if (balance.lt(totalUse)) {
             this.m_logger.error(`onCheck failed, need total ${totalUse.toString()} but balance ${balance.toString()}`);
             return error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
-        }
-        return error_code_1.ErrorCode.RESULT_OK;
-    }
-    baseMethodChecker(tx) {
-        if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
-        }
-        if (tx.limit.gt(this.m_maxTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
-        }
-        if (tx.limit.lt(this.m_minTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
-        }
-        if (tx.price.gt(this.m_maxTxPrice)) {
-            return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
-        }
-        if (tx.price.lt(this.m_minTxPrice)) {
-            return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -137,7 +118,8 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         let txs = [];
         let total = new bignumber_js_1.BigNumber(0);
         for (let pos = 0; pos < this.m_transactions.length; pos++) {
-            total = total.plus(this.m_transactions[pos].tx.limit);
+            let totalTxLimit = this.calcTxLimit(this.m_transactions[pos].tx);
+            total = total.plus(totalTxLimit);
             if (total.gt(maxLimit)) {
                 this.m_logger.info(`popTransactionWithFee finished, total limit ${total.toString()}, max limit ${maxLimit.toString()}`);
                 break;
@@ -157,6 +139,81 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             pendingTxs.push({ tx: tx, ct: pt.pendingTransactions[i].ct });
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: pendingTxs };
+    }
+    // 计算执行tx的 limit
+    calcTxLimit(tx) {
+        let txTotalLimit = new bignumber_js_1.BigNumber(0);
+        switch (tx.method) {
+            case 'transferTo':
+                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
+                break;
+            case 'createToken':
+                txTotalLimit = this.calcLimit(tx.input, 6, 0, true);
+                break;
+            case 'transferTokenTo':
+                txTotalLimit = this.calcLimit(tx.input, 2, 4, false);
+                break;
+            case 'transferFrom':
+                txTotalLimit = this.calcLimit(tx.input, 3, 6, false);
+                break;
+            case 'approve':
+                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
+                break;
+            case 'freezeAccount':
+                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
+                break;
+            case 'burn':
+                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
+                break;
+            case 'mintToken':
+                txTotalLimit = this.calcLimit(tx.input, 2, 3, false);
+                break;
+            case 'transferOwnership':
+                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
+                break;
+            case 'vote':
+                txTotalLimit = this.calcLimit(tx.input, 2, 5, false);
+                break;
+            case 'mortgage':
+                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
+                break;
+            case 'unmortgage':
+                txTotalLimit = this.calcLimit(tx.input, 3, 2, false);
+                break;
+            case 'register':
+                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
+                break;
+            case 'publish':
+                txTotalLimit = this.calcLimit(tx.input, 3, 1, false);
+                break;
+            case 'bid':
+                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
+                break;
+            default:
+                txTotalLimit = this.calcLimit(tx.input, 0, 0, false);
+                break;
+        }
+        return txTotalLimit;
+    }
+    objectToBuffer(input) {
+        let inputString;
+        if (input) {
+            inputString = JSON.stringify(serializable_1.toStringifiable(input, true));
+        }
+        else {
+            inputString = JSON.stringify({});
+        }
+        return Buffer.from(inputString);
+    }
+    calcLimit(input, setN, getN, create) {
+        let txTotalLimit = new bignumber_js_1.BigNumber(0);
+        let txInputBytes = new bignumber_js_1.BigNumber(this.objectToBuffer(input).length);
+        txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(setN))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(getN))).plus(txInputBytes.times(this.m_inputLimit));
+        if (create) {
+            txTotalLimit = txTotalLimit.plus(this.m_createLimit);
+        }
+        txTotalLimit = txTotalLimit.times(this.m_coefficient);
+        return txTotalLimit;
     }
 }
 exports.ValuePendingTransactions = ValuePendingTransactions;

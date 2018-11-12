@@ -13,6 +13,9 @@ class DposChain extends value_chain_1.ValueChain {
     constructor(options) {
         super(options);
     }
+    get _morkSnapshot() {
+        return false;
+    }
     // DPOS中，只广播tipheader
     get _broadcastDepth() {
         return 0;

@@ -4,6 +4,8 @@ const chain_1 = require("./chain");
 const error_code_1 = require("../error_code");
 const events_1 = require("events");
 const LRUCache_1 = require("../lib/LRUCache");
+const bignumber_js_1 = require("bignumber.js");
+const serializable_1 = require("../serializable");
 var SyncOptType;
 (function (SyncOptType) {
     SyncOptType[SyncOptType["updateTip"] = 0] = "updateTip";
@@ -14,6 +16,10 @@ class PendingTransactions extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_queueOpt = [];
+        this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
+        this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
+        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
+        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
         this.m_transactions = [];
         this.m_orphanTx = new Map();
         this.m_mapNonce = new Map();
@@ -41,7 +47,11 @@ class PendingTransactions extends events_1.EventEmitter {
         const err = checker(tx);
         if (err) {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
-            return error_code_1.ErrorCode.RESULT_TX_CHECKER_ERROR;
+            return err;
+        }
+        let bt = this.baseMethodChecker(tx);
+        if (bt) {
+            return bt;
         }
         let nCount = this.getPengdingCount() + this.m_queueOpt.length;
         if (nCount >= this.m_maxPengdingCount) {
@@ -60,6 +70,27 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         let opt = { _type: SyncOptType.addTx, param: { tx, ct: Date.now() } };
         this.addPendingOpt(opt);
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    baseMethodChecker(tx) {
+        if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
+        if (serializable_1.hasDecimals(tx.limit) || serializable_1.hasDecimals(tx.price) || serializable_1.hasDecimals(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
+        if (tx.limit.gt(this.m_maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        if (tx.limit.lt(this.m_minTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
+        }
+        if (tx.price.gt(this.m_maxTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
+        }
+        if (tx.price.lt(this.m_minTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
         return error_code_1.ErrorCode.RESULT_OK;
     }
     popTransaction() {
