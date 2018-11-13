@@ -78,14 +78,8 @@ function freezeAccountChecker(tx) {
     if (util_1.isNullOrUndefined(input.freeze) || typeof input.freeze !== 'boolean') {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
-    if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.from) || !index_1.isValidAddress(input.to)) {
+    if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.freezeAddress)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
-    }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
