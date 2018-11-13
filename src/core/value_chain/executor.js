@@ -177,25 +177,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, chain_2.ValueChain.kvBalance)).kv;
         let fromAddress = this.m_tx.address;
         let nToValue = this.m_tx.value;
-        // if ((this.m_tx as ValueTransaction).limit.gt(this.m_maxTxLimit)) {
-        //     this.m_logger.error(`valuetransactionexecutor execute failed, max transaction limit ${this.m_maxTxLimit.toString()}, but user defined ${(this.m_tx as ValueTransaction).limit.toString()}`);
-        //     return {err: ErrorCode.RESULT_LIMIT_TOO_BIG}
-        // }
-        //
-        // if ((this.m_tx as ValueTransaction).limit.lt(this.m_minTxLimit)) {
-        //     this.m_logger.error(`valuetransactionexecutor execute failed, min transaction limit ${this.m_minTxLimit.toString()}, but user defined ${(this.m_tx as ValueTransaction).limit.toString()}`);
-        //     return {err: ErrorCode.RESULT_LIMIT_TOO_SMALL}
-        // }
-        //
-        // if ((this.m_tx as ValueTransaction).price.gt((this.m_maxTxPrice))) {
-        //     this.m_logger.error(`valuetransactionexecutor execute failed, max transaction price ${(this.m_maxTxPrice).toString()}, but user defined ${(this.m_tx as ValueTransaction).price.toString()}`);
-        //     return {err: ErrorCode.RESULT_PRICE_TOO_BIG}
-        // }
-        //
-        // if ((this.m_tx as ValueTransaction).price.lt((this.m_minTxPrice))) {
-        //     this.m_logger.error(`valuetransactionexecutor execute failed, min transaction price ${(this.m_minTxPrice).toString()}, but user defined ${(this.m_tx as ValueTransaction).price.toString()}`);
-        //     return {err: ErrorCode.RESULT_PRICE_TOO_SMALL}
-        // }
         let receipt = new transaction_1.ValueReceipt();
         let ve = new context_1.Context(kvBalance);
         if ((await ve.getBalance(fromAddress)).lt(nToValue)) {

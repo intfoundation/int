@@ -487,7 +487,7 @@ class ChainNode extends events_1.EventEmitter {
             }
             let hash = pending.sequence[index];
             let sources = this.m_blockFromMap.get(hash);
-            // assert(sources, `to request block ${hash} from unknown source`);
+            assert(sources, `to request block ${hash} from unknown source`);
             if (!sources) {
                 return error_code_1.ErrorCode.RESULT_EXCEPTION;
             }
