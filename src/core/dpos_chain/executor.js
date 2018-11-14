@@ -18,7 +18,7 @@ class DposBlockExecutor extends value_chain_1.ValueBlockExecutor {
             let denv = new consensus.Context(dbr.value, this.m_globalOptions, this.m_logger);
             // 修改miner的最后一次出块时间
             // 创世快不算时间，因为创世快产生后可能很长时间才开始出其他块的
-            await denv.updateProducerTime(this.m_block.header.miner, this.m_block.header.timestamp);
+            await denv.updateProducerTime(this.m_block.header.coinbase, this.m_block.header.timestamp);
             // 维护被禁用miner信息
             if (this.m_block.number % this.m_globalOptions.unbanBlocks === 0) {
                 await denv.unbanProducer(this.m_block.header.timestamp);
