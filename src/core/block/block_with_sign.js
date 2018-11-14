@@ -17,6 +17,9 @@ function instance(superClass) {
         get pubkey() {
             return this.m_pubkey;
         }
+        set pubkey(k) {
+            this.m_pubkey = k;
+        }
         get miner() {
             return Address.addressFromPublicKey(this.m_pubkey);
         }

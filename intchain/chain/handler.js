@@ -114,9 +114,6 @@ function registerHandler(handler) {
             return client_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
         let toBalance = await getTokenBalance(tokenkv.kv, params.to);
-        if (toBalance.lt(amount)) {
-            return client_1.ErrorCode.RESULT_NOT_ENOUGH;
-        }
         callerMap.set(context.caller, callerMap.get(context.caller).minus(amount));
         await tokenkv.kv.hset('approval', params.from, client_1.MapToObject(callerMap));
         await tokenkv.kv.set(params.from, fromBalance.minus(amount));

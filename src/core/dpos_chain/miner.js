@@ -6,6 +6,12 @@ const address_1 = require("../address");
 const value_chain_1 = require("../value_chain");
 const block_1 = require("./block");
 const chain_1 = require("./chain");
+const Address = require("../address");
+class InnerChain extends chain_1.DposChain {
+    get _ignoreVerify() {
+        return false;
+    }
+}
 class DposMiner extends value_chain_1.ValueMiner {
     get chain() {
         return this.m_chain;
@@ -14,7 +20,7 @@ class DposMiner extends value_chain_1.ValueMiner {
         return this.m_address;
     }
     _chainInstance() {
-        return new chain_1.DposChain(this.m_constructOptions);
+        return new InnerChain(this.m_constructOptions);
     }
     parseInstanceOptions(options) {
         let { err, value } = super.parseInstanceOptions(options);
@@ -69,6 +75,7 @@ class DposMiner extends value_chain_1.ValueMiner {
             let blockHeader = new block_1.DposBlockHeader();
             blockHeader.setPreBlock(tip);
             blockHeader.timestamp = now;
+            blockHeader.pubkey = Address.publicKeyFromSecretKey(this.m_secret);
             let dmr = await blockHeader.getDueMiner(this.m_chain);
             if (dmr.err) {
                 return;

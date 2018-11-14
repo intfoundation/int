@@ -309,7 +309,7 @@ export class ValueIndependDebugSession {
 
     updateHeightTo(height: number, coinbase: number, events?: boolean): ErrorCode;
 
-    transaction(options: {caller: number|Buffer, method: string, input: any, value: BigNumber, fee: BigNumber}): Promise<{err: ErrorCode, receipt?: Receipt}>;
+    transaction(options: {caller: number|Buffer, method: string, input: any, value: BigNumber, fee: BigNumber, nonce?: number}): Promise<{err: ErrorCode, receipt?: Receipt}>;
     wage(): Promise<{err: ErrorCode}>;
     view(options: {method: string, params: any}): Promise<{err: ErrorCode, value?: any}>;
     getAccount(index: number): string;

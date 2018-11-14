@@ -99,6 +99,13 @@ class LoggedStorage {
             };
         }
         {
+            let proto = kv.hdel;
+            kv.hdel = async (key, field) => {
+                await logger.hdel(key, field);
+                return await proto.bind(kv)(key, field);
+            };
+        }
+        {
             let proto = kv.hclean;
             kv.hclean = async (key) => {
                 await logger.hclean(key);
