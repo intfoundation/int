@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const rpc_server_1 = require("../lib/rpc_server");
 const fs = require("fs-extra");
 const path = require("path");
+const os = require("os");
 const core_1 = require("../../core");
 const addressClass = require("../../core/address");
 const util_1 = require("util");
@@ -102,6 +103,12 @@ class ChainServer {
                 let jsonKeystore = JSON.stringify(keystore);
                 let fileName = new Date().toISOString() + '--' + address + '.json';
                 let keyPath = process.cwd() + '/data/keystore/';
+                if (os.platform() === 'win32') {
+                    fileName = address + '.json';
+                    let cwd = process.cwd();
+                    cwd = cwd.replace(/\\/g, '\/');
+                    keyPath = cwd + '/data/keystore';
+                }
                 if (!fs.existsSync(keyPath)) {
                     fs.mkdirSync(keyPath);
                 }
@@ -126,6 +133,11 @@ class ChainServer {
         });
         this.m_server.on('getAccounts', async (params, resp) => {
             let keyPath = process.cwd() + '/data/keystore/';
+            if (os.platform() === 'win32') {
+                let cwd = process.cwd();
+                cwd = cwd.replace(/\\/g, '\/');
+                keyPath = cwd + '/data/keystore';
+            }
             if (!fs.existsSync(keyPath)) {
                 fs.mkdirSync(keyPath);
             }
