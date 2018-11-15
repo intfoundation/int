@@ -75,7 +75,7 @@ class KeyValueLogger {
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     async hdel(key, field) {
-        this.owner.appendLog(`await ${this.name}.hdel(${serializable_1.toEvalText(key)},${serializable_1.toEvalText(field)})`);
+        this.owner.appendLog(`await ${this.name}.hdel(${serializable_1.toEvalText(key)},${serializable_1.toEvalText(field)});`);
         return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     // array
