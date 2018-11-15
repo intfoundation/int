@@ -60,8 +60,8 @@ function initChainCreator(options) {
         else {
             peers = peers.split(';');
         }
-        let nodeType = net_1.staticPeeridIp.splitInstance(net_1.StaticOutNode(node_4.TcpNode));
-        return new nodeType(peers, { network, peerid: `${_host}:${port}`, host: _host, port });
+        let nodeType = net_1.StaticOutNode(node_4.TcpNode);
+        return new nodeType(peers, { network, host: _host, port });
     });
     networkCreator.registerNode('standalone', (commandOptions) => {
         let network = commandOptions.get('network');
