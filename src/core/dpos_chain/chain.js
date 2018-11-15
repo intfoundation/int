@@ -20,9 +20,6 @@ class DposChain extends value_chain_1.ValueChain {
     get _broadcastDepth() {
         return 0;
     }
-    get _ignoreVerify() {
-        return true;
-    }
     async initComponents(options) {
         let err = await super.initComponents(options);
         if (err) {
