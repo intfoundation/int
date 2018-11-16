@@ -74,10 +74,13 @@ class PendingTransactions extends events_1.EventEmitter {
     }
     baseMethodChecker(tx) {
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+            return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+        }
+        if (tx.value.lt(new bignumber_js_1.BigNumber(0))) {
+            return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
         if (serializable_1.hasDecimals(tx.limit) || serializable_1.hasDecimals(tx.price) || serializable_1.hasDecimals(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+            return error_code_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
         }
         if (tx.limit.gt(this.m_maxTxLimit)) {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
