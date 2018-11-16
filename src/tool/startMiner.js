@@ -34,6 +34,16 @@ async function run(argv) {
         process.exit();
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
+
+    if (options.has("main")) {
+        options.set("dataDir", './data/intchain/minerData_'+address);
+        options.set("sn", "SN_PEER_MAIN@mainsn.intchain.io@8550@8551");
+        // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
+    }else {
+        options.set("dataDir", './data/intchain/minerData_test_'+address);
+        options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
+        // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
+    }
     options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
     if (!options.has("loggerConsole")) {
@@ -51,9 +61,6 @@ async function run(argv) {
     options.set("bdt_log_level", "info");
     options.set("saveMismatch", true);
     // options.set("executor", "interprocess");
-    options.set("dataDir", './data/intchain/minerData_'+address);
-    options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
-    // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {
