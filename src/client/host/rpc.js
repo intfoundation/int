@@ -107,7 +107,7 @@ class ChainServer {
                     fileName = address + '.json';
                     let cwd = process.cwd();
                     cwd = cwd.replace(/\\/g, '\/');
-                    keyPath = cwd + '/data/keystore';
+                    keyPath = cwd + '/data/keystore/';
                 }
                 if (!fs.existsSync(keyPath)) {
                     fs.mkdirSync(keyPath);
@@ -136,7 +136,7 @@ class ChainServer {
             if (os.platform() === 'win32') {
                 let cwd = process.cwd();
                 cwd = cwd.replace(/\\/g, '\/');
-                keyPath = cwd + '/data/keystore';
+                keyPath = cwd + '/data/keystore/';
             }
             if (!fs.existsSync(keyPath)) {
                 fs.mkdirSync(keyPath);
