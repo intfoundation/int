@@ -140,9 +140,10 @@ function registerHandler(handler) {
         }
         let senderApproval = await tokenkv.kv.hget('approval', context.caller);
         if (senderApproval.err === client_1.ErrorCode.RESULT_OK) {
-            let senderMap = core_1.MapFromObject(senderApproval);
+            let senderMap = core_1.MapFromObject(senderApproval.value);
             senderMap.set(spender, senderMap.get(spender).plus(amount));
-            await tokenkv.kv.hset('approval', context.caller, senderApproval);
+            let senderObj = client_1.MapToObject(senderMap);
+            await tokenkv.kv.hset('approval', context.caller, senderObj);
         }
         else if (senderApproval.err === client_1.ErrorCode.RESULT_NOT_FOUND) {
             let approvalMap = new Map();
