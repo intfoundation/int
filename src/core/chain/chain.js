@@ -1106,6 +1106,7 @@ class Chain extends events_1.EventEmitter {
             return { err: sr.err };
         }
         const storage = sr.storage;
+        storage.createLogger();
         let crr;
         // 通过redo log 来添加block的内容
         if (options && options.redoLog) {
@@ -1303,7 +1304,6 @@ class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRout
     async verify() {
         this.m_logger.info(`redo log, block[${this.block.number}, ${this.block.hash}]`);
         // 执行redolog
-        this.storage.createLogger();
         let redoError = await this.m_redoLog.redoOnStorage(this.storage);
         if (redoError) {
             this.m_logger.error(`redo error ${redoError}`);
