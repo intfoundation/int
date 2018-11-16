@@ -149,7 +149,13 @@ class ChainServer {
                 else {
                     let accounts = [];
                     for (let fileName of files) {
-                        let address = fileName.substring(26, fileName.length - 5);
+                        let address = '';
+                        if (os.platform() === 'win32') {
+                            address = fileName.slice(0, -5);
+                        }
+                        else {
+                            address = fileName.substring(26, fileName.length - 5);
+                        }
                         accounts.push(address);
                     }
                     await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, accounts: accounts })));
