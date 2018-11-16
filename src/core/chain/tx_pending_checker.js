@@ -10,11 +10,14 @@ function createTokenChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -27,11 +30,14 @@ function transferTokenToChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.to)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -44,11 +50,14 @@ function transferFromChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.from) || !index_1.isValidAddress(input.to)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -61,11 +70,14 @@ function approveChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.spender)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -92,11 +104,14 @@ function burnChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -109,11 +124,14 @@ function mintTokenChecker(tx) {
     if (!index_1.isValidAddress(input.tokenid)) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -158,11 +176,14 @@ function mortgageChecker(tx) {
     if (!input || !input.amount) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -172,11 +193,14 @@ function unmortgageChecker(tx) {
     if (!input || !input.amount) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
-    if (!index_1.BigNumber.isBigNumber(input.amount) || input.amount.lt(new index_1.BigNumber(0))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    if (!index_1.BigNumber.isBigNumber(input.amount)) {
+        return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+    }
+    if (input.amount.lt(new index_1.BigNumber(0))) {
+        return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
