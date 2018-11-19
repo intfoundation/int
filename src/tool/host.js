@@ -2,7 +2,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
-// const heapdump = require('heapdump');
 const path = require("path");
 const client_1 = require("../client");
 Error.stackTraceLimit = 1000;

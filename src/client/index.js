@@ -18,14 +18,14 @@ exports.host = host;
 const core_1 = require("../core");
 const valueChainDebuger = {
     async createIndependSession(loggerOptions, dataDir) {
-        const cdr = await core_1.createValueDebuger(core_1.initChainCreator({ loggerOptions }), dataDir);
+        const cdr = await core_1.createValueDebuger(core_1.initChainCreator(loggerOptions), dataDir);
         if (cdr.err) {
             return { err: cdr.err };
         }
         return { err: core_1.ErrorCode.RESULT_OK, session: cdr.debuger.createIndependSession() };
     },
     async createChainSession(loggerOptions, dataDir, debugerDir) {
-        const cdr = await core_1.createValueDebuger(core_1.initChainCreator({ loggerOptions }), dataDir);
+        const cdr = await core_1.createValueDebuger(core_1.initChainCreator(loggerOptions), dataDir);
         if (cdr.err) {
             return { err: cdr.err };
         }

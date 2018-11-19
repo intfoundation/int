@@ -206,6 +206,13 @@ function unmortgageChecker(tx) {
 }
 exports.unmortgageChecker = unmortgageChecker;
 function registerChecker(tx) {
+    let input = tx.input;
+    if (!input || !input.coinbase) {
+        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    }
+    if (!index_1.isValidAddress(input.coinbase)) {
+        return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
+    }
     return index_1.ErrorCode.RESULT_OK;
 }
 exports.registerChecker = registerChecker;

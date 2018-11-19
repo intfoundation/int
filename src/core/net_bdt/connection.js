@@ -36,6 +36,9 @@ class BdtConnection extends net_1.IConnection {
     }
     close() {
         if (this.m_bdt_connection) {
+            this.m_bdt_connection.removeAllListeners('drain');
+            this.m_bdt_connection.removeAllListeners('data');
+            this.m_bdt_connection.removeAllListeners('error');
             this.m_bdt_connection.close();
             delete this.m_bdt_connection;
         }
@@ -43,6 +46,9 @@ class BdtConnection extends net_1.IConnection {
     }
     destroy() {
         if (this.m_bdt_connection) {
+            this.m_bdt_connection.removeAllListeners('drain');
+            this.m_bdt_connection.removeAllListeners('data');
+            this.m_bdt_connection.removeAllListeners('error');
             this.m_bdt_connection.close(true);
             delete this.m_bdt_connection;
         }

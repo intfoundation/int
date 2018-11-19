@@ -53,7 +53,7 @@ export enum ErrorCode {
     RESULT_IS_FROZEN = 10012, // 帐户已冻结
     RESULT_INVALID_ADDRESS = 10013, // 地址不合法
 
-    // 交易
+    // 交易费用
     RESULT_LIMIT_NOT_ENOUGH = 10021, // limit不足
     RESULT_LIMIT_TOO_BIG = 10022, // tx limit太大
     RESULT_LIMIT_TOO_SMALL = 10023, // tx limit太小
