@@ -52,12 +52,20 @@ class ChainServer {
             tx.limit = new core_1.BigNumber(params.limit);
             tx.price = new core_1.BigNumber(params.price);
             tx.input = params.input;
+            if (params.input.amount) {
+                tx.input.amount = new core_1.BigNumber(params.input.amount);
+            }
             //签名相关的逻辑
             let fromAddress = params.from;
             let password = params.password;
             let err = 0;
             //根据from地址获取用户对应的kestore文件
             let filePath = process.cwd() + "/data/keystore";
+            if (os.platform() === 'win32') {
+                let cwd = process.cwd();
+                cwd = cwd.replace(/\\/g, '\/');
+                filePath = cwd + '/data/keystore/';
+            }
             let files = await fs.readdir(filePath);
             let status = core_1.ErrorCode.RESULT_OK;
             let exc = new RegExp(fromAddress);
