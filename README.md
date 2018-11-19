@@ -43,11 +43,10 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
         --test                           Connect the test net
         --main                           Connect the main net
         --dataDir                        Data storage location
-        --peerid                         The id of peer
         --loggerConsole                  Print log or not
         --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
-        --rpchost                        the host that peer can communicate by RPC,defaut value is localhost
-        --rpcpot                         the RPC server port，default value is 8555
+        --rpchost                        The host that peer can communicate by RPC,defaut value is localhost
+        --rpcpot                         The RPC server port，default value is 8555
 
 ## INT Chain CLI
 
@@ -66,7 +65,7 @@ Install INT CLI globally with
     
 Now you can run INT CLI using following command anywhere
 
-    $ int
+    $ int-cli
 
 **Locally**
 
@@ -76,25 +75,21 @@ Install INT CLI to your node_modules folder with
     
 Now you can run INT CLI using following command andywhere
 
-    $ node_modules/.bin/int
+    $ node_modules/.bin/int-cli
     
 **Usage**
 
-    INT CLI  [ Node: 8.0.0, CLI: 3.0.x]
+    INT CLI  [ Node: 8.9.4, CLI: 3.0.x]
     
-    Commands:
-        peer                         Start a peer
-        
-        
     Options:
-        -v, --version                    Print INT Chain version
-        -h, --help                       Show help
+        --version                        Print INT Chain version
+        --help                           Show help
         --test                           Connect the test net
         --main                           Connect the main net
         --dataDir                        Data storage location
-        --peerid                         The id of peer
         --loggerConsole                  Print log or not
         --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
-        --hander                         The location of the handler file, which is the entry of the chain handler
+        --rpchost                        The host that peer can communicate by RPC,defaut value is localhost
+        --rpcpot                         The RPC server port，default value is 8555
         
                           

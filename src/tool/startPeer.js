@@ -23,9 +23,11 @@ async function run(argv) {
     let exit = false;
     if (options.has("help")) {
         help();
+        process.exit();
     }
     if (options.has("version")) {
         version();
+        process.exit();
     }
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
@@ -48,7 +50,7 @@ async function run(argv) {
         options.set("dataDir", './data/testintchain/peerData');
     }
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST@mainsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_MAIN@mainsn.intchain.io@8550@8551");
         options.set("dataDir", './data/intchain/peerData');
     }
     if (!options.has("test") && !options.has("main")) {
@@ -91,9 +93,6 @@ function help() {
         "--main",
         "        Connect the main net.",
         "",
-        "--dataDir",
-        "        Data directory for the databases and keystore.",
-        "",
         "--rpchost",
         "        RPC server listening interface (default: localhost).",
         "",
@@ -108,5 +107,5 @@ function help() {
     ].join("\n"));
 }
 function version() {
-    console.log("Version:" + pkg.version);
+    console.log("Version:" + pkg.version + "\n");
 }
