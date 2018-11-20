@@ -23,6 +23,8 @@ async function run(argv) {
     let exit = false;
     let dirPath = __dirname;
     console.log(dirPath);
+    let joinPath = path.join("../../", dirPath, '/data/intchain/peerData');
+    console.log(joinPath);
     if (options.has("help")) {
         help();
         process.exit();
