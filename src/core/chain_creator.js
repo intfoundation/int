@@ -82,6 +82,10 @@ class ChainCreator {
         if (!path.isAbsolute(handlerPath)) {
             handlerPath = path.join(process.cwd(), handlerPath);
         }
+        let dirPath = __dirname;
+        if (dirPath.indexOf('node_modules') !== -1) {
+            handlerPath = path.join(__dirname, '../../', '/intchain/chain/handler.js');
+        }
         let typeOptions = constConfig['type'];
         if (!typeOptions || !typeOptions.consensus || !typeOptions.features) {
             this.m_logger.error(`invalid type from package ${dataDir}`);
