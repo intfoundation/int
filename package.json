@@ -1,6 +1,6 @@
 {
   "name": "int-cli",
-  "version": "3.0.14",
+  "version": "3.0.15",
   "description": "INT is the new generation of bottom-up created system of IoT and blockchain",
   "scripts": {},
   "bin": {"int-cli": "./src/tool/int-cli.js"},
@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/intfoundation/int#readme",
   "dependencies": {
-    "bdt-p2p": "^0.1.235",
+    "bdt-p2p": "0.1.235",
     "bignumber.js": "^6.0.0",
     "bn.js": "^4.11.8",
     "fs-extra": "^5.0.0",
