@@ -46,7 +46,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
         --loggerConsole                  Print log or not
         --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
         --rpchost                        The host that peer can communicate by RPC,defaut value is localhost
-        --rpcpot                         The RPC server port，default value is 8555
+        --rpcport                         The RPC server port，default value is 8555
 
 ## INT Chain CLI
 
