@@ -59,12 +59,23 @@ class ChainServer {
             let fromAddress = params.from;
             let password = params.password;
             let err = 0;
-            //根据from地址获取用户对应的kestore文件
+            //根据from地址获取用户对应的keystore文件
             let filePath = process.cwd() + "/data/keystore";
+            let dirPath = __dirname;
+            // 如果是命令行启动，则用文件的绝对路径替换掉 process.cwd()获得的路径
+            if (dirPath.indexOf('node_modules') !== -1) {
+                filePath = path.join(dirPath, "../../../", "/data/keystore/");
+            }
             if (os.platform() === 'win32') {
-                let cwd = process.cwd();
-                cwd = cwd.replace(/\\/g, '\/');
-                filePath = cwd + '/data/keystore/';
+                if (dirPath.indexOf('node_modules') !== -1) {
+                    dirPath = dirPath.replace(/\\/g, '\/');
+                    filePath = path.join(dirPath, '../../../', '/data/keystore/');
+                }
+                else {
+                    let cwd = process.cwd();
+                    cwd = cwd.replace(/\\/g, '\/');
+                    filePath = cwd + '/data/keystore/';
+                }
             }
             let files = await fs.readdir(filePath);
             let status = core_1.ErrorCode.RESULT_OK;
@@ -111,11 +122,22 @@ class ChainServer {
                 let jsonKeystore = JSON.stringify(keystore);
                 let fileName = new Date().toISOString() + '--' + address + '.json';
                 let keyPath = process.cwd() + '/data/keystore/';
+                let dirPath = __dirname;
+                // 如果是命令行启动，则用文件的绝对路径替换掉 process.cwd()获得的路径
+                if (dirPath.indexOf('node_modules') !== -1) {
+                    keyPath = path.join(dirPath, "../../../", "/data/keystore/");
+                }
                 if (os.platform() === 'win32') {
                     fileName = address + '.json';
-                    let cwd = process.cwd();
-                    cwd = cwd.replace(/\\/g, '\/');
-                    keyPath = cwd + '/data/keystore/';
+                    if (dirPath.indexOf('node_modules') !== -1) {
+                        dirPath = dirPath.replace(/\\/g, '\/');
+                        keyPath = path.join(dirPath, '../../../', '/data/keystore/');
+                    }
+                    else {
+                        let cwd = process.cwd();
+                        cwd = cwd.replace(/\\/g, '\/');
+                        keyPath = cwd + '/data/keystore/';
+                    }
                 }
                 if (!fs.existsSync(keyPath)) {
                     fs.mkdirSync(keyPath);
@@ -141,10 +163,21 @@ class ChainServer {
         });
         this.m_server.on('getAccounts', async (params, resp) => {
             let keyPath = process.cwd() + '/data/keystore/';
+            let dirPath = __dirname;
+            // 如果是命令行启动，则用文件的绝对路径替换掉 process.cwd()获得的路径
+            if (dirPath.indexOf('node_modules') !== -1) {
+                keyPath = path.join(dirPath, "../../../", "/data/keystore/");
+            }
             if (os.platform() === 'win32') {
-                let cwd = process.cwd();
-                cwd = cwd.replace(/\\/g, '\/');
-                keyPath = cwd + '/data/keystore/';
+                if (dirPath.indexOf('node_modules') !== -1) {
+                    dirPath = dirPath.replace(/\\/g, '\/');
+                    keyPath = path.join(dirPath, '../../../', '/data/keystore/');
+                }
+                else {
+                    let cwd = process.cwd();
+                    cwd = cwd.replace(/\\/g, '\/');
+                    keyPath = cwd + '/data/keystore/';
+                }
             }
             if (!fs.existsSync(keyPath)) {
                 fs.mkdirSync(keyPath);
