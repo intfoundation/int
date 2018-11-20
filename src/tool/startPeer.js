@@ -21,6 +21,8 @@ async function run(argv) {
         }));
     }
     let exit = false;
+    let dirPath = __dirname;
+    console.log(dirPath);
     if (options.has("help")) {
         help();
         process.exit();
