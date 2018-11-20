@@ -14,10 +14,11 @@ async function run(argv) {
         process.exit();
         return;
     }
+    let intPath = path.join(__dirname, "../../");
     let options = command.options;
     if (options.has('dataDir')) {
         client_1.initUnhandledRejection(client_1.initLogger({
-            loggerOptions: { console: true, file: { root: path.join(process.cwd(), command.options.get('dataDir')), filename: 'exception.log' } }
+            loggerOptions: { console: true, file: { root: path.join(intPath, command.options.get('dataDir')), filename: 'exception.log' } }
         }));
     }
     let exit = false;
@@ -42,16 +43,16 @@ async function run(argv) {
         options.set("loggerLevel", "info");
     }
     if (!options.has("dataDir")) {
-        options.set("dataDir", './data/intchain/peerData');
+        options.set("dataDir", intPath + '/data/intchain/peerData');
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", './data/testintchain/peerData');
+        options.set("dataDir", intPath + '/data/testintchain/peerData');
     }
     if (options.has("main")) {
         options.set("sn", "SN_PEER_MAIN@mainsn.intchain.io@8550@8551");
-        options.set("dataDir", './data/intchain/peerData');
+        options.set("dataDir", intPath + '/data/intchain/peerData');
     }
     if (!options.has("test") && !options.has("main")) {
         console.log("Please select network to connect: --test or --main");
@@ -60,7 +61,7 @@ async function run(argv) {
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     options.set('peerid', address);
-    options.set("genesis", './data/intchain/genesis');
+    options.set("genesis", intPath + '/data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
