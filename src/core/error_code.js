@@ -202,6 +202,15 @@ function stringifyErrorCode(err) {
     else if (err === ErrorCode.RESULT_PRICE_TOO_SMALL) {
         return 'price too samll';
     }
+    else if (err === ErrorCode.RESULT_NOT_BIGNUMBER) {
+        return 'not bignumber';
+    }
+    else if (err === ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO) {
+        return 'can`t be less than zero';
+    }
+    else if (err === ErrorCode.RESULT_CANT_BE_DECIMAL) {
+        return 'can`t be decimal';
+    }
     else if (err === ErrorCode.RESULT_ADDRESS_NOT_EXIST) {
         return 'address not exist';
     }
