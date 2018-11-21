@@ -52,7 +52,7 @@ class ChainServer {
             tx.limit = new core_1.BigNumber(params.limit);
             tx.price = new core_1.BigNumber(params.price);
             tx.input = params.input;
-            if (params.input.amount) {
+            if (!util_1.isNullOrUndefined(params.input.amount)) {
                 tx.input.amount = new core_1.BigNumber(params.input.amount);
             }
             //签名相关的逻辑
