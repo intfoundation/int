@@ -60,6 +60,7 @@ async function run(argv) {
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     options.set('peerid', address);
+    console.log('start peer peerId:'+address);
     options.set("genesis", './data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");

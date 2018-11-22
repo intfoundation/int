@@ -37,7 +37,7 @@ async function run(argv) {
 
     if (options.has("main")) {
         options.set("dataDir", './data/intchain/minerData_'+address);
-        options.set("sn", "SN_PEER_MAIN@mainsn.intchain.io@8550@8551");
+        options.set("sn", "SN_PEER_MAIN1@mainsn.intchain.io@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }else {
         options.set("dataDir", './data/intchain/minerData_test_'+address);

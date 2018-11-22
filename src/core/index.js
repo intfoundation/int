@@ -114,6 +114,7 @@ function initChainCreator(options) {
         let snconfig = snPeers.split('@');
         if (snconfig.length !== 4) {
             console.error('invalid sn: <SN_PEERID>@<SN_IP>@<SN_TCP_PORT>@<SN_UDP_PORT>');
+            return;
         }
         const snPeer = {
             peerid: `${snconfig[0]}`,
@@ -128,12 +129,19 @@ function initChainCreator(options) {
             file_dir: commandOptions.get('dataDir') + '/log',
             file_name: commandOptions.get('bdt_log_name') || 'bdt',
         };
+        let dhtAppID = 0;
+        if (commandOptions.has('networkid')) {
+            dhtAppID = parseInt(commandOptions.get('networkid'));
+            if (isNaN(dhtAppID)) {
+                dhtAppID = 0;
+            }
+        }
         let initDHTEntry;
         const initDHTFile = commandOptions.get('dataDir') + '/peers';
         if (fs.pathExistsSync(initDHTFile)) {
             initDHTEntry = fs.readJSONSync(initDHTFile);
         }
-        return new node_6.BdtNode({ network, host: _host, tcpport, udpport, peerid, snPeer, bdtLoggerOptions: bdt_logger, initDHTEntry });
+        return new node_6.BdtNode({ network, host: _host, tcpport, udpport, peerid, snPeer, dhtAppID, bdtLoggerOptions: bdt_logger, initDHTEntry });
     });
     networkCreator.registerNetwork('random', random_outbound_network_1.RandomOutNetwork);
     let _creator = new chain_creator_2.ChainCreator({ logger, networkCreator });
