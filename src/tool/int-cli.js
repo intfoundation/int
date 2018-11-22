@@ -42,17 +42,16 @@ async function run(argv) {
     if (!options.has("loggerLevel")) {
         options.set("loggerLevel", "info");
     }
-    if (!options.has("dataDir")) {
+    if (options.has("main")) {
+        options.set("sn", "SN_PEER_MAIN1@mainsn.intchain.io@8550@8551");
         options.set("dataDir", intPath + '/data/intchain/peerData');
+        options.set("networkid", 1555);
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testintchain/peerData');
-    }
-    if (options.has("main")) {
-        options.set("sn", "SN_PEER_MAIN@mainsn.intchain.io@8550@8551");
-        options.set("dataDir", intPath + '/data/intchain/peerData');
+        options.set("networkid", 1556);
     }
     if (!options.has("test") && !options.has("main")) {
         console.log("Please select network to connect: --test or --main");
