@@ -96,12 +96,10 @@ class RandomOutNetwork extends network_1.Network {
                 }
             }
             else if (result.err === error_code_1.ErrorCode.RESULT_SKIPPED) {
-                this.logger.debug(`cannot find any peers, ignore connect.`);
-                return error_code_1.ErrorCode.RESULT_SKIPPED;
+                this.logger.debug(`cannot find any new peers from randomPeers`);
             }
             else {
                 this.logger.error(`random peers failed for : `, result.err);
-                return result.err;
             }
         }
         return await this._connectTo(willConn, callback);
