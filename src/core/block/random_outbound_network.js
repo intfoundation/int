@@ -102,6 +102,9 @@ class RandomOutNetwork extends network_1.Network {
                 this.logger.error(`random peers failed for : `, result.err);
             }
         }
+        if (willConn.size === 0) {
+            return error_code_1.ErrorCode.RESULT_SKIPPED;
+        }
         return await this._connectTo(willConn, callback);
     }
 }
