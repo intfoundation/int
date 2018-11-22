@@ -199,6 +199,7 @@ class ChainServer {
                         }
                         accounts.push(address);
                     }
+                    accounts.sort();
                     await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, accounts: accounts })));
                 }
                 await promisify(resp.end.bind(resp)());
