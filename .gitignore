@@ -4,4 +4,5 @@ node_modules/
 data/testintchain/
 data/intchain/peerData
 data/intchain/minerData*
+data/keystore
 package-lock.json
