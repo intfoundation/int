@@ -34,27 +34,23 @@ async function run(argv) {
         process.exit();
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
-
     if (options.has("main")) {
-        options.set("dataDir", './data/intchain/minerData_'+address);
+        options.set("dataDir", './data/intchain/minerData_' + address);
         options.set("sn", "SN_PEER_MAIN1@mainsn.intchain.io@8550@8551");
-        options.set("networkid",1555);
+        options.set("networkid", 1555);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
-
-    if(options.has("test")){
-        options.set("dataDir", './data/intchain/minerData_test_'+address);
+    if (options.has("test")) {
+        options.set("dataDir", './data/intchain/minerData_test_' + address);
         options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
-        options.set("networkid",1666);
+        options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
-
     if (!options.has("test") && !options.has("main")) {
         console.log("Please select network to connect: --test or --main");
         process.exit();
     }
-
-    options.set('peerid', address);
+    options.set('peerid', address + '_' + options.get("networkid"));
     options.set("genesis", './data/intchain/genesis');
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);

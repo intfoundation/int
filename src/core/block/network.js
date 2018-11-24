@@ -56,7 +56,7 @@ class Network extends events_1.EventEmitter {
     }
     async init() {
         this.m_node.on('error', (conn, err) => {
-            this.emit('error', conn.network, conn.remote);
+            this.emit('error', conn.remote);
         });
         // 收到net/node的ban事件, 调用 ChainNode的banConnection方法做封禁处理
         // 日期先设置为按天
@@ -111,7 +111,7 @@ class Network extends events_1.EventEmitter {
             if (callback) {
                 callback(0);
             }
-            return error_code_1.ErrorCode.RESULT_OK;
+            return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
         let ops = [];
         for (let peer of willConn) {
@@ -124,7 +124,7 @@ class Network extends events_1.EventEmitter {
             if (callback) {
                 callback(0);
             }
-            return error_code_1.ErrorCode.RESULT_OK;
+            return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
         Promise.all(ops).then((results) => {
             let connCount = 0;

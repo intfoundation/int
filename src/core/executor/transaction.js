@@ -148,10 +148,10 @@ class EventExecutor extends BaseExecutor {
             this.m_logger.error(`execute event linstener error, e=`, e);
             returnCode = error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
-        assert(util_1.isNumber(returnCode), `event handler return code invalid ${returnCode}`);
+        // assert(isNumber(returnCode), `event handler return code invalid ${returnCode}`);
         if (!util_1.isNumber(returnCode)) {
             this.m_logger.error(`execute event failed for invalid return code`);
-            return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
+            returnCode = error_code_1.ErrorCode.RESULT_INVALID_PARAM;
         }
         if (returnCode === error_code_1.ErrorCode.RESULT_OK) {
             this.m_logger.debug(`event handler commit storage`);
