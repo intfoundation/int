@@ -5,7 +5,6 @@ const error_code_1 = require("../error_code");
 const events_1 = require("events");
 const LRUCache_1 = require("../lib/LRUCache");
 const bignumber_js_1 = require("bignumber.js");
-const serializable_1 = require("../serializable");
 var SyncOptType;
 (function (SyncOptType) {
     SyncOptType[SyncOptType["updateTip"] = 0] = "updateTip";
@@ -80,12 +79,15 @@ class PendingTransactions extends events_1.EventEmitter {
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
             return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
         }
-        if (tx.value.lt(new bignumber_js_1.BigNumber(0))) {
+        if (!tx.limit.isInteger() || !tx.price.isInteger() || !tx.value.isInteger()) {
+            return error_code_1.ErrorCode.RESULT_NOT_INTEGER;
+        }
+        if (tx.limit.lt(new bignumber_js_1.BigNumber(0)) || tx.price.lt(new bignumber_js_1.BigNumber(0) || tx.value.lt(new bignumber_js_1.BigNumber(0)))) {
             return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
-        if (serializable_1.hasDecimals(tx.limit) || serializable_1.hasDecimals(tx.price) || serializable_1.hasDecimals(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
-        }
+        // if (hasDecimals(tx.limit) || hasDecimals(tx.price) || hasDecimals(tx.value)) {
+        //     return ErrorCode.RESULT_CANT_BE_DECIMAL;
+        // }
         if (tx.limit.gt(this.m_maxTxLimit)) {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
         }

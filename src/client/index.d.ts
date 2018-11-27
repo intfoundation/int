@@ -63,9 +63,10 @@ export enum ErrorCode {
     RESULT_NOT_BIGNUMBER = 10027, // 不是 bignumber
     RESULT_CANT_BE_LESS_THAN_ZERO = 10028, // 不能小于 0
     RESULT_CANT_BE_DECIMAL = 10029, // 不能为小数
+    RESULT_NOT_INTEGER = 10030, // 不是整数
 
-    RESULT_ADDRESS_NOT_EXIST = 10030,
-    RESULT_KEYSTORE_ERROR = 10031,
+    RESULT_ADDRESS_NOT_EXIST = 10040,
+    RESULT_KEYSTORE_ERROR = 10041,
 }
 
 export type LoggerOptions = {

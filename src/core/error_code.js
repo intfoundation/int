@@ -57,8 +57,9 @@ var ErrorCode;
     ErrorCode[ErrorCode["RESULT_NOT_BIGNUMBER"] = 10027] = "RESULT_NOT_BIGNUMBER";
     ErrorCode[ErrorCode["RESULT_CANT_BE_LESS_THAN_ZERO"] = 10028] = "RESULT_CANT_BE_LESS_THAN_ZERO";
     ErrorCode[ErrorCode["RESULT_CANT_BE_DECIMAL"] = 10029] = "RESULT_CANT_BE_DECIMAL";
-    ErrorCode[ErrorCode["RESULT_ADDRESS_NOT_EXIST"] = 10030] = "RESULT_ADDRESS_NOT_EXIST";
-    ErrorCode[ErrorCode["RESULT_KEYSTORE_ERROR"] = 10031] = "RESULT_KEYSTORE_ERROR";
+    ErrorCode[ErrorCode["RESULT_NOT_INTEGER"] = 10030] = "RESULT_NOT_INTEGER";
+    ErrorCode[ErrorCode["RESULT_ADDRESS_NOT_EXIST"] = 10040] = "RESULT_ADDRESS_NOT_EXIST";
+    ErrorCode[ErrorCode["RESULT_KEYSTORE_ERROR"] = 10041] = "RESULT_KEYSTORE_ERROR";
 })(ErrorCode = exports.ErrorCode || (exports.ErrorCode = {}));
 function stringifyErrorCode(err) {
     if (err === ErrorCode.RESULT_OK) {
@@ -210,6 +211,9 @@ function stringifyErrorCode(err) {
     }
     else if (err === ErrorCode.RESULT_CANT_BE_DECIMAL) {
         return 'can`t be decimal';
+    }
+    else if (err === ErrorCode.RESULT_NOT_INTEGER) {
+        return 'not interger';
     }
     else if (err === ErrorCode.RESULT_ADDRESS_NOT_EXIST) {
         return 'address not exist';

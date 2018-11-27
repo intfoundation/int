@@ -13,11 +13,11 @@ function createTokenChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -33,11 +33,11 @@ function transferTokenToChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -53,11 +53,11 @@ function transferFromChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -73,11 +73,11 @@ function approveChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -107,11 +107,11 @@ function burnChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -127,11 +127,11 @@ function mintTokenChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -179,11 +179,11 @@ function mortgageChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
@@ -196,11 +196,11 @@ function unmortgageChecker(tx) {
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
         return index_1.ErrorCode.RESULT_NOT_BIGNUMBER;
     }
+    if (!input.amount.isInteger()) {
+        return index_1.ErrorCode.RESULT_NOT_INTEGER;
+    }
     if (input.amount.lt(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
-    }
-    if (index_1.hasDecimals(new index_1.BigNumber(input.amount))) {
-        return index_1.ErrorCode.RESULT_CANT_BE_DECIMAL;
     }
     return index_1.ErrorCode.RESULT_OK;
 }
