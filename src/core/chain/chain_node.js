@@ -57,32 +57,34 @@ class ChainNode extends events_1.EventEmitter {
     }
     async init() {
         let inits = [];
-        for (const node of this.m_networks) {
-            node.on('inbound', (conn) => {
-                this._beginSyncWithNode(node, conn);
+        for (const network of this.m_networks) {
+            network.on('inbound', (conn) => {
+                this._beginSyncWithNode(network, conn);
                 this.emit('inbound', conn);
             });
-            node.on('outbound', (conn) => {
-                this._beginSyncWithNode(node, conn);
+            network.on('outbound', (conn) => {
+                this._beginSyncWithNode(network, conn);
                 this.emit('outbound', conn);
             });
-            node.on('error', (remote, err) => {
-                this._onConnectionError(remote);
-                this.emit('error', net_1.INode.fullPeerid(node.name, remote));
+            network.on('error', (remote, err) => {
+                const fullRemote = net_1.INode.fullPeerid(network.name, remote);
+                this._onConnectionError(fullRemote);
+                this.emit('error', fullRemote);
             });
-            node.on('ban', (remote) => {
-                this._onRemoveConnection(remote);
-                this.emit('ban', net_1.INode.fullPeerid(node.name, remote));
+            network.on('ban', (remote) => {
+                const fullRemote = net_1.INode.fullPeerid(network.name, remote);
+                this._onRemoveConnection(fullRemote);
+                this.emit('ban');
             });
-            inits.push(node.init());
+            inits.push(network.init());
         }
         let results = await Promise.all(inits);
         if (results[0]) {
             return results[0];
         }
         let initOutbounds = [];
-        for (const node of this.m_networks) {
-            initOutbounds.push(node.initialOutbounds());
+        for (const network of this.m_networks) {
+            initOutbounds.push(network.initialOutbounds());
         }
         results = await Promise.all(initOutbounds);
         return results[0];
@@ -92,8 +94,8 @@ class ChainNode extends events_1.EventEmitter {
         this.removeAllListeners('headers');
         this.removeAllListeners('transactions');
         let uninits = [];
-        for (const node of this.m_networks) {
-            uninits.push(node.uninit());
+        for (const network of this.m_networks) {
+            uninits.push(network.uninit());
         }
         return Promise.all(uninits);
     }
@@ -102,8 +104,8 @@ class ChainNode extends events_1.EventEmitter {
     }
     async listen() {
         let listens = [];
-        for (const node of this.m_networks) {
-            listens.push(node.listen());
+        for (const network of this.m_networks) {
+            listens.push(network.listen());
         }
         const results = await Promise.all(listens);
         for (const err of results) {
@@ -113,11 +115,11 @@ class ChainNode extends events_1.EventEmitter {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    getNetwork(network) {
-        if (network) {
-            for (const node of this.m_networks) {
-                if (node.name === network) {
-                    return node;
+    getNetwork(_network) {
+        if (_network) {
+            for (const network of this.m_networks) {
+                if (network.name === _network) {
+                    return network;
                 }
             }
             return undefined;
@@ -136,8 +138,8 @@ class ChainNode extends events_1.EventEmitter {
     }
     getOutbounds() {
         let arr = [];
-        for (const node of this.m_networks) {
-            arr.push(...node.node.getOutbounds());
+        for (const network of this.m_networks) {
+            arr.push(...network.node.getOutbounds());
         }
         return arr;
     }
@@ -173,8 +175,8 @@ class ChainNode extends events_1.EventEmitter {
             pwriter.writeData(raw);
         }
         assert(pwriter);
-        for (const node of this.m_networks) {
-            node.node.broadcast(pwriter, options);
+        for (const network of this.m_networks) {
+            network.node.broadcast(pwriter, options);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -559,14 +561,14 @@ class ChainNode extends events_1.EventEmitter {
         this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    _onConnectionError(remote) {
-        this.logger.warn(`connection from ${remote} break, close it.`);
-        this._onRemoveConnection(remote);
+    _onConnectionError(fullRemote) {
+        this.logger.warn(`connection from ${fullRemote} break, close it.`);
+        this._onRemoveConnection(fullRemote);
     }
     /*must not async*/
-    _onRemoveConnection(remote) {
-        this.logger.info(`removing ${remote} from block requesting source`);
-        let connRequesting = this.m_requestingBlock.connMap.get(remote);
+    _onRemoveConnection(fullRemote) {
+        this.logger.info(`removing ${fullRemote} from block requesting source`);
+        let connRequesting = this.m_requestingBlock.connMap.get(fullRemote);
         if (connRequesting) {
             for (let hash of connRequesting.hashes) {
                 this.logger.debug(`change block ${hash} from requesting to pending`);
@@ -574,12 +576,12 @@ class ChainNode extends events_1.EventEmitter {
                 this._addToPendingBlocks(hash, true);
             }
         }
-        this.m_requestingBlock.connMap.delete(remote);
+        this.m_requestingBlock.connMap.delete(fullRemote);
         const pendings = this.m_pendingBlock.sequence.slice(0);
         for (let hash of pendings) {
             let sources = this.m_blockFromMap.get(hash);
-            if (sources.has(remote)) {
-                sources.delete(remote);
+            if (sources.has(fullRemote)) {
+                sources.delete(fullRemote);
                 if (!sources.size) {
                     this.logger.debug(`remove block ${hash} from pending blocks for all source removed`);
                     this._removeFromPendingBlocks(hash);
@@ -595,13 +597,13 @@ class ChainNode extends events_1.EventEmitter {
                 }
             }
         }
-        this.m_requestingHeaders.delete(remote);
+        this.m_requestingHeaders.delete(fullRemote);
     }
-    banConnection(remote, level) {
-        return this._banConnection(remote, level);
+    banConnection(fullRemote, level) {
+        return this._banConnection(fullRemote, level);
     }
-    _banConnection(remote, level) {
-        const { network, peerid } = net_1.INode.splitFullPeerid(remote);
+    _banConnection(fullRemote, level) {
+        const { network, peerid } = net_1.INode.splitFullPeerid(fullRemote);
         const node = this.getNetwork(network);
         if (node) {
             node.banConnection(peerid, level);
@@ -620,11 +622,11 @@ class ChainNode extends events_1.EventEmitter {
             }
         }
         // 返回headers超时
-        for (let remote of this.m_requestingHeaders.keys()) {
-            let rh = this.m_requestingHeaders.get(remote);
+        for (let fullRemote of this.m_requestingHeaders.keys()) {
+            let rh = this.m_requestingHeaders.get(fullRemote);
             if (now - rh.time > this.m_headersTimeout) {
-                this.logger.debug(`header request timeout from ${remote} timeout with options `, rh.req);
-                this._banConnection(remote, block_1.BAN_LEVEL.hour);
+                this.logger.debug(`header request timeout from ${fullRemote} timeout with options `, rh.req);
+                this._banConnection(fullRemote, block_1.BAN_LEVEL.hour);
             }
         }
     }

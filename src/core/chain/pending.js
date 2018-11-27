@@ -49,6 +49,10 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
             return err;
         }
+        let retCode = await this.onCheck({ tx, ct: Date.now() });
+        if (retCode) {
+            return retCode;
+        }
         let bt = this.baseMethodChecker(tx);
         if (bt) {
             return bt;

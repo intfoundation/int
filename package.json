@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/intfoundation/int#readme",
   "dependencies": {
-    "bdt-p2p": "^0.1.237",
+    "bdt-p2p": "0.1.238",
     "bignumber.js": "^6.0.0",
     "bn.js": "^4.11.8",
     "fs-extra": "^5.0.0",

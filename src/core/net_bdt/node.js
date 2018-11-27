@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const assert = require("assert");
 const error_code_1 = require("../error_code");
 const net_1 = require("../net");
 const connection_1 = require("./connection");
@@ -68,7 +67,7 @@ class BdtNode extends net_1.INode {
         // 增加指定地址
         // 部分机器会因为监听'0.0.0.0'相同端口，监听本地IP时发生冲突，最终漏掉本地地址，导致同局域网地址连接不上
         let listenerEPList = [];
-        addrList.forEach(host => {
+        addrList.forEach((host) => {
             listenerEPList.push(Util.EndPoint.toString({ address: host, port: this.m_tcpListenPort, family: Util.EndPoint.FAMILY.IPv4, protocol: Util.EndPoint.PROTOCOL.tcp }));
             listenerEPList.push(Util.EndPoint.toString({ address: host, port: this.m_udpListenPort, family: Util.EndPoint.FAMILY.IPv4, protocol: Util.EndPoint.PROTOCOL.udp }));
         });
@@ -79,6 +78,7 @@ class BdtNode extends net_1.INode {
         }
         // 加入区块链应用DHT网络，并做为默认DHT网络，准备妥当再正式提供服务
         p2p.joinDHT(dhtEntry, { manualActiveLocalPeer: true, dhtAppID: this.m_options.dhtAppID, asDefault: true });
+        this.m_logger.info(`bdt add network use id ${this.m_options.dhtAppID}`);
         // 加入SN的DHT网络，用于通信穿透，但不参与SN服务
         p2p.joinDHT(dhtEntry, { manualActiveLocalPeer: true, dhtAppID: DHTAPPID.sn });
         result = await p2p.startupBDTStack(bdtInitParams.options);
@@ -87,65 +87,31 @@ class BdtNode extends net_1.INode {
         }
         this.m_dht = p2p.dht;
         this.m_bdtStack = p2p.bdtStack;
-        // <TODO> ready标记已经不再需要，暂时留着check DHT实现的正确性
-        // 启动p2p的时候 先把当前peer的ready设置为0， 避免在listen前被其他节点发现并连接
-        this.m_dht.updateLocalPeerAdditionalInfo('ready', 0);
     }
     _ready() {
-        this.m_dht.updateLocalPeerAdditionalInfo('ready', 1);
         this.m_dht.rootDHT.activeLocalPeer();
     }
     async randomPeers(count, excludes) {
-        let res = await this.m_dht.getRandomPeers(count, false);
-        // this.m_logger.info(`first find ${res.peerlist.length} peers, ${JSON.stringify(res.peerlist.map((value: any) => value.peerid))}`);
-        const ignore0 = !res || !res.peerlist || res.peerlist.length === 0;
         // 过滤掉自己和种子peer
-        let peers = res.peerlist.filter((val) => {
-            if (!val.peerid) {
-                // this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
+        const filter = (peer) => {
+            if (!peer.peerid) {
+                // this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(peer)}`);
                 return false;
             }
-            if (this.m_skipList.includes(val.peerid)) {
-                // this.m_logger.debug(`exclude ${val.peerid} from skipList`);
+            if (this.m_skipList.includes(peer.peerid)) {
+                // this.m_logger.debug(`exclude ${peer.peerid} from skipList`);
                 return false;
             }
-            if (excludes.includes(val.peerid)) {
-                // this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
-                return false;
-            }
-            let ready = val.getAdditionalInfo('ready');
-            if (ready !== 1) {
-                // this.m_logger.debug(`exclude ${val.peerid} not ready`);
-                assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
+            if (excludes.includes(peer.peerid)) {
+                // this.m_logger.debug(`exclude ${peer.peerid} from excludesList`);
                 return false;
             }
             return true;
-        });
-        if (peers.length === 0) {
-            peers = this.m_dht.getAllOnlinePeers();
-            // this.m_logger.info(`get none from randomPeers, get ${peers.length} from AllOnlinePeers`);
-            peers = peers.filter((val) => {
-                if (!val.peerid) {
-                    // this.m_logger.debug(`exclude undefined peerid, ${JSON.stringify(val)}`);
-                    return false;
-                }
-                if (this.m_skipList.includes(val.peerid)) {
-                    // this.m_logger.debug(`exclude ${val.peerid} from skipList`);
-                    return false;
-                }
-                if (excludes.includes(val.peerid)) {
-                    // this.m_logger.debug(`exclude ${val.peerid} from excludesList`);
-                    return false;
-                }
-                let ready = val.getAdditionalInfo('ready');
-                if (ready !== 1) {
-                    // this.m_logger.debug(`exclude ${val.peerid} not ready`);
-                    assert(ready !== 0, `no-ready peer found: ${val.peerid}.`);
-                    return false;
-                }
-                return true;
-            });
-        }
+        };
+        let res = await this.m_dht.getRandomPeers(count, false, { filter });
+        // this.m_logger.info(`first find ${res.peerlist.length} peers, ${JSON.stringify(res.peerlist.map((value: any) => value.peerid))}`);
+        const ignore0 = !res || !res.peerlist || res.peerlist.length === 0;
+        const peers = (res && res.peerlist) ? res.peerlist : [];
         let peerids = peers.map((value) => value.peerid);
         // this.m_logger.info(`find ${peerids.length} peers after filter, count ${count}, ${JSON.stringify(peerids)}`);
         // 如果peer数量比传入的count多， 需要随机截取

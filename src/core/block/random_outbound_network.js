@@ -64,11 +64,9 @@ class RandomOutNetwork extends network_1.Network {
     async _newOutbounds(count, callback) {
         let peerids = this.m_nodeStorage.get('all');
         let willConn = new Set();
-        for (let pid of peerids) {
-            if (this._onWillConnectTo(pid)) {
-                willConn.add(pid);
-            }
-        }
+        peerids.forEach((pid) => {
+            willConn.add(pid);
+        });
         this.logger.debug(`will connect to peers from node storage: `, willConn);
         if (willConn.size < count) {
             let excludes = [];
@@ -101,9 +99,6 @@ class RandomOutNetwork extends network_1.Network {
             else {
                 this.logger.error(`random peers failed for : `, result.err);
             }
-        }
-        if (willConn.size === 0) {
-            return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
         return await this._connectTo(willConn, callback);
     }

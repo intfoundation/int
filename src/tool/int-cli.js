@@ -51,7 +51,7 @@ async function run(argv) {
         options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testintchain/peerData');
-        options.set("networkid", 1556);
+        options.set("networkid", 1666);
     }
     if (!options.has("test") && !options.has("main")) {
         console.log("Please select network to connect: --test or --main");
@@ -59,7 +59,7 @@ async function run(argv) {
     }
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-    options.set('peerid', address);
+    options.set('peerid', address + '_' + options.get("networkid"));
     options.set("genesis", intPath + '/data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");

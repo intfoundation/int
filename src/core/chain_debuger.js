@@ -151,6 +151,7 @@ class ValueIndependDebugSession {
             return csr.err;
         }
         this.m_storage = csr.storage;
+        this.m_storage.createLogger();
         if (util_1.isArray(options.accounts)) {
             this.m_accounts = options.accounts.map((x) => Buffer.from(x));
         }

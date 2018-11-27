@@ -82,6 +82,7 @@ class ChainCreator {
         if (!path.isAbsolute(handlerPath)) {
             handlerPath = path.join(process.cwd(), handlerPath);
         }
+        // 如果是命令行启动，则替换掉 handler.js 的加载路径
         let dirPath = __dirname;
         if (dirPath.indexOf('node_modules') !== -1) {
             handlerPath = path.join(__dirname, '../../', '/intchain/chain/handler.js');
