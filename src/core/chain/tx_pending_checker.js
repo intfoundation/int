@@ -16,7 +16,7 @@ function createTokenChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -36,7 +36,7 @@ function transferTokenToChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -56,7 +56,7 @@ function transferFromChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -76,7 +76,7 @@ function approveChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -110,7 +110,7 @@ function burnChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -130,7 +130,7 @@ function mintTokenChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -182,7 +182,7 @@ function mortgageChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;
@@ -199,7 +199,7 @@ function unmortgageChecker(tx) {
     if (!input.amount.isInteger()) {
         return index_1.ErrorCode.RESULT_NOT_INTEGER;
     }
-    if (input.amount.lt(new index_1.BigNumber(0))) {
+    if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
     return index_1.ErrorCode.RESULT_OK;

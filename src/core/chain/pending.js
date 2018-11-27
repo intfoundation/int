@@ -82,12 +82,9 @@ class PendingTransactions extends events_1.EventEmitter {
         if (!tx.limit.isInteger() || !tx.price.isInteger() || !tx.value.isInteger()) {
             return error_code_1.ErrorCode.RESULT_NOT_INTEGER;
         }
-        if (tx.limit.lt(new bignumber_js_1.BigNumber(0)) || tx.price.lt(new bignumber_js_1.BigNumber(0) || tx.value.lt(new bignumber_js_1.BigNumber(0)))) {
+        if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
             return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
-        // if (hasDecimals(tx.limit) || hasDecimals(tx.price) || hasDecimals(tx.value)) {
-        //     return ErrorCode.RESULT_CANT_BE_DECIMAL;
-        // }
         if (tx.limit.gt(this.m_maxTxLimit)) {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
         }
