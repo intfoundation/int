@@ -213,7 +213,7 @@ function stringifyErrorCode(err) {
         return 'can`t be decimal';
     }
     else if (err === ErrorCode.RESULT_NOT_INTEGER) {
-        return 'not interger';
+        return 'not integer';
     }
     else if (err === ErrorCode.RESULT_ADDRESS_NOT_EXIST) {
         return 'address not exist';
