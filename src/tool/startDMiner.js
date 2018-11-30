@@ -50,7 +50,7 @@ async function run(argv) {
         console.log("Please select network to connect: --test or --main");
         process.exit();
     }
-    options.set('peerid', address + '_' + options.get("networkid"));
+    options.set('peerid', address);
     options.set("genesis", './data/dbft/genesis');
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
