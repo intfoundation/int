@@ -51,7 +51,7 @@ async function run(argv) {
         process.exit();
     }
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", './data/dbft/genesis');
+    options.set("genesis", './data/intchain/genesis');
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }
