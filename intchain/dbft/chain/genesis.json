@@ -1,0 +1,32 @@
+{
+	"preBalances": [{
+			"address": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
+			"amount": 1000000000000000000000000000
+		}, {
+			"address": "INT12nD5LgUnLZDbyncFnoFB43YxhSFsERcgQ",
+			"amount": 10000000000000000000
+		}, {
+			"address": "INT1LuwjNj8wkqo237N7Gh8nZSSvUa6TZ5ds4",
+			"amount": 10000000000000000000
+		}, {
+			"address": "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
+			"amount": 10000000000000000000
+		}
+	],
+	"miners": [
+        "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ"
+	],
+    "consensus": {
+        "minValidator": 1,
+        "maxValidator": 21,
+        "reSelectionBlocks": 20,
+		"blockInterval": 10,
+		"minWaitBlocksToMiner": 20,
+		"systemPubkey": "0309d4c1abb011bcbeabd46cdfbd19eb734c7110e6d94cb08d2418ac1251f0421f",
+		"superAdmin": "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
+        "agreeRateNumerator": 2,
+        "agreeRateDenominator": 3
+    },
+	"coinbase": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79"
+
+}
