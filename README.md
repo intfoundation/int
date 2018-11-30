@@ -23,7 +23,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
     
 ### Start a miner
 
-    node src/tool/startMiner.js --minerSecret ... --coinbase ... .......
+    node src/tool/starDBFTtMiner.js --minerSecret ... --coinbase ... .......
 
     options:
         --minerSecret                    It's required to give signature to block
@@ -37,7 +37,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
 
 ### Start a peer
 
-    node src/tool/startPeer.js .......
+    node src/tool/startDBFTPeer.js .......
 
     options:
         --test                           Connect the test net
