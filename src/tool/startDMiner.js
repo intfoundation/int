@@ -46,10 +46,10 @@ async function run(argv) {
         options.set("networkid", 1888);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Please select network to connect: --test or --main");
-        process.exit();
-    }
+    // if (!options.has("test") && !options.has("main")) {
+    //     console.log("Please select network to connect: --test or --main");
+    //     process.exit();
+    // }
     options.set('peerid', address);
     options.set("genesis", './data/dbft/genesis');
     if (!options.has("loggerConsole")) {
@@ -61,6 +61,11 @@ async function run(argv) {
     if (!options.has("port")) {
         options.set("port", '9000|9001');
     }
+
+    options.set("dataDir", './data/dbft/minerData_' + address);
+    options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+    options.set("networkid", 1777);
+
     options.set("loggerLevel", "info");
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");

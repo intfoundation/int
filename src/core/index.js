@@ -37,7 +37,7 @@ const node_5 = require("./net_standalone/node");
 const net_1 = require("./net");
 const node_6 = require("./net_bdt/node");
 const random_outbound_network_1 = require("./block/random_outbound_network");
-// const validators_network_1 = require("./dbft_chain/validators_network");
+const validators_network_1 = require("./dbft_chain/validators_network");
 function initChainCreator(options) {
     const logger = logger_util_1.initLogger(options);
     const networkCreator = new network_1.NetworkCreator({ logger });
@@ -147,7 +147,7 @@ function initChainCreator(options) {
         return new node_6.BdtNode({ network, host: _host, tcpport, udpport, peerid, snPeer, dhtAppID, bdtLoggerOptions: bdt_logger, initDHTEntry });
     });
     networkCreator.registerNetwork('random', random_outbound_network_1.RandomOutNetwork);
-    // networkCreator.registerNetwork('validators', validators_network_1.ValidatorsNetwork);
+    networkCreator.registerNetwork('validators', validators_network_1.ValidatorsNetwork);
 
     let _creator = new chain_creator_2.ChainCreator({ logger, networkCreator });
     // _creator.registerChainType('dpos', {
