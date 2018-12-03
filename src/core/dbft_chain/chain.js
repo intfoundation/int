@@ -184,8 +184,7 @@ class DbftChain extends value_chain_1.ValueChain {
     async _calcuteReqLimit(fromHeader, limit) {
         let hr = await this.getHeader(fromHeader);
         let reSelectionBlocks = this.globalOptions.reSelectionBlocks;
-        let reqLimit = reSelectionBlocks - (hr.header.number % reSelectionBlocks);
-        return reqLimit < 1000 ? 1000 : reqLimit;
+        return reSelectionBlocks - (hr.header.number % reSelectionBlocks);
     }
     async onCreateGenesisBlock(block, storage, genesisOptions) {
         let err = await super.onCreateGenesisBlock(block, storage, genesisOptions);
