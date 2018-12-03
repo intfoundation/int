@@ -56,10 +56,10 @@ async function run(argv) {
         options.set("dataDir", './data/testdbft/peerData_test');
         options.set("networkid", 1888);
     }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Please select network to connect: --test or --main");
-        process.exit();
-    }
+    // if (!options.has("test") && !options.has("main")) {
+    //     console.log("Please select network to connect: --test or --main");
+    //     process.exit();
+    // }
 
 
     options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
