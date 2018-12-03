@@ -31,12 +31,21 @@ class DbftChain extends value_chain_1.ValueChain {
             return await ve.transferTo(value_chain_1.ValueChain.sysAddress, address, amount);
         };
         let context = new context_1.DbftContext(storage, this.globalOptions, this.logger);
-        externalContext.register = async (caller, address) => {
-            return await context.registerToCandidate(caller, block.number, address);
+        externalContext.register = async (caller) => {
+            return await context.registerToCandidate(caller, block.number);
         };
-        externalContext.unregister = async (caller, address) => {
-            return await context.unRegisterFromCandidate(caller, address);
+        externalContext.mortgage = async (from, amount) => {
+            return await context.mortgage(from, amount);
         };
+        externalContext.unmortgage = async (from, amount) => {
+            return await context.unmortgage(from, amount);
+        };
+        externalContext.vote = async (from, candiates) => {
+            return await context.vote(from, candiates);
+        };
+        // externalContext.unregister = async (caller: string, address: string): Promise<ErrorCode> => {
+        //     return await context.unRegisterFromCandidate(caller, address);
+        // };
         externalContext.getMiners = async () => {
             let gm = await context.getMiners();
             if (gm.err) {
@@ -44,13 +53,14 @@ class DbftChain extends value_chain_1.ValueChain {
             }
             return gm.miners;
         };
-        externalContext.isMiner = async (address) => {
-            let im = await context.isMiner(address);
-            if (im.err) {
-                throw Error('newBlockExecutor isMiner failed errcode ${gm.err}');
-            }
-            return im.isminer;
-        };
+        // externalContext.isMiner = async (address: string): Promise<boolean> => {
+        //     let im = await context.isMiner(address);
+        //     if (im.err) {
+        //         throw Error('newBlockExecutor isMiner failed errcode ${gm.err}');
+        //     }
+        //
+        //     return im.isminer!;
+        // };
         let executor = new executor_1.DbftBlockExecutor({ logger: this.logger, block, storage, handler: this.m_handler, externContext: externalContext, globalOptions: this.m_globalOptions });
         return { err: error_code_1.ErrorCode.RESULT_OK, executor: executor };
     }
@@ -65,13 +75,35 @@ class DbftChain extends value_chain_1.ValueChain {
             }
             return gm.miners;
         };
-        externalContext.isMiner = async (address) => {
-            let im = await dbftProxy.isMiner(address);
-            if (im.err) {
-                throw Error('newBlockExecutor isMiner failed errcode ${gm.err}');
+        externalContext.getVote = async () => {
+            let gm = await dbftProxy.getVote();
+            if (gm.err) {
+                throw Error('view tx getVote Execute failed errcode ${gm.err}');
             }
-            return im.isminer;
+            return gm.vote;
         };
+        externalContext.getStake = async (address) => {
+            let gm = await dbftProxy.getStake(address);
+            if (gm.err) {
+                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+            }
+            return gm.stake;
+        };
+        externalContext.getCandidates = async () => {
+            let gm = await dbftProxy.getCandidates();
+            if (gm.err) {
+                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+            }
+            return gm.candidates;
+        };
+        // externalContext.isMiner = async (address: string): Promise<boolean> => {
+        //     let im = await dbftProxy.isMiner(address);
+        //     if (im.err) {
+        //         throw Error('newBlockExecutor isMiner failed errcode ${gm.err}');
+        //     }
+        //
+        //     return im.isminer!;
+        // };
         return nvex;
     }
     async initComponents(options) {
@@ -152,7 +184,8 @@ class DbftChain extends value_chain_1.ValueChain {
     async _calcuteReqLimit(fromHeader, limit) {
         let hr = await this.getHeader(fromHeader);
         let reSelectionBlocks = this.globalOptions.reSelectionBlocks;
-        return reSelectionBlocks - (hr.header.number % reSelectionBlocks);
+        let reqLimit = reSelectionBlocks - (hr.header.number % reSelectionBlocks);
+        return reqLimit < 1000 ? 1000 : reqLimit;
     }
     async onCreateGenesisBlock(block, storage, genesisOptions) {
         let err = await super.onCreateGenesisBlock(block, storage, genesisOptions);
