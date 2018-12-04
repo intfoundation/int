@@ -61,15 +61,16 @@ class ChainServer {
             let err = 0;
             //根据from地址获取用户对应的keystore文件
             let filePath = process.cwd() + "/data/keystore";
-            let dirPath = os.homedir();
+            let homePath = os.homedir();
+            let dirPath = __dirname;
             // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
             if (dirPath.indexOf('node_modules') !== -1) {
-                filePath = path.join(dirPath, "/Library/", "INTChain/keystore/");
+                filePath = path.join(homePath, "/Library/", "INTChain/keystore/");
             }
             if (os.platform() === 'win32') {
                 if (dirPath.indexOf('node_modules') !== -1) {
-                    dirPath = dirPath.replace(/\\/g, '\/');
-                    filePath = path.join(dirPath, '/AppData/Roaming/', 'INTChain/keystore/');
+                    homePath = homePath.replace(/\\/g, '\/');
+                    filePath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
                 }
                 else {
                     let cwd = process.cwd();
@@ -122,16 +123,17 @@ class ChainServer {
                 let jsonKeystore = JSON.stringify(keystore);
                 let fileName = new Date().toISOString() + '--' + address + '.json';
                 let keyPath = process.cwd() + '/data/keystore/';
-                let dirPath = os.homedir();
+                let homePath = os.homedir();
+                let dirPath = __dirname;
                 // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
                 if (dirPath.indexOf('node_modules') !== -1) {
-                    keyPath = path.join(dirPath, "/Library/", "INTChain/keystore/");
+                    keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
                 }
                 if (os.platform() === 'win32') {
                     fileName = address + '.json';
                     if (dirPath.indexOf('node_modules') !== -1) {
-                        dirPath = dirPath.replace(/\\/g, '\/');
-                        keyPath = path.join(dirPath, '/AppData/Roaming/', 'INTChain/keystore/');
+                        homePath = homePath.replace(/\\/g, '\/');
+                        keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
                     }
                     else {
                         let cwd = process.cwd();
@@ -163,15 +165,16 @@ class ChainServer {
         });
         this.m_server.on('getAccounts', async (params, resp) => {
             let keyPath = process.cwd() + '/data/keystore/';
+            let homePath = os.homedir();
             let dirPath = __dirname;
-            // 如果是命令行启动，则用文件的绝对路径替换掉 process.cwd()获得的路径
+            // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
             if (dirPath.indexOf('node_modules') !== -1) {
-                keyPath = path.join(dirPath, "../../../", "/data/keystore/");
+                keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
             }
             if (os.platform() === 'win32') {
                 if (dirPath.indexOf('node_modules') !== -1) {
-                    dirPath = dirPath.replace(/\\/g, '\/');
-                    keyPath = path.join(dirPath, '../../../', '/data/keystore/');
+                    homePath = homePath.replace(/\\/g, '\/');
+                    keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
                 }
                 else {
                     let cwd = process.cwd();
