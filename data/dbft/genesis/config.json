@@ -7,7 +7,7 @@
     "global": {
         "minValidator": 1,
         "maxValidator": 21,
-        "reSelectionBlocks": 20,
+        "reSelectionBlocks": 200,
         "blockInterval": 10,
         "minWaitBlocksToMiner": 20,
         "systemPubkey": "0309d4c1abb011bcbeabd46cdfbd19eb734c7110e6d94cb08d2418ac1251f0421f",
