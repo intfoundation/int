@@ -7,32 +7,66 @@ function registerHandler(handler) {
     handler.addViewMethod('getBalance', async (context, params) => {
         return await context.getBalance(params.address);
     });
-    handler.addViewMethod('getMiners', async (context, params) => {
-        return await context.getMiners();
-    });
-    handler.addViewMethod('isMiner', async (context, params) => {
-        return await context.isMiner(params.address);
-    });
+    // handler.addViewMethod('isMiner', async (context: DbftViewContext, params: any): Promise<boolean> => {
+    //     return await context.isMiner(params.address);
+    // });
     handler.addTX('transferTo', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
         return await context.transferTo(params.to, context.value);
-    });
+    }, txPendingChecker.transferToChecker);
     handler.addTX('register', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
-        return await context.register(context.caller, params.address);
-    });
-    handler.addTX('unregister', async (context, params) => {
+        return await context.register(context.caller);
+    }, txPendingChecker.registerChecker);
+    // handler.addTX('unregister', async (context: DbftTransactionContext, params: any): Promise<ErrorCode> => {
+    //     let err = context.cost(context.totallimit.times(context.price));
+    //     if (err) {
+    //         return err;
+    //     }
+    //     return await context.unregister(context.caller, params.address);
+    // });
+    handler.addTX('mortgage', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
             return err;
         }
-        return await context.unregister(context.caller, params.address);
+        return await context.mortgage(context.caller, new client_1.BigNumber(params.amount));
+    }, txPendingChecker.mortgageChecker);
+    handler.addTX('unmortgage', async (context, params) => {
+        let errC = context.cost(context.totallimit.times(context.price));
+        if (errC) {
+            return errC;
+        }
+        let err = await context.transferTo(context.caller, new client_1.BigNumber(params.amount));
+        if (err) {
+            return err;
+        }
+        return await context.unmortgage(context.caller, new client_1.BigNumber(params.amount));
+    }, txPendingChecker.unmortgageChecker);
+    handler.addTX('vote', async (context, params) => {
+        let err = context.cost(context.totallimit.times(context.price));
+        if (err) {
+            return err;
+        }
+        return await context.vote(context.caller, params.candidates);
+    }, txPendingChecker.voteChecker);
+    handler.addViewMethod('getVote', async (context, params) => {
+        return await context.getVote();
+    });
+    handler.addViewMethod('getStake', async (context, params) => {
+        return await context.getStake(params.address);
+    });
+    handler.addViewMethod('getCandidates', async (context, params) => {
+        return await context.getCandidates();
+    });
+    handler.addViewMethod('getMiners', async (context, params) => {
+        return await context.getMiners();
     });
     async function getTokenBalance(balanceKv, address) {
         let retInfo = await balanceKv.get(address);
@@ -43,11 +77,6 @@ function registerHandler(handler) {
         if (err) {
             return err;
         }
-        // 这里是不是会有一些检查什么的，会让任何人都随便创建Token么?
-        // 必须要有tokenid，一条链上tokenid不能重复
-        // if (!params.tokenid || !isValidAddress(params.tokenid) ) {
-        //     return ErrorCode.RESULT_INVALID_ADDRESS;
-        // }
         let kvRet = await context.storage.createKeyValue(params.tokenid);
         if (kvRet.err) {
             return kvRet.err;
