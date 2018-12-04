@@ -62,7 +62,7 @@ async function run(argv) {
     // }
 
     options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
-    options.set("dataDir", './data/dbft/peerData');
+    options.set("dataDir", intPath + '/data/dbft/peerData');
     options.set("networkid", 1777);
 
     options.set('peerid', address + '_' + options.get("networkid"));
