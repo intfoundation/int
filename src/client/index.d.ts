@@ -241,18 +241,26 @@ export type DposViewContext = {
 } & ValueViewContext;
 
 export type DbftTransactionContext = {
-    register: (caller: string, address: string) => Promise<ErrorCode>;
-    unregister: (caller: string, address: string) => Promise<ErrorCode>;
+    register: (caller: string) => Promise<ErrorCode>;
+    // unregister: (caller: string, address: string) => Promise<ErrorCode>;
+    mortgage: (from: string, amount: BigNumber) => Promise<ErrorCode>;
+    unmortgage: (from: string, amount: BigNumber) => Promise<ErrorCode>;
+    vote: (from: string, candiates: string[]) => Promise<ErrorCode>;
 } & ValueTransactionContext;
 
 export type DbftEventContext = {
-    register: (caller: string, address: string) => Promise<ErrorCode>;
-    unregister: (caller: string, address: string) => Promise<ErrorCode>;
+    register: (caller: string) => Promise<ErrorCode>;
+    // unregister: (caller: string, address: string) => Promise<ErrorCode>;
+    mortgage: (from: string, amount: BigNumber) => Promise<ErrorCode>;
+    unmortgage: (from: string, amount: BigNumber) => Promise<ErrorCode>;
+    vote: (from: string, candiates: string[]) => Promise<ErrorCode>;
 } & ValueEventContext;
 
 export type DbftViewContext = {
-    getMiners: () => Promise<{address: string, pubkey: string}[]>;
-    isMiner: (address: string) => Promise<boolean>;
+    getMiners: () => Promise<string[]>;
+    getVote: () => Promise<Array<{address: string, vote: BigNumber}>>;
+    getStake: (address: string) => Promise<BigNumber>;
+    getCandidates: () => Promise<string[]>;
 } & ValueViewContext;
 
 export class ChainClient {

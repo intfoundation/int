@@ -49,7 +49,7 @@ class DbftChain extends value_chain_1.ValueChain {
         externalContext.getMiners = async () => {
             let gm = await context.getMiners();
             if (gm.err) {
-                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
             }
             return gm.miners;
         };
@@ -71,7 +71,7 @@ class DbftChain extends value_chain_1.ValueChain {
         externalContext.getMiners = async () => {
             let gm = await dbftProxy.getMiners();
             if (gm.err) {
-                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
             }
             return gm.miners;
         };
