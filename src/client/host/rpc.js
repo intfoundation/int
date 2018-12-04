@@ -128,6 +128,7 @@ class ChainServer {
                 // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
                 if (dirPath.indexOf('node_modules') !== -1) {
                     keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
+                    console.log("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++",keyPath);
                 }
                 if (os.platform() === 'win32') {
                     fileName = address + '.json';
@@ -161,6 +162,7 @@ class ChainServer {
             else {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, address: address })));
             }
+            console.log("+++++++++++++++++++++++++++++++++++++++++++++", err, address);
             await promisify(resp.end.bind(resp)());
         });
         this.m_server.on('getAccounts', async (params, resp) => {
@@ -170,6 +172,7 @@ class ChainServer {
             // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
             if (dirPath.indexOf('node_modules') !== -1) {
                 keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
+                console.log("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++",keyPath);
             }
             if (os.platform() === 'win32') {
                 if (dirPath.indexOf('node_modules') !== -1) {
@@ -204,7 +207,9 @@ class ChainServer {
                     }
                     accounts.sort();
                     await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, accounts: accounts })));
+                    console.log("+++++++++++++++++++++++++++++++++++++++++++++", err, accounts);
                 }
+
                 await promisify(resp.end.bind(resp)());
             });
         });
