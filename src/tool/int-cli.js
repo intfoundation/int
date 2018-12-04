@@ -66,7 +66,7 @@ async function run(argv) {
     options.set("networkid", 1777);
 
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", intPath + '/data/intchain/genesis');
+    options.set("genesis", intPath + '/data/dbft/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
