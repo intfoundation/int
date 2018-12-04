@@ -3,6 +3,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
 const path = require("path");
+const fs = require("fs-extra");
+const os = require("os");
 const client_1 = require("../client");
 const addressClass = require("../core/address");
 const pkg = require('../../package.json');
@@ -15,6 +17,10 @@ async function run(argv) {
         return;
     }
     let intPath = path.join(__dirname, "../../");
+    let homePath = os.homedir();
+    let dirPath = __dirname;
+    // let keyPath;
+    let blockPath;
     let options = command.options;
     if (options.has('dataDir')) {
         client_1.initUnhandledRejection(client_1.initLogger({
@@ -44,27 +50,39 @@ async function run(argv) {
     }
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-
     if (options.has("main")) {
         options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
         options.set("dataDir", intPath + '/data/dbft/peerData');
         options.set("networkid", 1777);
+        // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+        if (dirPath.indexOf('node_modules') !== -1) {
+            blockPath = path.join(homePath, "/Library/", "INTChain/chaindata/");
+            if (os.platform() === 'win32') {
+                homePath = homePath.replace(/\\/g, '\/');
+                blockPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/chaindata/');
+            }
+            options.set("dataDir", blockPath);
+        }
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", intPath + '/data/testdbft/peerData_test');
+        options.set("dataDir", intPath + '/data/testnet/chaindata');
         options.set("networkid", 1888);
+        // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+        if (dirPath.indexOf('node_modules') !== -1) {
+            blockPath = path.join(homePath, "/Library/", "INTChain/testchaindata/");
+            if (os.platform() === 'win32') {
+                homePath = homePath.replace(/\\/g, '\/');
+                blockPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/testchaindata/');
+            }
+            options.set("dataDir", blockPath);
+        }
     }
-    // if (!options.has("test") && !options.has("main")) {
-    //     console.log("Please select network to connect: --test or --main");
-    //     process.exit();
-    // }
-
-    options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
-    options.set("dataDir", intPath + '/data/dbft/peerData');
-    options.set("networkid", 1777);
-
+    if (!options.has("test") && !options.has("main")) {
+        console.log("Please select network to connect: --test or --main");
+        process.exit();
+    }
     options.set('peerid', address + '_' + options.get("networkid"));
     options.set("genesis", intPath + '/data/dbft/genesis');
     options.set("net", "bdt");
@@ -115,4 +133,16 @@ function help() {
 }
 function version() {
     console.log("Version:" + pkg.version + "\n");
+}
+function makeDirSync(p) {
+    console.log(p);
+    if (fs.existsSync(p)) {
+        return true;
+    }
+    else {
+        if (makeDirSync(path.dirname(p))) {
+            fs.mkdirSync(p);
+            return true;
+        }
+    }
 }
