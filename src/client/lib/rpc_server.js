@@ -36,9 +36,16 @@ class RPCServer extends events_1.EventEmitter {
                     jsonData += chunk;
                 });
                 req.on('end', () => {
-                    let reqObj = JSON.parse(jsonData);
-                    // console.info(`RPCServer emit request ${reqObj.funName}, params ${JSON.stringify(reqObj.args)}`);
-                    if (!this.emit(reqObj.funName, reqObj.args, resp)) {
+                    try {
+                        let reqObj = JSON.parse(jsonData);
+                        // console.info(`RPCServer emit request ${reqObj.funName}, params ${JSON.stringify(reqObj.args)}`);
+                        if (!this.emit(reqObj.funName, reqObj.args, resp)) {
+                            resp.writeHead(404);
+                            resp.end();
+                        }
+                    }
+                    catch (e) {
+                        console.info(`RPCServer JSON parse data error, error: ${e}`);
                         resp.writeHead(404);
                         resp.end();
                     }
