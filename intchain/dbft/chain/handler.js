@@ -57,6 +57,7 @@ function registerHandler(handler) {
         return await context.vote(context.caller, params.candidates);
     }, txPendingChecker.voteChecker);
     handler.addViewMethod('getVote', async (context, params) => {
+        console.log(`dbft getVote`);
         return await context.getVote();
     });
     handler.addViewMethod('getStake', async (context, params) => {
