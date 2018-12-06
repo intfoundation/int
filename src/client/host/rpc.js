@@ -182,6 +182,7 @@ class ChainServer {
                     keyPath = cwd + '/data/keystore/';
                 }
             }
+
             if (!fs.existsSync(keyPath)) {
                 this.makeDirSync(keyPath);
             }
