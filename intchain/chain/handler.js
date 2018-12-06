@@ -286,6 +286,7 @@ function registerHandler(handler) {
     });
     handler.addViewMethod('getVote', async (context, params) => {
         let v = await context.getVote();
+        console.log(`dpos getVote`);
         return client_1.MapToObject(v);
     });
     handler.addViewMethod('getStake', async (context, params) => {
