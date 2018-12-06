@@ -47,54 +47,59 @@ class ChainServer {
     _initMethods() {
         this.m_server.on('sendTransaction', async (params, resp) => {
             let tx = new core_1.ValueTransaction();
-            tx.method = params.method;
-            tx.value = new core_1.BigNumber(params.value);
-            tx.limit = new core_1.BigNumber(params.limit);
-            tx.price = new core_1.BigNumber(params.price);
-            tx.input = params.input;
-            if (!util_1.isNullOrUndefined(params.input.amount)) {
-                tx.input.amount = new core_1.BigNumber(params.input.amount);
-            }
             //签名相关的逻辑
             let fromAddress = params.from;
             let password = params.password;
-            let err = 0;
-            //根据from地址获取用户对应的keystore文件
-            let filePath = process.cwd() + "/data/keystore";
-            let homePath = os.homedir();
-            let dirPath = __dirname;
-            // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
-            if (dirPath.indexOf('node_modules') !== -1) {
-                filePath = path.join(homePath, "/Library/", "INTChain/keystore/");
-            }
-            if (os.platform() === 'win32') {
-                if (dirPath.indexOf('node_modules') !== -1) {
-                    homePath = homePath.replace(/\\/g, '\/');
-                    filePath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
-                }
-                else {
-                    let cwd = process.cwd();
-                    cwd = cwd.replace(/\\/g, '\/');
-                    filePath = cwd + '/data/keystore/';
-                }
-            }
-            let files = await fs.readdir(filePath);
-            let status = core_1.ErrorCode.RESULT_OK;
-            let exc = new RegExp(fromAddress);
+            let err = core_1.ErrorCode.RESULT_OK;
             let keyStore;
-            for (let fileName of files) {
-                if (exc.test(fileName)) {
-                    let temp = path.join(filePath, fileName);
-                    let data = await fs.readFile(temp, "utf-8");
-                    keyStore = JSON.parse(data);
-                    break;
+            if (!util_1.isString(params.value) || !util_1.isString(params.limit) || !util_1.isString(params.price)) {
+                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+            }
+            else {
+                tx.method = params.method;
+                tx.value = new core_1.BigNumber(params.value);
+                tx.limit = new core_1.BigNumber(params.limit);
+                tx.price = new core_1.BigNumber(params.price);
+                tx.input = params.input;
+                if (!util_1.isNullOrUndefined(params.input.amount)) {
+                    tx.input.amount = new core_1.BigNumber(params.input.amount);
                 }
-            }
-            if (!keyStore) {
-                err = core_1.ErrorCode.RESULT_ADDRESS_NOT_EXIST;
-            }
-            if (keyStore.address != fromAddress && !err) {
-                err = core_1.ErrorCode.RESULT_KEYSTORE_ERROR;
+                //根据from地址获取用户对应的keystore文件
+                let filePath = process.cwd() + "/data/keystore";
+                let homePath = os.homedir();
+                let dirPath = __dirname;
+                // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+                if (dirPath.indexOf('node_modules') !== -1) {
+                    filePath = path.join(homePath, "/Library/", "INTChain/keystore/");
+                }
+                if (os.platform() === 'win32') {
+                    if (dirPath.indexOf('node_modules') !== -1) {
+                        homePath = homePath.replace(/\\/g, '\/');
+                        filePath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
+                    }
+                    else {
+                        let cwd = process.cwd();
+                        cwd = cwd.replace(/\\/g, '\/');
+                        filePath = cwd + '/data/keystore/';
+                    }
+                }
+                let files = await fs.readdir(filePath);
+                let status = core_1.ErrorCode.RESULT_OK;
+                let exc = new RegExp(fromAddress);
+                for (let fileName of files) {
+                    if (exc.test(fileName)) {
+                        let temp = path.join(filePath, fileName);
+                        let data = await fs.readFile(temp, "utf-8");
+                        keyStore = JSON.parse(data);
+                        break;
+                    }
+                }
+                if (!keyStore) {
+                    err = core_1.ErrorCode.RESULT_ADDRESS_NOT_EXIST;
+                }
+                if (keyStore.address != fromAddress && !err) {
+                    err = core_1.ErrorCode.RESULT_KEYSTORE_ERROR;
+                }
             }
             if (err) {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
@@ -182,7 +187,6 @@ class ChainServer {
                     keyPath = cwd + '/data/keystore/';
                 }
             }
-
             if (!fs.existsSync(keyPath)) {
                 this.makeDirSync(keyPath);
             }
@@ -289,7 +293,7 @@ class ChainServer {
                 let header = hr.header.stringify();
                 header.wage = wage;
                 // 是否返回 block的transactions内容
-                if (params.transactions) {
+                if (params.transactions && typeof params.transactions === 'boolean') {
                     let block = await this.m_chain.getBlock(hr.header.hash);
                     if (block) {
                         // 处理block content 中的transaction, 然后再响应请求
