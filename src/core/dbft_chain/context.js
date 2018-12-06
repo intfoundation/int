@@ -142,10 +142,12 @@ class DbftContext {
         let kvDBFT = kvr.kv;
         let gr = await kvDBFT.hgetall(DbftContext.keyVote);
         if (gr.err) {
+            this.logger.error(`context getVote failed ${gr.err}`);
             return { err: gr.err };
         }
         let cans = await this.getValidCandidates();
         if (cans.err) {
+            this.logger.error(`context getValidCandidates failed ${cans.err}`);
             return { err: cans.err };
         }
         cans.candidates.sort();
@@ -398,7 +400,7 @@ class DbftContext {
         // this._shuffle(shuffle_factor, creators);
         let minValidator = this.globalOptions.minValidator;
         if (minValidator > miners.length) {
-            this.logger.error(`updateCandidate failed, valid miners not enough, length ${miners.length} minValidator ${minValidator}`);
+            this.logger.error(`updateCandidate failed, valid miners not enough,votes ${election.toString()}, length ${miners.length} minValidator ${minValidator}`);
             return error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
         let { err } = await kvDBFT.set(DbftContext.keyMiners, JSON.stringify(miners));
