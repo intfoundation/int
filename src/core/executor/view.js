@@ -60,6 +60,7 @@ class ViewExecutor {
             return { err: error_code_1.ErrorCode.RESULT_OK, value: v };
         }
         catch (error) {
+            this.m_logger.error(`view execute error ${error}`);
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
     }
