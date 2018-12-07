@@ -74,7 +74,7 @@ class ChainNode extends events_1.EventEmitter {
             network.on('ban', (remote) => {
                 const fullRemote = net_1.INode.fullPeerid(network.name, remote);
                 this._onRemoveConnection(fullRemote);
-                this.emit('ban');
+                this.emit('ban', fullRemote);
             });
             inits.push(network.init());
         }
@@ -577,8 +577,7 @@ class ChainNode extends events_1.EventEmitter {
             }
         }
         this.m_requestingBlock.connMap.delete(fullRemote);
-        const pendings = this.m_pendingBlock.sequence.slice(0);
-        for (let hash of pendings) {
+        for (let hash of this.m_blockFromMap.keys()) {
             let sources = this.m_blockFromMap.get(hash);
             if (sources.has(fullRemote)) {
                 sources.delete(fullRemote);
