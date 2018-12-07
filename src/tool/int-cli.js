@@ -90,6 +90,7 @@ async function run(argv) {
     options.set("bdt_log_level", "info");
     options.set("port", '8553|8554');
     options.set("saveMismatch", true);
+    options.set("ignoreBan", true);
     exit = !(await client_1.host.initPeer(command.options)).ret;
     if (exit) {
         process.exit();
