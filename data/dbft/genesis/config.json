@@ -6,13 +6,13 @@
     },
     "global": {
         "minValidator": 1,
-        "maxValidator": 21,
-        "reSelectionBlocks": 20,
+        "maxValidator": 13,
+        "reSelectionBlocks": 200,
         "blockInterval": 10,
-        "minWaitBlocksToMiner": 20,
-        "systemPubkey": "0309d4c1abb011bcbeabd46cdfbd19eb734c7110e6d94cb08d2418ac1251f0421f",
         "superAdmin": "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
         "agreeRateNumerator": 2,
-        "agreeRateDenominator": 3
+        "agreeRateDenominator": 3,
+        "numberOffsetToLastBlock": 100,
+        "banMinerInterval": 80
     }
 }

@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const assert = require('assert');
 const error_code_1 = require("../error_code");
 const value_chain_1 = require("../value_chain");
 const bignumber_js_1 = require("bignumber.js");
@@ -15,12 +14,12 @@ class DbftContext {
         let storage = this.storage;
         let dbr = await storage.getReadWritableDatabase(value_chain_1.Chain.dbSystem);
         if (dbr.err) {
-            this.logger.error(`get system database failed ${dbr.err}`);
+            this.logger.error(`get system database failed,errcode=${dbr.err}`);
             return { err: dbr.err };
         }
         let kvr = await dbr.value.getReadWritableKeyValue(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${dbr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${dbr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
@@ -63,7 +62,7 @@ class DbftContext {
     async getMiners() {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
@@ -81,7 +80,7 @@ class DbftContext {
         }
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
@@ -113,7 +112,7 @@ class DbftContext {
     async getStake(address) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
@@ -136,18 +135,18 @@ class DbftContext {
     async getVote() {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
         let gr = await kvDBFT.hgetall(DbftContext.keyVote);
         if (gr.err) {
-            this.logger.error(`context getVote failed ${gr.err}`);
+            this.logger.error(`context getVote failed,errcode=${gr.err}`);
             return { err: gr.err };
         }
         let cans = await this.getValidCandidates();
         if (cans.err) {
-            this.logger.error(`context getValidCandidates failed ${cans.err}`);
+            this.logger.error(`context getValidCandidates failed,errcode=${cans.err}`);
             return { err: cans.err };
         }
         cans.candidates.sort();
@@ -196,13 +195,13 @@ class DbftContext {
     async registerToCandidate(candidate, blockheight) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`execute register get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`execute register get dbft keyvalue failed,errcode=${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
         let her = await kvDBFT.hexists(DbftContext.keyCandidate, candidate);
         if (her.err) {
-            this.logger.error(`execute register hexists candidate failed ${her.err}`);
+            this.logger.error(`execute register hexists candidate failed,errcode=${her.err}`);
             return her.err;
         }
         if (her.value) {
@@ -244,7 +243,7 @@ class DbftContext {
     async mortgage(from, amount) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`execute mortgage get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`execute mortgage get dbft keyvalue failed,errcode=${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
@@ -254,12 +253,12 @@ class DbftContext {
             stake = stakeInfo.value;
         }
         else if (stakeInfo.err != error_code_1.ErrorCode.RESULT_NOT_FOUND) {
-            this.logger.error(`execute mortgage get stakeInfo failed ${stakeInfo.err}`);
+            this.logger.error(`execute mortgage get stakeInfo failed,errcode=${stakeInfo.err}`);
             return stakeInfo.err;
         }
         let result = await kvDBFT.hset(DbftContext.keyStake, from, stake.plus(amount));
         if (result.err) {
-            this.logger.error(`execute mortgage update stakeInfo failed ${result.err}`);
+            this.logger.error(`execute mortgage update stakeInfo failed,errcode=${result.err}`);
             return result.err;
         }
         result.err = await this._updatevote(from, amount);
@@ -268,13 +267,13 @@ class DbftContext {
     async unmortgage(from, amount) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
         let stakeInfo = await kvDBFT.hget(DbftContext.keyStake, from);
         if (stakeInfo.err) {
-            this.logger.error(`execute unmortgage get stakenfo failed ${kvr.err}`);
+            this.logger.error(`execute unmortgage get stakenfo failed,errcode=${kvr.err}`);
             return stakeInfo.err;
         }
         let stake = stakeInfo.value;
@@ -289,12 +288,12 @@ class DbftContext {
             result = await kvDBFT.hset(DbftContext.keyStake, from, stake.minus(amount));
         }
         if (result.err) {
-            this.logger.error(`execute unmortgage update stakeInfo failed ${result.err}`);
+            this.logger.error(`execute unmortgage update stakeInfo failed,errcode=${result.err}`);
             return result.err;
         }
         result.err = await this._updatevote(from, (new bignumber_js_1.BigNumber(0)).minus(amount));
         if (result.err) {
-            this.logger.error(`execute unmortgage update vote failed ${result.err}`);
+            this.logger.error(`execute unmortgage update vote failed,errcode=${result.err}`);
             return result.err;
         }
         if (stake.isEqualTo(amount)) {
@@ -306,7 +305,7 @@ class DbftContext {
         candidates = this.removeDuplicate(candidates);
         let cans = await this.getValidCandidates();
         if (cans.err) {
-            this.logger.error(`execute vote getValidCandidates failed ${cans.err}`);
+            this.logger.error(`execute vote getValidCandidates failed,errcode=${cans.err}`);
             return cans.err;
         }
         cans.candidates.sort();
@@ -328,13 +327,13 @@ class DbftContext {
         }
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`execute vote get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`execute vote get dbft keyvalue failed,errcode=${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
         let stakeInfo = await kvDBFT.hget(DbftContext.keyStake, from);
         if (stakeInfo.err) {
-            this.logger.error(`execute vote get stakeInfo failed ${stakeInfo.err}`);
+            this.logger.error(`execute vote get stakeInfo failed,errcode=${stakeInfo.err}`);
             return stakeInfo.err;
         }
         let stake = stakeInfo.value;
@@ -358,30 +357,114 @@ class DbftContext {
             // 取消投给先前的那些人
             result.err = await this._updatevote(from, new bignumber_js_1.BigNumber(0).minus(stake));
             if (result.err) {
-                this.logger.error(`execute vote _updatevote failed ${result.err}`);
+                this.logger.error(`execute vote _updatevote failed,errcode=${result.err}`);
                 return result.err;
             }
         }
         // 设置新的投票对象
         result = await kvDBFT.hset(DbftContext.keyProducers, from, candidates);
         if (result.err) {
-            this.logger.error(`execute vote update producers failed ${result.err}`);
+            this.logger.error(`execute vote update producers failed,errcode=${result.err}`);
             return result.err;
         }
         // 计票
         result.err = await this._updatevote(from, stake);
         return result.err;
     }
+    async updateCreatorHeight(miner, blockHeight) {
+        let kvr = await this.getDbftKV(DbftContext.kvDBFT);
+        if (kvr.err) {
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
+            return kvr.err;
+        }
+        let kvDBFT = kvr.kv;
+        let { err } = await kvDBFT.hset(DbftContext.keyNewBlockHeight, miner, blockHeight);
+        if (err) {
+            this.logger.error(`updateCreatorHeight set new data failed,errcode=${err},miner:${miner},blockeight:${blockHeight}`);
+        }
+        return err;
+    }
+    async banMiner(blockHeight) {
+        let kvr = await this.getDbftKV(DbftContext.kvDBFT);
+        let selectFlag = false;
+        if (kvr.err) {
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
+            return { err: kvr.err, reSelect: selectFlag };
+        }
+        let kvDBFT = kvr.kv;
+        let allHeightInfo = await kvDBFT.hgetall(DbftContext.keyNewBlockHeight);
+        if (allHeightInfo.err) {
+            this.logger.error(`banMiner get allHeightInfo failed,errcode=${allHeightInfo.err}`);
+            return { err: allHeightInfo.err, reSelect: selectFlag };
+        }
+        let gm = await this.getMiners();
+        if (gm.err) {
+            this.logger.error(`banMiner get miners failed,errcode=${gm.err}`);
+            return { err: gm.err, reSelect: selectFlag };
+        }
+        let allHeightInfoMap = new Map();
+        for (let blockInfo of allHeightInfo.value) {
+            allHeightInfoMap.set(blockInfo.key, blockInfo.value);
+        }
+        let result = { err: error_code_1.ErrorCode.RESULT_OK };
+        for (let m of gm.miners) {
+            let minerNewHeight = allHeightInfoMap.get(m);
+            if (allHeightInfoMap.has(m)) {
+                if ((blockHeight - minerNewHeight) >= this.globalOptions.numberOffsetToLastBlock) {
+                    result = await kvDBFT.hset(DbftContext.keyCandidate, m, blockHeight + this.globalOptions.reSelectionBlocks);
+                    if (result.err) {
+                        this.logger.error(`banMiner update ban status failed,errcode=${result.err}`);
+                        return { err: result.err, reSelect: selectFlag };
+                    }
+                    selectFlag = true;
+                }
+            }
+            else {
+                //如果发现有miner没有newBlockHeight数据，则把最新的高度更新上去
+                result = await kvDBFT.hset(DbftContext.keyNewBlockHeight, m, blockHeight);
+                if (result.err) {
+                    this.logger.error(`banMiner update miner new blockHeight failed,errcode=${result.err}`);
+                    return { err: result.err, reSelect: selectFlag };
+                }
+            }
+        }
+        return { err: result.err, reSelect: selectFlag };
+    }
+    async unBanMiner(blockHeight) {
+        let kvr = await this.getDbftKV(DbftContext.kvDBFT);
+        let selectFlag = false;
+        if (kvr.err) {
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
+            return kvr.err;
+        }
+        let kvDBFT = kvr.kv;
+        let candidateInfo = await kvDBFT.hgetall(DbftContext.keyCandidate);
+        let result = { err: error_code_1.ErrorCode.RESULT_OK };
+        for (let c of candidateInfo.value) {
+            if (c.value !== 0 && c.value <= blockHeight) {
+                let result = await kvDBFT.hset(DbftContext.keyCandidate, c.key, 0);
+                if (result.err) {
+                    this.logger.error(`unBanMiner update candidate info failed,errcode=${result.err}`);
+                }
+                //清除newBlockHeight数据
+                result = await kvDBFT.hdel(DbftContext.keyNewBlockHeight, c.key);
+                if (result.err) {
+                    this.logger.error(`unBanMiner delete newBlockHeight info failed,errcode=${result.err}`);
+                }
+            }
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
     async updateMiners(blockheight) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`get dbft keyvalue failed,errcode= ${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
         let gvr = await this.getVote();
         if (gvr.err) {
-            this.logger.error(`finishElection, getvote failde,errcode=${gvr.err}`);
+            this.logger.error(`updateMiners, getvote fail,errcode=${gvr.err}`);
             return gvr.err;
         }
         let election = gvr.vote;
@@ -404,13 +487,33 @@ class DbftContext {
             return error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
         let { err } = await kvDBFT.set(DbftContext.keyMiners, JSON.stringify(miners));
-        return err;
+        if (err) {
+            this.logger.error(`updateMiners set miners fail,errcode=${err}`);
+            return err;
+        }
+        //对于新增的miner，newBlock的数据需要做初始化
+        let result = { err: error_code_1.ErrorCode.RESULT_OK };
+        for (let miner of miners) {
+            let result = await kvDBFT.hexists(DbftContext.keyNewBlockHeight, miner);
+            if (result.err) {
+                this.logger.error(`updateMiners hexists miner newBlockHeight fail,errcode=${result.err}`);
+                continue;
+            }
+            else if (!result.value) {
+                result = await kvDBFT.hset(DbftContext.keyNewBlockHeight, miner, blockheight);
+                if (result.err) {
+                    this.logger.error(`updateMiners hset miner newBlockHeight fail,errcode=${result.err}`);
+                    continue;
+                }
+            }
+        }
+        return result.err;
     }
     //用于换票或者赎回票之后更新对应miner的所得票数
     async _updatevote(voteor, amount) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`execute _updatevote get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`execute _updatevote get dbft keyvalue failed,errcode=${kvr.err}`);
             return kvr.err;
         }
         let kvDBFT = kvr.kv;
@@ -419,7 +522,7 @@ class DbftContext {
             return error_code_1.ErrorCode.RESULT_OK;
         }
         if (producerInfo.err) {
-            this.logger.error(`execute _updatevote get producerInfo failed ${producerInfo.err}`);
+            this.logger.error(`execute _updatevote get producerInfo failed,errcode=${producerInfo.err}`);
             return producerInfo.err;
         }
         let producers = producerInfo.value;
@@ -435,19 +538,19 @@ class DbftContext {
                     result = await kvDBFT.hset(DbftContext.keyVote, p, vote);
                 }
                 if (result.err) {
-                    this.logger.error(`execute _updatevote update vote failed ${result.err}`);
+                    this.logger.error(`execute _updatevote update vote failed,errcode=${result.err}`);
                     return result.err;
                 }
             }
             else if (voteInfo.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
                 let setResult = await kvDBFT.hset(DbftContext.keyVote, p, amount);
                 if (setResult.err) {
-                    this.logger.error(`execute _updatevote hset vote failed ${setResult.err}`);
+                    this.logger.error(`execute _updatevote hset vote failed,errcode=${setResult.err}`);
                     return setResult.err;
                 }
             }
             else {
-                this.logger.error(`execute _updatevote get voteInfo failed ${voteInfo.err}`);
+                this.logger.error(`execute _updatevote get voteInfo failed,errcode=${voteInfo.err}`);
                 return voteInfo.err;
             }
         }
@@ -456,13 +559,13 @@ class DbftContext {
     async getValidCandidates() {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
-            this.logger.error(`execute getValidCandidates get dbft keyvalue failed ${kvr.err}`);
+            this.logger.error(`execute getValidCandidates get dbft keyvalue failed,errcode=${kvr.err}`);
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
         let gr = await kvDBFT.hgetall(DbftContext.keyCandidate);
         if (gr.err) {
-            this.logger.error(`execute getValidCandidates get allCandidate failed ${gr.err}`);
+            this.logger.error(`execute getValidCandidates get allCandidate failed,errcode=${gr.err}`);
             return { err: gr.err };
         }
         let candidates = [];
@@ -478,7 +581,7 @@ class DbftContext {
         let storage = this.storage;
         let dbr = await storage.getReadWritableDatabase(value_chain_1.Chain.dbSystem);
         if (dbr.err) {
-            this.logger.error(`get system database failed ${dbr.err}`);
+            this.logger.error(`get system database failed,errcode=${dbr.err}`);
             return { err: dbr.err };
         }
         let kvr = await dbr.value.getReadWritableKeyValue(name);
@@ -503,4 +606,6 @@ DbftContext.keyMiners = 'miner';
 DbftContext.keyVote = 'vote';
 DbftContext.keyStake = 'stake';
 DbftContext.keyProducers = 'producers';
+// 生产者最后一次出块时间
+DbftContext.keyNewBlockHeight = 'newblockheight';
 exports.DbftContext = DbftContext;

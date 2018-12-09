@@ -78,28 +78,28 @@ class DbftChain extends value_chain_1.ValueChain {
         externalContext.getVote = async () => {
             let gm = await dbftProxy.getVote();
             if (gm.err) {
-                throw Error('view tx getVote Execute failed errcode ${gm.err}');
+                throw Error(`view tx getVote Execute failed errcode ${gm.err}`);
             }
             return gm.vote;
         };
         externalContext.getStake = async (address) => {
             let gm = await dbftProxy.getStake(address);
             if (gm.err) {
-                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
             }
             return gm.stake;
         };
         externalContext.getCandidates = async () => {
             let gm = await dbftProxy.getCandidates();
             if (gm.err) {
-                throw Error('newBlockExecutor getMiners failed errcode ${gm.err}');
+                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
             }
             return gm.candidates;
         };
         // externalContext.isMiner = async (address: string): Promise<boolean> => {
         //     let im = await dbftProxy.isMiner(address);
         //     if (im.err) {
-        //         throw Error('newBlockExecutor isMiner failed errcode ${gm.err}');
+        //         throw Error(`newBlockExecutor isMiner failed errcode ${gm.err}`);
         //     }
         //
         //     return im.isminer!;
@@ -157,10 +157,18 @@ class DbftChain extends value_chain_1.ValueChain {
             this.m_logger.error(`globalOptions should has blockInterval`);
             return false;
         }
-        if (util_1.isNullOrUndefined(globalOptions.minWaitBlocksToMiner)) {
-            this.m_logger.error(`globalOptions should has minWaitBlocksToMiner`);
+        if (util_1.isNullOrUndefined(globalOptions.numberOffsetToLastBlock)) {
+            this.m_logger.error(`globalOptions should has numberOffsetToLastBlock`);
             return false;
         }
+        if (util_1.isNullOrUndefined(globalOptions.banMinerInterval)) {
+            this.m_logger.error(`globalOptions should has banMinerInterval`);
+            return false;
+        }
+        // if (isNullOrUndefined(globalOptions.minWaitBlocksToMiner)) {
+        //     this.m_logger.error(`globalOptions should has minWaitBlocksToMiner`);
+        //     return false;
+        // }
         if (util_1.isNullOrUndefined(globalOptions.superAdmin)) {
             this.m_logger.error(`globalOptions should has superAdmin`);
             return false;

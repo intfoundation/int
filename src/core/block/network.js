@@ -171,13 +171,13 @@ class Network extends events_1.EventEmitter {
         return await this.m_node.listen();
     }
     banConnection(remote, level) {
-        if (this.m_ignoreBan) {
-            return;
-        }
-        this.m_logger.warn(`banned peer ${remote} for ${level}`);
-        this.m_nodeStorage.ban(remote, level);
-        this.m_node.banConnection(remote);
-        this.emit('ban', remote);
+        // if (this.m_ignoreBan) {
+        return;
+        // }
+        // this.m_logger.warn(`banned peer ${remote} for ${level}`);
+        // this.m_nodeStorage!.ban(remote, level);
+        // this.m_node.banConnection(remote);
+        // this.emit('ban', remote);
     }
     _onWillConnectTo(peerid) {
         if (this._isBan(peerid)) {

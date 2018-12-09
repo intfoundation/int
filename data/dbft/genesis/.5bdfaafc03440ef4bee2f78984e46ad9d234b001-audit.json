@@ -1,0 +1,14 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/Users/ali/WebstormProjects/INTChain3.0/data/dbft/genesis/.5bdfaafc03440ef4bee2f78984e46ad9d234b001-audit.json",
+    "files": [
+        {
+            "date": 1544289514831,
+            "name": "/Users/ali/WebstormProjects/INTChain3.0/data/dbft/genesis/exception.log.2018-12-09-01.",
+            "hash": "a355d99281b522a3f2876af81dc8be6c"
+        }
+    ]
+}
