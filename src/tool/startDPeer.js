@@ -46,14 +46,14 @@ async function run(argv) {
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
 
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("dataDir", './data/dbft/peerData');
         options.set("networkid", 1777);
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", './data/testdbft/peerData_test');
+        options.set("dataDir", './data/testdbft/peerData');
         options.set("networkid", 1888);
     }
     // if (!options.has("test") && !options.has("main")) {

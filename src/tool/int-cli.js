@@ -51,7 +51,7 @@ async function run(argv) {
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("dataDir", intPath + '/data/dbft/peerData');
         options.set("networkid", 1777);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
@@ -65,7 +65,7 @@ async function run(argv) {
         }
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testnet/chaindata');
         options.set("networkid", 1888);
