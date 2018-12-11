@@ -62,9 +62,9 @@ async function run(argv) {
     // }
 
 
-    options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+    options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
     options.set("dataDir", './data/dbft/peerData');
-    options.set("networkid", 1777);
+    options.set("networkid", 1666);
 
     options.set('peerid', address + '_' + options.get("networkid"));
     options.set("genesis", './data/dbft/genesis');
