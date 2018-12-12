@@ -176,6 +176,8 @@ class ChainNode extends events_1.EventEmitter {
         }
         assert(pwriter);
         for (const network of this.m_networks) {
+            console.log("=====================================================================",this.m_networks);
+            console.log("=====================================================================",network);
             network.node.broadcast(pwriter, options);
         }
         return error_code_1.ErrorCode.RESULT_OK;
