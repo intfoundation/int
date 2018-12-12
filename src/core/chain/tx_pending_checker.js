@@ -4,7 +4,7 @@ const index_1 = require("../index");
 const util_1 = require("util");
 function createTokenChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.amount || !input.name || !input.symbol) {
+    if (!input || !input.tokenid || !input.amount || !input.name || !input.symbol || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid)) {
@@ -24,7 +24,7 @@ function createTokenChecker(tx) {
 exports.createTokenChecker = createTokenChecker;
 function transferTokenToChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.to || !input.amount) {
+    if (!input || !input.tokenid || !input.to || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.to)) {
@@ -44,7 +44,7 @@ function transferTokenToChecker(tx) {
 exports.transferTokenToChecker = transferTokenToChecker;
 function transferFromChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.from || !input.to || !input.amount) {
+    if (!input || !input.tokenid || !input.from || !input.to || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.from) || !index_1.isValidAddress(input.to)) {
@@ -64,7 +64,7 @@ function transferFromChecker(tx) {
 exports.transferFromChecker = transferFromChecker;
 function approveChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.spender || !input.amount) {
+    if (!input || !input.tokenid || !input.spender || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.spender)) {
@@ -84,7 +84,7 @@ function approveChecker(tx) {
 exports.approveChecker = approveChecker;
 function freezeAccountChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.freezeAddress) {
+    if (!input || !input.tokenid || !input.freezeAddress || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (util_1.isNullOrUndefined(input.freeze) || typeof input.freeze !== 'boolean') {
@@ -98,7 +98,7 @@ function freezeAccountChecker(tx) {
 exports.freezeAccountChecker = freezeAccountChecker;
 function burnChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.amount) {
+    if (!input || !input.tokenid || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid)) {
@@ -118,7 +118,7 @@ function burnChecker(tx) {
 exports.burnChecker = burnChecker;
 function mintTokenChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.amount) {
+    if (!input || !input.tokenid || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid)) {
@@ -138,7 +138,7 @@ function mintTokenChecker(tx) {
 exports.mintTokenChecker = mintTokenChecker;
 function transferOwnershipChecker(tx) {
     let input = tx.input;
-    if (!input || !input.tokenid || !input.newOwner) {
+    if (!input || !input.tokenid || !input.newOwner || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.tokenid) || !index_1.isValidAddress(input.newOwner)) {
@@ -160,7 +160,7 @@ function transferToChecker(tx) {
 exports.transferToChecker = transferToChecker;
 function voteChecker(tx) {
     let input = tx.input;
-    if (!input || !util_1.isArray(input.candidates)) {
+    if (!input || !util_1.isArray(input.candidates) || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     for (let value of input.candidates) {
@@ -173,7 +173,7 @@ function voteChecker(tx) {
 exports.voteChecker = voteChecker;
 function mortgageChecker(tx) {
     let input = tx.input;
-    if (!input || !input.amount) {
+    if (!input || !input.amount || !tx.value.isEqualTo(input.amount)) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
@@ -190,7 +190,7 @@ function mortgageChecker(tx) {
 exports.mortgageChecker = mortgageChecker;
 function unmortgageChecker(tx) {
     let input = tx.input;
-    if (!input || !input.amount) {
+    if (!input || !input.amount || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
@@ -207,7 +207,7 @@ function unmortgageChecker(tx) {
 exports.unmortgageChecker = unmortgageChecker;
 function registerChecker(tx) {
     let input = tx.input;
-    if (!input || !input.coinbase) {
+    if (!input || !input.coinbase || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!index_1.isValidAddress(input.coinbase)) {
