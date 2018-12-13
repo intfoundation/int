@@ -47,12 +47,12 @@ async function run(argv) {
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TEST@40.73.33.203@8550@8551");
         options.set("dataDir", './data/intchain/peerData');
         options.set("networkid", 1555);
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+        options.set("sn", "SN_PEER_TES@40.73.33.203@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", './data/testintchain/peerData_test');
         options.set("networkid", 1666);
