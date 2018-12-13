@@ -2,6 +2,7 @@
 node_modules/
 .DS_Store
 data/testintchain/peerData*
+data/testintchain/intchaindata
 data/testintchain/minerData*
 data/intchain/peerData
 data/intchain/minerData*
