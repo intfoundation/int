@@ -5,6 +5,7 @@ const error_code_1 = require("../error_code");
 const events_1 = require("events");
 const LRUCache_1 = require("../lib/LRUCache");
 const bignumber_js_1 = require("bignumber.js");
+const util_1 = require("util");
 var SyncOptType;
 (function (SyncOptType) {
     SyncOptType[SyncOptType["updateTip"] = 0] = "updateTip";
@@ -38,6 +39,10 @@ class PendingTransactions extends events_1.EventEmitter {
     }
     async addTransaction(tx) {
         this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+        let bt = this.baseMethodChecker(tx);
+        if (bt) {
+            return bt;
+        }
         const checker = this.m_handler.getTxPendingChecker(tx.method);
         if (!checker) {
             this.m_logger.error(`txhash=${tx.hash} method=${tx.method} has no match listener`);
@@ -51,10 +56,6 @@ class PendingTransactions extends events_1.EventEmitter {
         let retCode = await this.onCheck({ tx, ct: Date.now() });
         if (retCode) {
             return retCode;
-        }
-        let bt = this.baseMethodChecker(tx);
-        if (bt) {
-            return bt;
         }
         let nCount = this.getPengdingCount() + this.m_queueOpt.length;
         if (nCount >= this.m_maxPengdingCount) {
@@ -76,6 +77,9 @@ class PendingTransactions extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     baseMethodChecker(tx) {
+        if (util_1.isNullOrUndefined(tx.limit) || util_1.isNullOrUndefined(tx.price) || util_1.isNullOrUndefined(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
             return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
         }
