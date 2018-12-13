@@ -41,37 +41,32 @@ async function run(argv) {
     if (!options.has("loggerLevel")) {
         options.set("loggerLevel", "info");
     }
-
+    if (!options.has("dataDir")) {
+        options.set("dataDir", './data/intchain/peerData');
+    }
     let privateKey = addressClass.createKeyPair()[1];
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
         options.set("dataDir", './data/dbft/peerData');
-        options.set("networkid", 1777);
+        options.set("networkid", 1555);
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", './data/testdbft/peerData');
-        options.set("networkid", 1888);
+        options.set("dataDir", './data/testdbft/peerData_test');
+        options.set("networkid", 1666);
     }
-    // if (!options.has("test") && !options.has("main")) {
-    //     console.log("Please select network to connect: --test or --main");
-    //     process.exit();
-    // }
-
-
-    options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
-    options.set("dataDir", './data/dbft/peerData');
-    options.set("networkid", 1666);
-
+    if (!options.has("test") && !options.has("main")) {
+        console.log("Please select network to connect: --test or --main");
+        process.exit();
+    }
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", './data/dbft/genesis');
+    options.set("genesis", './data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
-    options.set("port", '9006|9007');
+    options.set("port", '8553|8554');
     options.set("saveMismatch", true);
     exit = !(await client_1.host.initPeer(command.options)).ret;
     if (exit) {
