@@ -52,7 +52,7 @@ async function run(argv) {
         options.set("networkid", 1555);
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TES@40.73.33.203@8550@8551");
+        options.set("sn", "SN_PEER_TEST@40.73.33.203@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", './data/testintchain/peerData_test');
         options.set("networkid", 1666);
