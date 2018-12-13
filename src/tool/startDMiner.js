@@ -35,23 +35,23 @@ async function run(argv) {
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
     if (options.has("main")) {
+
         options.set("dataDir", './data/intchain/minerData_' + address);
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
+
         options.set("networkid", 1555);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
     if (options.has("test")) {
         options.set("dataDir", './data/intchain/minerData_test_' + address);
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_TESTDBFT@103.71.237.106@9999@9998");
         options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
-    // if (!options.has("test") && !options.has("main")) {
-    //     console.log("Please select network to connect: --test or --main");
-    //     process.exit();
-    // }
-    options.set('peerid', address);
-    options.set("genesis", './data/intchain/genesis');
+    if (!options.has("test") && !options.has("main")) {
+        console.log("Please select network to connect: --test or --main");
+        process.exit();
+    }
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }
@@ -59,20 +59,14 @@ async function run(argv) {
         options.set("blocklimit", 50000000);
     }
     if (!options.has("port")) {
-        options.set("port", '9000|9001');
+        options.set("port", '8553|8554');
     }
-
-    options.set("dataDir", './data/intchain/minerData_' + address);
-    options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
-    options.set("networkid", 1666);
-
     options.set("loggerLevel", "info");
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
     options.set("saveMismatch", true);
     options.set("executor", "interprocess");
-    options.set("ignoreBan", true);
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {
