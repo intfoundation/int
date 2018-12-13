@@ -53,6 +53,7 @@ async function run(argv) {
     if (options.has("main")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("dataDir", intPath + '/data/intchain/peerData');
+        options.set("genesis", intPath + '/data/intchain/genesis');
         options.set("networkid", 1555);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
         if (dirPath.indexOf('node_modules') !== -1) {
@@ -68,6 +69,7 @@ async function run(argv) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testintchain/chaindata');
+        options.set("genesis", intPath + '/data/testintchain/genesis');
         options.set("networkid", 1666);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
         if (dirPath.indexOf('node_modules') !== -1) {
@@ -84,7 +86,6 @@ async function run(argv) {
         process.exit();
     }
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", intPath + '/data/dbft/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");

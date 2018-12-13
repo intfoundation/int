@@ -48,11 +48,13 @@ async function run(argv) {
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     if (options.has("main")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("genesis", './data/intchain/genesis');
         options.set("dataDir", './data/intchain/peerData');
         options.set("networkid", 1555);
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("genesis", './data/testintchain/genesis');
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", './data/testintchain/peerData_test');
         options.set("networkid", 1666);
@@ -62,7 +64,6 @@ async function run(argv) {
         process.exit();
     }
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", './data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
