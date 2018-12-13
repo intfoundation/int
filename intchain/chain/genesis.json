@@ -1,20 +1,18 @@
 {
-  "preBalances": [{
-    "address": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
-    "amount": 1000000000000000000000000000
-  }
-  ],
-  "miners": [
-    "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
-    "INT12nD5LgUnLZDbyncFnoFB43YxhSFsERcgQ",
-    "INT1LuwjNj8wkqo237N7Gh8nZSSvUa6TZ5ds4",
-    "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ"
-  ],
-  "candidates": [
-    "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
-    "INT12nD5LgUnLZDbyncFnoFB43YxhSFsERcgQ",
-    "INT1LuwjNj8wkqo237N7Gh8nZSSvUa6TZ5ds4",
-    "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ"
-  ],
-  "coinbase": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79"
+	"preBalances": [{
+			"address": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
+			"amount": 1000000000000000000000000000
+		}
+	],
+	"miners": [
+        "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
+		"INT1LuwjNj8wkqo237N7Gh8nZSSvUa6TZ5ds4",
+		"INT12nD5LgUnLZDbyncFnoFB43YxhSFsERcgQ",
+		"INT18YQ9fHJbwJPzBBqJvBNMswPinsa1fXe9e",
+		"INT16SvD3wWP7g3PWZHdAP2fG58kM2RSz8tGM",
+		"INT12CdrtMEKwRqycjYWHw2gSUVTHKoF4wULx",
+		"INT17Rnp25o6JMwRiyvMCfLu4kN6AiacerA7y"
+	],
+	"coinbase": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79"
+
 }

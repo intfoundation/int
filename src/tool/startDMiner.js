@@ -35,13 +35,13 @@ async function run(argv) {
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
     if (options.has("main")) {
-        options.set("dataDir", './data/dbft/minerData_' + address);
+        options.set("dataDir", './data/intchain/minerData_' + address);
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
     if (options.has("test")) {
-        options.set("dataDir", './data/dbft/minerData_test_' + address);
+        options.set("dataDir", './data/intchain/minerData_test_' + address);
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
@@ -51,7 +51,7 @@ async function run(argv) {
     //     process.exit();
     // }
     options.set('peerid', address);
-    options.set("genesis", './data/dbft/genesis');
+    options.set("genesis", './data/intchain/genesis');
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }
@@ -62,7 +62,7 @@ async function run(argv) {
         options.set("port", '9000|9001');
     }
 
-    options.set("dataDir", './data/dbft/minerData_' + address);
+    options.set("dataDir", './data/intchain/minerData_' + address);
     options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
     options.set("networkid", 1666);
 

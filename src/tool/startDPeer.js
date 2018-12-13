@@ -47,14 +47,14 @@ async function run(argv) {
 
     if (options.has("main")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
-        options.set("dataDir", './data/dbft/peerData');
-        options.set("networkid", 1777);
+        options.set("dataDir", './data/intchain/peerData');
+        options.set("networkid", 1666);
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", './data/testdbft/peerData');
-        options.set("networkid", 1888);
+        options.set("dataDir", './data/testintchain/peerData');
+        options.set("networkid", 1666);
     }
     // if (!options.has("test") && !options.has("main")) {
     //     console.log("Please select network to connect: --test or --main");
@@ -63,11 +63,11 @@ async function run(argv) {
 
 
     options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
-    options.set("dataDir", './data/dbft/peerData');
+    options.set("dataDir", './data/intchain/peerData');
     options.set("networkid", 1666);
 
     options.set('peerid', address + '_' + options.get("networkid"));
-    options.set("genesis", './data/dbft/genesis');
+    options.set("genesis", './data/intchain/genesis');
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
