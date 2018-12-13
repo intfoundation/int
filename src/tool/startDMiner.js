@@ -37,14 +37,14 @@ async function run(argv) {
     if (options.has("main")) {
 
         options.set("dataDir", './data/intchain/minerData_' + address);
-        options.set("sn", "SN_PEER_TEST@40.73.33.203@8550@8551");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
 
         options.set("networkid", 1555);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
     if (options.has("test")) {
         options.set("dataDir", './data/intchain/minerData_test_' + address);
-        options.set("sn", "SN_PEER_TEST@40.73.33.203@8550@8551");
+        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
