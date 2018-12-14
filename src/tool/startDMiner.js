@@ -70,6 +70,7 @@ async function run(argv) {
     options.set("bdt_log_level", "info");
     options.set("saveMismatch", true);
     options.set("executor", "interprocess");
+    options.set("ignoreBan",true);
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {
