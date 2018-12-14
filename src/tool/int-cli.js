@@ -52,7 +52,7 @@ async function run(argv) {
     let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
     if (options.has("main")) {
         options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
-        options.set("dataDir", intPath + '/data/intchain/peerData');
+        options.set("dataDir", intPath + '/data/intchain/chaindata');
         options.set("genesis", intPath + '/data/intchain/genesis');
         options.set("networkid", 1555);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
