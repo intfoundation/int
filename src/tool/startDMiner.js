@@ -63,7 +63,7 @@ async function run(argv) {
     if (!options.has("port")) {
         options.set("port", '8553|8554');
     }
-    options.set("loggerLevel", "info");
+    options.set("loggerLevel", "debug");
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
