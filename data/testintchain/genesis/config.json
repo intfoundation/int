@@ -1,5 +1,5 @@
 {
-    "handler": "./intchain/chain/handler.js",
+    "handler": "./int/intchain/chain/handler.js",
     "type": {
         "consensus": "dbft",
         "features": []
