@@ -1,5 +1,5 @@
 {
-    "handler": "/Users/ali/WebstormProjects/int/intchain/chain/handler.js",
+    "handler": "./intchain/chain/handler.js",
     "type": {
         "consensus": "dbft",
         "features": []
