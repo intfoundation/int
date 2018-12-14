@@ -6,7 +6,7 @@ class ValueHandler extends chain_1.BaseHandler {
     constructor() {
         super();
         this.m_minerWage = (height) => {
-            return Promise.resolve(new bignumber_js_1.BigNumber(1));
+            return Promise.resolve(new bignumber_js_1.BigNumber(0));
         };
     }
     onMinerWage(l) {
