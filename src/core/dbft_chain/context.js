@@ -167,6 +167,15 @@ class DbftContext {
                 vote.push({ address: v.key, vote: v.value });
             }
         }
+        // 按照投票权益排序
+        vote.sort((l, r) => {
+            if (l.vote.eq(r.vote)) {
+                return 0;
+            }
+            else {
+                return (l.vote.gt(r.vote) ? -1 : 1);
+            }
+        });
         return { err: error_code_1.ErrorCode.RESULT_OK, vote };
     }
     // public async isMiner(address: string): Promise<{err: ErrorCode, isminer?: boolean}> {
@@ -468,16 +477,7 @@ class DbftContext {
             return gvr.err;
         }
         let election = gvr.vote;
-        // 按照投票权益排序
-        election.sort((l, r) => {
-            if (l.vote.eq(r.vote)) {
-                return 0;
-            }
-            else {
-                return (l.vote.gt(r.vote) ? -1 : 1);
-            }
-        });
-        let miners = election.slice(0, this.globalOptions.maxCreator).map((x) => {
+        let miners = election.slice(0, this.globalOptions.maxValidator).map((x) => {
             return x.address;
         });
         // this._shuffle(shuffle_factor, creators);
