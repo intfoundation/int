@@ -288,7 +288,7 @@ class ChainServer {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: hr.err })));
             }
             else {
-                let l = new core_1.ValueHandler().getMinerWageListener();
+                let l = this.m_chain.handler.getMinerWageListener();
                 let wage = await l(hr.header.number);
                 let header = hr.header.stringify();
                 header.wage = wage;
