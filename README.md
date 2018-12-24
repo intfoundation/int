@@ -86,7 +86,6 @@ Now you can run INT CLI using following command andywhere
         --help                           Show help
         --test                           Connect the test net
         --main                           Connect the main net
-        --dataDir                        Data storage location
         --loggerConsole                  Print log or not
         --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
         --rpchost                        The host that peer can communicate by RPC,defaut value is localhost
