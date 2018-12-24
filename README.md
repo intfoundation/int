@@ -79,7 +79,7 @@ Now you can run INT CLI using following command andywhere
     
 **Usage**
 
-    INT CLI  [ Node: 8.9.4, CLI: 3.0.x]
+    INT CLI  [ Node: 8.x.x, CLI: 3.0.x]
     
     Options:
         --version                        Print INT Chain version
