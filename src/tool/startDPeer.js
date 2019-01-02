@@ -1,4 +1,5 @@
 #! /usr/bin/env node
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
@@ -33,7 +34,7 @@ async function run(argv) {
         options.set("loggerConsole", true);
     }
     if (!options.has("rpchost")) {
-        options.set("rpchost", 'localhost');
+        options.set("rpchost", '0.0.0.0');
     }
     if (!options.has("rpcport")) {
         options.set("rpcport", '8555');
@@ -69,7 +70,7 @@ async function run(argv) {
     options.set("bdt_log_level", "info");
     options.set("port", '8553|8554');
     options.set("saveMismatch", true);
-    options.set("ignoreBan",true);
+    options.set("ignoreBan", true);
     exit = !(await client_1.host.initPeer(command.options)).ret;
     if (exit) {
         process.exit();
@@ -79,6 +80,7 @@ exports.run = run;
 if (require.main === module) {
     run(process.argv);
 }
+
 function help() {
     console.log(["The INT Chain Command Line Interface. Version:" + pkg.version + ".",
         "",
@@ -111,6 +113,7 @@ function help() {
     ].join("\n"));
     console.log("\n");
 }
+
 function version() {
     console.log("Version:" + pkg.version + "\n");
 }
