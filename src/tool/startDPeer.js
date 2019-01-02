@@ -34,7 +34,7 @@ async function run(argv) {
         options.set("loggerConsole", true);
     }
     if (!options.has("rpchost")) {
-        options.set("rpchost", '0.0.0.0');
+        options.set("rpchost", 'localhost');
     }
     if (!options.has("rpcport")) {
         options.set("rpcport", '8555');
