@@ -117,48 +117,61 @@ class ChainServer {
         });
         this.m_server.on('newAccount', async (params, resp) => {
             let password = params.password;
+            let privateKey = params.privateKey;
             let err = core_1.ErrorCode.RESULT_OK;
             let address;
-            if (password) {
-                let [key, secret] = addressClass.createKeyPair();
-                let privateKey = secret.toString('hex');
-                address = addressClass.addressFromPublicKey(key);
-                let keystore = crypt.encrypt(privateKey, password);
-                keystore.address = address;
-                let jsonKeystore = JSON.stringify(keystore);
-                let fileName = new Date().toISOString() + '--' + address + '.json';
-                let keyPath = process.cwd() + '/data/keystore/';
-                let homePath = os.homedir();
-                let dirPath = __dirname;
-                // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
-                if (dirPath.indexOf('node_modules') !== -1) {
-                    keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
-                }
-                if (os.platform() === 'win32') {
-                    fileName = address + '.json';
-                    if (dirPath.indexOf('node_modules') !== -1) {
-                        homePath = homePath.replace(/\\/g, '\/');
-                        keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
-                    }
-                    else {
-                        let cwd = process.cwd();
-                        cwd = cwd.replace(/\\/g, '\/');
-                        keyPath = cwd + '/data/keystore/';
-                    }
-                }
-                if (!fs.existsSync(keyPath)) {
-                    this.makeDirSync(keyPath);
-                }
-                try {
-                    fs.writeFileSync(keyPath + fileName, jsonKeystore);
-                }
-                catch (e) {
-                    this.m_logger.error(`write keystore failed, error:` + e);
-                    err = core_1.ErrorCode.RESULT_EXCEPTION;
-                }
+            let privKey;
+            if (!util_1.isNullOrUndefined(privateKey) && !addressClass.isValidSecretKey(privateKey)) {
+                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
             }
             else {
-                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+                if (password) {
+                    if (!util_1.isNullOrUndefined(privateKey) && addressClass.isValidSecretKey(privateKey)) {
+                        privKey = privateKey;
+                        address = addressClass.addressFromSecretKey(privKey);
+                    }
+                    else {
+                        let [key, secret] = addressClass.createKeyPair();
+                        privKey = secret.toString('hex');
+                        address = addressClass.addressFromPublicKey(key);
+                    }
+                    let keystore = crypt.encrypt(privKey, password);
+                    keystore.address = address;
+                    let jsonKeystore = JSON.stringify(keystore);
+                    let fileName = new Date().toISOString() + '--' + address + '.json';
+                    let keyPath = process.cwd() + '/data/keystore/';
+                    let homePath = os.homedir();
+                    let dirPath = __dirname;
+                    // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+                    if (dirPath.indexOf('node_modules') !== -1) {
+                        keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
+                    }
+                    if (os.platform() === 'win32') {
+                        fileName = address + '.json';
+                        if (dirPath.indexOf('node_modules') !== -1) {
+                            homePath = homePath.replace(/\\/g, '\/');
+                            keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
+                        }
+                        else {
+                            let cwd = process.cwd();
+                            cwd = cwd.replace(/\\/g, '\/');
+                            keyPath = cwd + '/data/keystore/';
+                        }
+                    }
+                    if (!fs.existsSync(keyPath)) {
+                        this.makeDirSync(keyPath);
+                    }
+                    try {
+                        fs.writeFileSync(keyPath + fileName, jsonKeystore);
+                    }
+                    catch (e) {
+                        this.m_logger.error(`write keystore failed, error:` + e);
+                        err = core_1.ErrorCode.RESULT_EXCEPTION;
+                    }
+                }
+                else {
+                    err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+                }
             }
             if (err) {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
@@ -311,6 +324,16 @@ class ChainServer {
         this.m_server.on('getPeers', async (args, resp) => {
             let peers = this.m_chain.node.getNetwork().node.dumpConns();
             await promisify(resp.write.bind(resp)(JSON.stringify(peers)));
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('getLastIrreversibleBlockNumber', async (args, resp) => {
+            let num = this.m_chain.getLastIrreversibleBlockNumber();
+            await promisify(resp.write.bind(resp)(JSON.stringify(num)));
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('isValidAddress', async (params, resp) => {
+            let isV = addressClass.isValidAddress(params.address);
+            await promisify(resp.write.bind(resp)(JSON.stringify(isV)));
             await promisify(resp.end.bind(resp)());
         });
     }
