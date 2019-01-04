@@ -64,7 +64,7 @@ async function run(argv) {
         }
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEERID_TESTLAST@testsn.zeerong.com@8550@8551");
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testintchain/chaindata');
         options.set("genesis", intPath + '/data/testintchain/genesis');
