@@ -68,7 +68,7 @@ async function run(argv) {
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", intPath + '/data/testintchain/chaindata');
         options.set("genesis", intPath + '/data/testintchain/genesis');
-        options.set("networkid", 1999);
+        options.set("networkid", 1998);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
         if (dirPath.indexOf('node_modules') !== -1) {
             blockPath = path.join(homePath, "/Library/", "INTChain/testchaindata/");
