@@ -420,7 +420,7 @@ class DbftContext {
             let minerNewHeight = allHeightInfoMap.get(m);
             if (allHeightInfoMap.has(m)) {
                 if ((blockHeight - minerNewHeight) >= this.globalOptions.numberOffsetToLastBlock) {
-                    result = await kvDBFT.hset(DbftContext.keyCandidate, m, blockHeight + this.globalOptions.reSelectionBlocks);
+                    result = await kvDBFT.hset(DbftContext.keyCandidate, m, blockHeight + this.globalOptions.banBlocks);
                     if (result.err) {
                         this.logger.error(`banMiner update ban status failed,errcode=${result.err}`);
                         return { err: result.err, reSelect: selectFlag };

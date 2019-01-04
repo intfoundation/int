@@ -5,6 +5,7 @@ const events_1 = require("events");
 const error_code_1 = require("../error_code");
 const node_storage_1 = require("./node_storage");
 const block_1 = require("./block");
+const util_1 = require("util");
 const { LogShim } = require('../lib/log_shim');
 var BAN_LEVEL;
 (function (BAN_LEVEL) {
@@ -14,11 +15,17 @@ var BAN_LEVEL;
     BAN_LEVEL[BAN_LEVEL["month"] = 43200] = "month";
     BAN_LEVEL[BAN_LEVEL["forever"] = 0] = "forever";
 })(BAN_LEVEL = exports.BAN_LEVEL || (exports.BAN_LEVEL = {}));
+var NetworkBroadcastStrategy;
+(function (NetworkBroadcastStrategy) {
+    NetworkBroadcastStrategy[NetworkBroadcastStrategy["transaction"] = 1] = "transaction";
+    NetworkBroadcastStrategy[NetworkBroadcastStrategy["headers"] = 2] = "headers";
+})(NetworkBroadcastStrategy = exports.NetworkBroadcastStrategy || (exports.NetworkBroadcastStrategy = {}));
 class Network extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_connecting = new Set();
         this.m_ignoreBan = false;
+        this.m_broadcastStrategies = new Map();
         this.m_node = options.node;
         this.m_node.logger = options.logger;
         this.m_logger = new LogShim(options.logger).bind(`[network: ${this.name} peerid: ${this.peerid}]`, true).log;
@@ -44,6 +51,25 @@ class Network extends events_1.EventEmitter {
         let value = Object.create(null);
         value.ignoreBan = options.origin.get('ignoreBan');
         value.nodeCacheSize = options.origin.get('nodeCacheSize');
+        let strategyOptNames = {
+            broadcast_limit_transaction: NetworkBroadcastStrategy.transaction,
+            broadcast_limit_headers: NetworkBroadcastStrategy.headers
+        };
+        value.strategy = new Map();
+        for (const [n, s] of Object.entries(strategyOptNames)) {
+            const ss = options.origin.get(n);
+            if (ss) {
+                let count;
+                count = Number.parseInt(ss);
+                let filter;
+                if (isNaN(count)) {
+                    const address = ss.split(',');
+                    count = address.length;
+                    filter = (conn) => address.indexOf(conn.remote) !== -1;
+                }
+                value.strategy.set(s, { count, filter });
+            }
+        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     setInstanceOptions(options) {
@@ -53,6 +79,9 @@ class Network extends events_1.EventEmitter {
             dataDir: this.m_dataDir,
             logger: this.m_logger
         });
+        for (const [n, s] of options.strategy) {
+            this.addBroadcastStrategy(n, s);
+        }
     }
     async init() {
         this.m_node.on('error', (conn, err) => {
@@ -171,13 +200,13 @@ class Network extends events_1.EventEmitter {
         return await this.m_node.listen();
     }
     banConnection(remote, level) {
-        // if (this.m_ignoreBan) {
-        return;
-        // }
-        // this.m_logger.warn(`banned peer ${remote} for ${level}`);
-        // this.m_nodeStorage!.ban(remote, level);
-        // this.m_node.banConnection(remote);
-        // this.emit('ban', remote);
+        if (this.m_ignoreBan) {
+            return;
+        }
+        this.m_logger.warn(`banned peer ${remote} for ${level}`);
+        this.m_nodeStorage.ban(remote, level);
+        this.m_node.banConnection(remote);
+        this.emit('ban', remote);
     }
     _onWillConnectTo(peerid) {
         if (this._isBan(peerid)) {
@@ -193,6 +222,34 @@ class Network extends events_1.EventEmitter {
             return false;
         }
         return true;
+    }
+    broadcast(writer, options) {
+        let bopt = Object.create(null);
+        if (options) {
+            bopt.count = options.count;
+            bopt.filter = options.filter;
+            if (!util_1.isNullOrUndefined(options.strategy)) {
+                const s = this.m_broadcastStrategies.get(options.strategy);
+                if (s) {
+                    if (!util_1.isNullOrUndefined(s.count)) {
+                        bopt.count = util_1.isNullOrUndefined(bopt.count) ? s.count : Math.min(bopt.count, s.count);
+                    }
+                    if (s.filter) {
+                        if (bopt.filter) {
+                            let srcFilter = bopt.filter;
+                            bopt.filter = (conn) => srcFilter(conn) && s.filter(conn);
+                        }
+                        else {
+                            bopt.filter = s.filter;
+                        }
+                    }
+                }
+            }
+        }
+        return this.m_node.broadcast(writer, bopt);
+    }
+    addBroadcastStrategy(strategy, options) {
+        this.m_broadcastStrategies.set(strategy, { count: options.count, filter: options.filter });
     }
 }
 exports.Network = Network;

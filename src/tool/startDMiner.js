@@ -38,9 +38,9 @@ async function run(argv) {
 
         options.set("dataDir", './data/intchain/minerData_' + address);
         options.set("genesis", './data/intchain/genesis');
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
 
-        options.set("networkid", 1555);
+        options.set("networkid", 1777);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }
     if (options.has("test")) {
@@ -71,6 +71,7 @@ async function run(argv) {
     options.set("saveMismatch", true);
     options.set("executor", "interprocess");
     options.set("ignoreBan",true);
+    //options.set("broadcast_limit_transaction",3);
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {

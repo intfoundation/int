@@ -5,7 +5,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
 const path = require("path");
 const client_1 = require("../client");
-const addressClass = require("../core/address");
 const pkg = require('../../package.json');
 Error.stackTraceLimit = 1000;
 async function run(argv) {
@@ -45,13 +44,12 @@ async function run(argv) {
     if (!options.has("dataDir")) {
         options.set("dataDir", './data/intchain/peerData');
     }
-    let privateKey = addressClass.createKeyPair()[1];
-    let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
+
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
         options.set("genesis", './data/intchain/genesis');
         options.set("dataDir", './data/intchain/peerData');
-        options.set("networkid", 1555);
+        options.set("networkid", 1777);
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
@@ -64,13 +62,13 @@ async function run(argv) {
         console.log("Please select network to connect: --test or --main");
         process.exit();
     }
-    options.set('peerid', address + '_' + options.get("networkid"));
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
     options.set("port", '8553|8554');
     options.set("saveMismatch", true);
     options.set("ignoreBan", true);
+    //options.set("broadcast_limit_transaction",3);
     exit = !(await client_1.host.initPeer(command.options)).ret;
     if (exit) {
         process.exit();

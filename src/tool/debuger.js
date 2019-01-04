@@ -25,8 +25,8 @@ async function main() {
         const accounts = parseInt(command.options.get('accounts'));
         const coinbase = parseInt(command.options.get('coinbase'));
         const interval = parseInt(command.options.get('interval'));
-        err = await session.init({ height, accounts, coinbase, interval });
-        if (err) {
+        const sir = await session.init({ height, accounts, coinbase, interval });
+        if (sir.err) {
             process.exit();
         }
         const scriptPath = command.options.get('script');

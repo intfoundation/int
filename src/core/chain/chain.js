@@ -10,6 +10,7 @@ const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const logger_util_1 = require("../lib/logger_util");
 const tmp_manager_1 = require("../lib/tmp_manager");
+const LRUCache_1 = require("../lib/LRUCache");
 const block_1 = require("../block");
 const storage_1 = require("../storage");
 const storage_2 = require("../storage_sqlite/storage");
@@ -41,7 +42,10 @@ class Chain extends events_1.EventEmitter {
             hashes: new Set(),
             sequence: new Array()
         };
+        this.m_miners = [];
+        this.m_cache = new LRUCache_1.LRUCache(1);
         this.m_connSyncMap = new Map();
+        this.m_minersExcept = new Set();
         this.m_logger = logger_util_1.initLogger(options);
         this.m_dataDir = options.dataDir;
         this.m_handler = options.handler;
@@ -292,15 +296,6 @@ class Chain extends events_1.EventEmitter {
         return true;
     }
     _onCheckGlobalOptions(globalOptions) {
-        if (util_1.isNullOrUndefined(globalOptions.txlivetime)) {
-            globalOptions.txlivetime = 60 * 60;
-        }
-        if (util_1.isNullOrUndefined(globalOptions.maxPengdingCount)) {
-            globalOptions.maxPengdingCount = 10000;
-        }
-        if (util_1.isNullOrUndefined(globalOptions.warnPengdingCount)) {
-            globalOptions.warnPengdingCount = 5000;
-        }
         return true;
     }
     parseInstanceOptions(options) {
@@ -354,9 +349,13 @@ class Chain extends events_1.EventEmitter {
             }
             value.networks.push(pnr.network);
         }
+        value.pendingOvertime = options.origin.get('pendingOvertime');
+        value.maxPendingCount = options.origin.get('maxPendingCount');
+        value.warnPendingCount = options.origin.get('warnPendingCount');
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
-    async initialize(instanceOptions) {
+    async initialize(instanceOptions, peer) {
+        this.m_isPeer = peer;
         // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state !== ChainState.init) {
             this.m_logger.error(`chain initialize failed for hasn't initComponent`);
@@ -377,11 +376,45 @@ class Chain extends events_1.EventEmitter {
         // confirm数目，当块的depth超过这个值时，认为时绝对安全的；分叉超过这个depth的两个fork，无法自动合并回去
         _instanceOptions.confirmDepth = !util_1.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
         _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
+        _instanceOptions.pendingOvertime = !util_1.isNullOrUndefined(instanceOptions.pendingOvertime) ? instanceOptions.pendingOvertime : 60 * 60;
+        _instanceOptions.maxPendingCount = !util_1.isNullOrUndefined(instanceOptions.maxPendingCount) ? instanceOptions.maxPendingCount : 10000;
+        _instanceOptions.warnPendingCount = !util_1.isNullOrUndefined(instanceOptions.warnPendingCount) ? instanceOptions.warnPendingCount : 5000;
         this.m_instanceOptions = _instanceOptions;
         this.m_pending = this._createPending();
-        this.m_pending.on('txAdded', (tx) => {
+        this.m_pending.on('txAdded', async (tx) => {
+            let cr = this.m_cache.get(this.m_tip.hash);
+            if (cr) {
+                this.m_miners = cr.m;
+                this.logger.debug(`txAdded block hash ${this.m_tip.hash} get cache miners ${cr.m}`);
+            }
+            else {
+                let hr = await this.m_headerStorage.getHeader(this.m_tip.hash);
+                if (!hr.err) {
+                    let mr = await this.getMiners(hr.header);
+                    if (!mr.err && mr.miners.length !== 0) {
+                        this.m_miners = mr.miners.map((val) => `${this.m_networkname}^${val}`);
+                        this.logger.debug(`txAdded block hash ${this.m_tip.hash} get miners ${this.m_miners}`);
+                        this.m_cache.set(hr.header.hash, { m: this.m_miners });
+                    }
+                }
+            }
+            let remoteOutNodes = this.node.getOutbounds().map(value => value.fullRemote);
+            let remoteInNodes = this.node.getInbounds().map(value => value.fullRemote);
+            let remoteNodes = remoteOutNodes.concat(remoteInNodes);
+            this.logger.debug(`txAdded connect remote nodes ${remoteNodes}`);
+            let connMiners = remoteNodes.filter(conn => this.m_miners.indexOf(conn) !== -1);
+            this.logger.debug(`txAdded connect miners ${connMiners}`);
             this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-            this.m_node.broadcast([tx]);
+            this.m_node.broadcast([tx], { filter: (conn) => {
+                    if (this.m_miners.indexOf(`${this.m_networkname}^${this.m_peerId}`) == -1) {
+                        this.logger.debug(`peer txAdded broadcast to ${conn.fullRemote}: ${connMiners.length < 3 ? true : connMiners.indexOf(conn.fullRemote) > -1}`);
+                        return connMiners.length < 3 ? true : connMiners.indexOf(conn.fullRemote) > -1;
+                    }
+                    else {
+                        this.logger.debug(`miner txAdded broadcast to ${conn.fullRemote}: false`);
+                        return false;
+                    }
+                } });
         });
         this.m_pending.init();
         this.m_routineManager = new instanceOptions.routineManagerType(this);
@@ -393,6 +426,8 @@ class Chain extends events_1.EventEmitter {
             blockWithLog: !!this._ignoreVerify
         });
         this.m_node = node;
+        this.m_networkname = this.node.getNetwork().node.network;
+        this.m_peerId = this.node.getNetwork().node.peerid;
         this.m_node.on('blocks', (params) => {
             this._addPendingBlocks(params);
         });
@@ -462,11 +497,14 @@ class Chain extends events_1.EventEmitter {
         return new pending_1.PendingTransactions({
             storageManager: this.m_storageManager,
             logger: this.logger,
-            txlivetime: this.m_globalOptions.txlivetime,
+            overtime: this.m_instanceOptions.pendingOvertime,
             handler: this.m_handler,
-            maxPengdingCount: this.m_globalOptions.maxPengdingCount,
-            warnPendingCount: this.m_globalOptions.warnPengdingCount
+            maxCount: this.m_instanceOptions.maxPendingCount,
+            warnCount: this.m_instanceOptions.warnPendingCount
         });
+    }
+    async getMiners(header) {
+        return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     _defaultNetworkOptions() {
         return { netType: 'random' };
@@ -553,9 +591,9 @@ class Chain extends events_1.EventEmitter {
         let err = await this.m_pending.addTransaction(tx);
         return err;
     }
-    async _compareWork(left, right) {
+    async _compareWork(comparedHeader, bestChainTip) {
         // TODO: pow 用height并不安全， 因为大bits高height的工作量可能低于小bits低height 的工作量
-        return { err: error_code_1.ErrorCode.RESULT_OK, result: left.number - right.number };
+        return { err: error_code_1.ErrorCode.RESULT_OK, result: comparedHeader.number - bestChainTip.number };
     }
     async _addPendingHeaders(params) {
         // TODO: 这里可以和pending block一样优化，去重已经有的
@@ -833,7 +871,7 @@ class Chain extends events_1.EventEmitter {
                 }
                 else if (vsh.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
                     // 找不到可能是因为落后太久了，先从当前tip请求吧
-                    let hsr = await this.getHeader(this.m_tip, -this._confirmDepth + 1);
+                    let hsr = await this.getHeader(this.getLastIrreversibleBlockNumber());
                     if (hsr.err) {
                         return hsr.err;
                     }
@@ -1042,7 +1080,14 @@ class Chain extends events_1.EventEmitter {
                 this.m_logger.error(`add verified block to chain failed for update verify state to header storage failed for ${err}`);
                 return err;
             }
+            err = await this._onForkedBlock(block);
+            if (err) {
+                return err;
+            }
         }
+        return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async _onForkedBlock(block) {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async _onVerifiedBlock(block) {
@@ -1089,7 +1134,7 @@ class Chain extends events_1.EventEmitter {
         this.m_node.on('outbound', async (conn) => {
             let syncPeer = conn;
             assert(syncPeer);
-            let hr = await this.m_headerStorage.getHeader((this.m_tip.number > this._confirmDepth) ? (this.m_tip.number - this._confirmDepth) : 0);
+            let hr = await this.m_headerStorage.getHeader(this.getLastIrreversibleBlockNumber());
             if (hr.err) {
                 return hr.err;
             }
@@ -1284,6 +1329,12 @@ class Chain extends events_1.EventEmitter {
     }
     _getReceiptType() {
         return block_1.Receipt;
+    }
+    getLastIrreversibleBlockNumber() {
+        if (!this.m_tip || this.m_tip.number <= this._confirmDepth) {
+            return 0;
+        }
+        return this.m_tip.number - this._confirmDepth;
     }
 }
 // 存储address入链的tx的最大nonce

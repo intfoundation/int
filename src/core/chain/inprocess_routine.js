@@ -94,7 +94,7 @@ class InprogressRoutine extends executor_routine_1.BlockExecutorRoutine {
         const originExecuteBlockEvent = executor.executeBlockEvent;
         executor.executeBlockEvent = async (listener) => {
             if (this.m_cancelSet) {
-                return error_code_1.ErrorCode.RESULT_CANCELED;
+                return { err: error_code_1.ErrorCode.RESULT_CANCELED };
             }
             return originExecuteBlockEvent.bind(executor)(listener);
         };

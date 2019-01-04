@@ -51,7 +51,7 @@ class DbftMiner extends value_chain_1.ValueMiner {
     }
     async _createBlock(header) {
         const block = this.chain.newBlock(header);
-        this.pushTx(block);
+        this._collectTransactions(block);
         await this._decorateBlock(block);
         const cer = await this._createExecuteRoutine(block);
         if (cer.err) {

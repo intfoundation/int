@@ -25,10 +25,10 @@ class PendingTransactions extends events_1.EventEmitter {
         this.m_mapNonce = new Map();
         this.m_logger = options.logger;
         this.m_storageManager = options.storageManager;
-        this.m_txLiveTime = options.txlivetime;
+        this.m_txLiveTime = options.overtime;
         this.m_handler = options.handler;
-        this.m_maxPengdingCount = options.maxPengdingCount;
-        this.m_warnPendingCount = options.warnPendingCount;
+        this.m_maxPengdingCount = options.maxCount;
+        this.m_warnPendingCount = options.warnCount;
         this.m_txRecord = new LRUCache_1.LRUCache(this.m_maxPengdingCount);
     }
     on(event, listener) {
@@ -53,11 +53,11 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
             return err;
         }
-        let retCode = await this.onCheck({ tx, ct: Date.now() });
+        let retCode = await this._onCheck({ tx, ct: Date.now() });
         if (retCode) {
             return retCode;
         }
-        let nCount = this.getPengdingCount() + this.m_queueOpt.length;
+        let nCount = this._getPendingCount() + this.m_queueOpt.length;
         if (nCount >= this.m_maxPengdingCount) {
             this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
             return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
@@ -68,12 +68,12 @@ class PendingTransactions extends events_1.EventEmitter {
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
         this.m_txRecord.set(tx.hash, Date.now());
-        if (this.isExist(tx)) {
+        if (this._isExist(tx)) {
             this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TX_EXIST;
         }
         let opt = { _type: SyncOptType.addTx, param: { tx, ct: Date.now() } };
-        this.addPendingOpt(opt);
+        this._addPendingOpt(opt);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     baseMethodChecker(tx) {
@@ -122,7 +122,7 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         this.m_curHeader = header;
         this.m_storageView = svr.storage;
-        this.addPendingOpt({ _type: SyncOptType.updateTip, param: undefined });
+        this._addPendingOpt({ _type: SyncOptType.updateTip, param: undefined });
         return error_code_1.ErrorCode.RESULT_OK;
     }
     init() {
@@ -136,7 +136,7 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         this.m_mapNonce.clear();
     }
-    isExist(tx) {
+    _isExist(tx) {
         for (let t of this.m_transactions) {
             if (t.tx.hash === tx.hash) {
                 return true;
@@ -152,7 +152,7 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         return false;
     }
-    async addPendingOpt(opt) {
+    async _addPendingOpt(opt) {
         if (opt._type === SyncOptType.updateTip) {
             for (let i = 0; i < this.m_queueOpt.length; i++) {
                 if (this.m_queueOpt[i]._type === SyncOptType.addTx) {
@@ -192,10 +192,10 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_currAdding = undefined;
         }
     }
-    async onCheck(txTime, txOld) {
+    async _onCheck(txTime, txOld) {
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async onAddedTx(txTime, txOld) {
+    async _onAddedTx(txTime, txOld) {
         if (!txOld) {
             this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
         }
@@ -203,7 +203,7 @@ class PendingTransactions extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async _addTx(txTime) {
-        if (this.isTimeout(txTime)) {
+        if (this._isTimeout(txTime)) {
             this.m_logger.warn(`_addTx tx timeout, txhash=${txTime.tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TIMEOUT;
         }
@@ -220,22 +220,22 @@ class PendingTransactions extends events_1.EventEmitter {
         let { err, nonce } = await this.getNonce(address);
         this.m_logger.debug(`_addTx, nonce=${nonce}, txNonce=${txTime.tx.nonce}, txhash=${txTime.tx.hash}, address=${txTime.tx.address}`);
         if (nonce + 1 === txTime.tx.nonce) {
-            let retCode = await this.onCheck(txTime);
+            let retCode = await this._onCheck(txTime);
             if (retCode) {
                 return retCode;
             }
-            this.addToQueue(txTime, -1);
-            await this.onAddedTx(txTime);
-            await this.ScanOrphan(address);
+            this._addToQueue(txTime, -1);
+            await this._onAddedTx(txTime);
+            await this._scanOrphan(address);
             return error_code_1.ErrorCode.RESULT_OK;
         }
         if (nonce + 1 < txTime.tx.nonce) {
-            return await this.addToOrphanMayNonceExist(txTime);
+            return await this._addToOrphanMayNonceExist(txTime);
         }
-        return await this.addToQueueMayNonceExist(txTime);
+        return await this._addToQueueMayNonceExist(txTime);
     }
     // 同个address的两个相同nonce的tx存在，且先前的也还没有入链
-    async checkSmallNonceTx(txNew, txOld) {
+    async _checkSmallNonceTx(txNew, txOld) {
         return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
     }
     // 获取mem中的nonce值
@@ -277,7 +277,7 @@ class PendingTransactions extends events_1.EventEmitter {
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
     }
-    addToOrphan(txTime) {
+    _addToOrphan(txTime) {
         let s = txTime.tx.address;
         let l;
         if (this.m_orphanTx.has(s)) {
@@ -300,7 +300,7 @@ class PendingTransactions extends events_1.EventEmitter {
             l.push(txTime);
         }
     }
-    async ScanOrphan(s) {
+    async _scanOrphan(s) {
         if (!this.m_orphanTx.has(s)) {
             return;
         }
@@ -311,21 +311,21 @@ class PendingTransactions extends events_1.EventEmitter {
                 this.m_orphanTx.delete(s);
                 break;
             }
-            if (this.isTimeout(l[0])) {
+            if (this._isTimeout(l[0])) {
                 l.shift();
                 continue;
             }
             if (nonce + 1 === l[0].tx.nonce) {
                 let txTime = l.shift();
-                this.addPendingOpt({ _type: SyncOptType.addTx, param: txTime });
+                this._addPendingOpt({ _type: SyncOptType.addTx, param: txTime });
             }
             break;
         }
     }
-    isTimeout(txTime) {
+    _isTimeout(txTime) {
         return Date.now() >= txTime.ct + this.m_txLiveTime * 1000;
     }
-    addToQueue(txTime, pos) {
+    _addToQueue(txTime, pos) {
         if (pos === -1) {
             this.m_transactions.push(txTime);
         }
@@ -333,36 +333,36 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_transactions.splice(pos, 0, txTime);
         }
     }
-    getPengdingCount() {
+    _getPendingCount() {
         let count = this.m_transactions.length;
         for (let [address, l] of this.m_orphanTx) {
             count += l.length;
         }
         return count;
     }
-    async addToQueueMayNonceExist(txTime) {
+    async _addToQueueMayNonceExist(txTime) {
         for (let i = 0; i < this.m_transactions.length; i++) {
             if (this.m_transactions[i].tx.address === txTime.tx.address && this.m_transactions[i].tx.nonce === txTime.tx.nonce) {
                 let txOld = this.m_transactions[i];
-                if (this.isTimeout(this.m_transactions[i])) {
-                    let retCode = await this.onCheck(txTime, txOld);
+                if (this._isTimeout(this.m_transactions[i])) {
+                    let retCode = await this._onCheck(txTime, txOld);
                     if (retCode) {
                         return retCode;
                     }
                     this.m_transactions.splice(i, 1);
-                    this.addToQueue(txTime, i);
-                    await this.onAddedTx(txTime, txOld);
+                    this._addToQueue(txTime, i);
+                    await this._onAddedTx(txTime, txOld);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
-                let _err = await this.checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
+                let _err = await this._checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
                 if (_err === error_code_1.ErrorCode.RESULT_OK) {
-                    let retCode = await this.onCheck(txTime, txOld);
+                    let retCode = await this._onCheck(txTime, txOld);
                     if (retCode) {
                         return retCode;
                     }
                     this.m_transactions.splice(i, 1);
-                    this.addToQueue(txTime, i);
-                    await this.onAddedTx(txTime, txOld);
+                    this._addToQueue(txTime, i);
+                    await this._onAddedTx(txTime, txOld);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
                 return _err;
@@ -370,7 +370,7 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
     }
-    async addToOrphanMayNonceExist(txTime) {
+    async _addToOrphanMayNonceExist(txTime) {
         let s = txTime.tx.address;
         let l;
         if (this.m_orphanTx.has(s)) {
@@ -387,11 +387,11 @@ class PendingTransactions extends events_1.EventEmitter {
         for (let i = 0; i < l.length; i++) {
             if (txTime.tx.nonce === l[i].tx.nonce) {
                 let txOld = l[i].tx;
-                if (this.isTimeout(l[i])) {
+                if (this._isTimeout(l[i])) {
                     l.splice(i, 1, txTime);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
-                let _err = await this.checkSmallNonceTx(txTime.tx, l[i].tx);
+                let _err = await this._checkSmallNonceTx(txTime.tx, l[i].tx);
                 if (_err === error_code_1.ErrorCode.RESULT_OK) {
                     l.splice(i, 1, txTime);
                     return error_code_1.ErrorCode.RESULT_OK;

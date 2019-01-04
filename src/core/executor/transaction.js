@@ -7,8 +7,10 @@ const util_1 = require("util");
 const client_1 = require("../../client");
 const { LogShim } = require('../lib/log_shim');
 class BaseExecutor {
-    constructor(logger) {
-        this.m_logger = logger;
+    constructor(options) {
+        this.m_logs = [];
+        this.m_logger = options.logger;
+        this.m_eventDefinations = options.eventDefinations;
     }
     async prepareContext(blockHeader, storage, externContext) {
         let database = (await storage.getReadWritableDatabase(chain_1.Chain.dbUser)).value;
@@ -28,13 +30,27 @@ class BaseExecutor {
             writable: false,
             value: database
         });
+        context.emit = (name, param) => {
+            if (this.m_eventDefinations.has(name)) {
+                let log = new chain_1.EventLog();
+                log.name = name;
+                log.param = param;
+                this.m_logs.push(log);
+            }
+            else {
+                this.m_logger.error(`undefined event ${name}`);
+                assert(false, `undefined event ${name}`);
+            }
+        };
         return context;
     }
 }
 class TransactionExecutor extends BaseExecutor {
-    constructor(listener, tx, logger) {
-        super(new LogShim(logger).bind(`[transaction: ${tx.hash}]`, true).log);
-        this.m_logs = [];
+    constructor(handler, listener, tx, logger) {
+        super({
+            eventDefinations: handler.getEventDefinations(),
+            logger: new LogShim(logger).bind(`[transaction: ${tx.hash}]`, true).log
+        });
         this.m_addrIndex = 0;
         this.m_listener = listener;
         this.m_tx = tx;
@@ -73,12 +89,12 @@ class TransactionExecutor extends BaseExecutor {
             return { err: work.err };
         }
         receipt.returnCode = await this._execute(context, this.m_tx.input);
-        // assert(isNumber(receipt.returnCode), `invalid handler return code ${receipt.returnCode}`);
+        assert(util_1.isNumber(receipt.returnCode), `invalid handler return code ${receipt.returnCode}`);
         if (!util_1.isNumber(receipt.returnCode)) {
             this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=`, receipt.returnCode);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
-        receipt.transactionHash = this.m_tx.hash;
+        receipt.setSource({ sourceType: chain_1.ReceiptSourceType.transaction, txHash: this.m_tx.hash });
         if (receipt.returnCode) {
             this.m_logger.warn(`handler return code=${receipt.returnCode}, will rollback storage`);
             await work.value.rollback();
@@ -107,12 +123,6 @@ class TransactionExecutor extends BaseExecutor {
     async prepareContext(blockHeader, storage, externContext) {
         let context = await super.prepareContext(blockHeader, storage, externContext);
         // 执行上下文
-        context.emit = (name, param) => {
-            let log = new chain_1.EventLog();
-            log.name = name;
-            log.param = param;
-            this.m_logs.push(log);
-        };
         Object.defineProperty(context, 'caller', {
             writable: false,
             value: this.m_tx.address
@@ -127,8 +137,11 @@ class TransactionExecutor extends BaseExecutor {
 }
 exports.TransactionExecutor = TransactionExecutor;
 class EventExecutor extends BaseExecutor {
-    constructor(listener, logger) {
-        super(logger);
+    constructor(handler, listener, logger) {
+        super({
+            eventDefinations: handler.getEventDefinations(),
+            logger
+        });
         this.m_bBeforeBlockExec = true;
         this.m_listener = listener;
     }
@@ -140,6 +153,7 @@ class EventExecutor extends BaseExecutor {
             this.m_logger.error(`eventexecutor, beginTransaction error,storagefile=${storage.filePath}`);
             return { err: work.err };
         }
+        let receipt = new chain_1.Receipt();
         let returnCode;
         try {
             returnCode = await this.m_listener(context);
@@ -148,12 +162,13 @@ class EventExecutor extends BaseExecutor {
             this.m_logger.error(`execute event linstener error, e=`, e);
             returnCode = error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
-        // assert(isNumber(returnCode), `event handler return code invalid ${returnCode}`);
+        assert(util_1.isNumber(returnCode), `event handler return code invalid ${returnCode}`);
         if (!util_1.isNumber(returnCode)) {
             this.m_logger.error(`execute event failed for invalid return code`);
             returnCode = error_code_1.ErrorCode.RESULT_INVALID_PARAM;
         }
-        if (returnCode === error_code_1.ErrorCode.RESULT_OK) {
+        receipt.returnCode = returnCode;
+        if (receipt.returnCode === error_code_1.ErrorCode.RESULT_OK) {
             this.m_logger.debug(`event handler commit storage`);
             let err = await work.value.commit();
             if (err) {
@@ -165,7 +180,7 @@ class EventExecutor extends BaseExecutor {
             this.m_logger.debug(`event handler return code ${returnCode} rollback storage`);
             await work.value.rollback();
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, returnCode };
+        return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
     }
 }
 exports.EventExecutor = EventExecutor;

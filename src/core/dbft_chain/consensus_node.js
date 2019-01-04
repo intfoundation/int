@@ -196,7 +196,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
     _onTimeout() {
         assert(this.m_tip);
         if (!this.m_tip) {
-            this.logger.warn(`bdft consensus has no tip when time out`);
+            this.logger.warn(`dbft consensus has no tip when time out`);
             return;
         }
         if (this.m_state === ConsensusState.waitingCreate) {
@@ -399,7 +399,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
                 preSigns: curContext.preSigns
             };
             this.m_context = newContext;
-            this.logger.info(`_onPrepareRequest, bdft consensus enter waitingVerify ${header.hash} ${header.number}`);
+            this.logger.info(`_onPrepareRequest, dbft consensus enter waitingVerify ${header.hash} ${header.number}`);
             this.emit('verifyBlock', pkg.block);
         }
         else {
@@ -446,7 +446,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
             this.logger.info(`_onPrepareResponse receive correct signed prepare response from ${address} hash=${pkg.hash}`);
             curContext.signs.set(address, { pubkey: pkg.pubkey, sign: pkg.sign });
             if (context_1.DbftContext.isAgreeRateReached(this.m_globalOptions, this.m_tip.nextMiners.length, curContext.signs.size)) {
-                this.logger.info(`_onPrepareResponse bdft consensus node enter state waitingBlock miners=${this.m_tip.nextMiners.length}, ${curContext.block.hash} ${curContext.block.number}`);
+                this.logger.info(`_onPrepareResponse dbft consensus node enter state waitingBlock miners=${this.m_tip.nextMiners.length}, ${curContext.block.hash} ${curContext.block.number}`);
                 this.m_state = ConsensusState.waitingBlock;
                 let signs = [];
                 for (let s of curContext.signs.values()) {
@@ -477,7 +477,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
                         curView: this.m_currView
                     };
                     this.m_context = newContext;
-                    this.logger.debug(`bdft consensus enter waitingCreate ,due=${due},tipnumber=${this.m_tip.header.number}`);
+                    this.logger.debug(`dbft consensus enter waitingCreate ,due=${due},tipnumber=${this.m_tip.header.number}`);
                 }
                 else {
                     this.m_state = ConsensusState.waitingProposal;
@@ -486,7 +486,7 @@ class DbftConsensusNode extends events_1.EventEmitter {
                         preSigns: new Map()
                     };
                     this.m_context = newContext;
-                    this.logger.debug(`bdft consensus enter waitingProposal ,due=${due},tipnumber=${this.m_tip.header.number}`);
+                    this.logger.debug(`dbft consensus enter waitingProposal ,due=${due},tipnumber=${this.m_tip.header.number}`);
                 }
             }
             let blockInterval = this.m_globalOptions.blockInterval;

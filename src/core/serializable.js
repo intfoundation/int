@@ -42,10 +42,7 @@ function SetFromObject(input) {
         throw new Error('input MUST be a Object');
     }
     let ret = new Set();
-    do {
-        const item = input.shift();
-        ret.add(item);
-    } while (input.length > 0);
+    input.forEach((v) => ret.add(v));
     return ret;
 }
 exports.SetFromObject = SetFromObject;

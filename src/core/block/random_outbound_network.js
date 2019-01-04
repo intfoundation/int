@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const error_code_1 = require("../error_code");
 const network_1 = require("./network");
 const util_1 = require("util");
-const DEFAULT_MIN_OUTBOUND = 8;
+const DEFAULT_MIN_OUTBOUND = 13;
 class RandomOutNetwork extends network_1.Network {
     constructor(options) {
         super(options);
@@ -49,7 +49,7 @@ class RandomOutNetwork extends network_1.Network {
             return error_code_1.ErrorCode.RESULT_SKIPPED;
         }
         let err = await this._newOutbounds(this.m_minOutbound);
-        if (err) {
+        if (err && err !== error_code_1.ErrorCode.RESULT_SKIPPED) {
             return err;
         }
         this.m_checkOutboundTimer = setInterval(() => {

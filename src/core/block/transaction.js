@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const assert = require('assert');
 const serializable_1 = require("../serializable");
 const encoding_1 = require("../lib/encoding");
 const Address = require("../address");
@@ -152,6 +153,11 @@ class EventLog {
     get name() {
         return this.m_event;
     }
+    set index(o) {
+    }
+    get index() {
+        return undefined;
+    }
     set param(p) {
         this.m_params = p;
     }
@@ -162,6 +168,7 @@ class EventLog {
     encode(writer) {
         let input;
         try {
+            writer.writeVarString(this.m_event);
             if (this.m_params) {
                 input = JSON.stringify(serializable_1.toStringifiable(this.m_params, true));
             }
@@ -177,6 +184,7 @@ class EventLog {
     }
     decode(reader) {
         try {
+            this.m_event = reader.readVarString();
             this.m_params = serializable_1.fromStringifiable(JSON.parse(reader.readVarString()));
         }
         catch (e) {
@@ -192,17 +200,43 @@ class EventLog {
     }
 }
 exports.EventLog = EventLog;
+var ReceiptSourceType;
+(function (ReceiptSourceType) {
+    ReceiptSourceType[ReceiptSourceType["preBlockEvent"] = 0] = "preBlockEvent";
+    ReceiptSourceType[ReceiptSourceType["postBlockEvent"] = 1] = "postBlockEvent";
+    ReceiptSourceType[ReceiptSourceType["transaction"] = 2] = "transaction";
+})(ReceiptSourceType = exports.ReceiptSourceType || (exports.ReceiptSourceType = {}));
 class Receipt {
     constructor() {
-        this.m_transactionHash = '';
         this.m_returnCode = 0;
         this.m_eventLogs = new Array();
     }
-    set transactionHash(s) {
-        this.m_transactionHash = s;
+    setSource(source) {
+        this.m_sourceType = source.sourceType;
+        if (source.sourceType === ReceiptSourceType.preBlockEvent) {
+            assert(!util_1.isNullOrUndefined(source.eventIndex), `invalid source event id`);
+            this.m_eventIndex = source.eventIndex;
+        }
+        else if (source.sourceType === ReceiptSourceType.postBlockEvent) {
+            assert(!util_1.isNullOrUndefined(source.eventIndex), `invalid source event id`);
+            this.m_eventIndex = source.eventIndex;
+        }
+        else if (source.sourceType === ReceiptSourceType.transaction) {
+            assert(source.txHash, `invalid source transaction hash`);
+            this.m_transactionHash = source.txHash;
+        }
+        else {
+            assert(false, `invalid source type ${source.sourceType}`);
+        }
     }
     get transactionHash() {
         return this.m_transactionHash;
+    }
+    get eventId() {
+        return this.m_eventIndex;
+    }
+    get sourceType() {
+        return this.m_sourceType;
     }
     set returnCode(n) {
         this.m_returnCode = n;
@@ -218,8 +252,17 @@ class Receipt {
         return l;
     }
     encode(writer) {
+        if (util_1.isNullOrUndefined(this.m_sourceType)) {
+            return serializable_1.ErrorCode.RESULT_INVALID_FORMAT;
+        }
         try {
-            writer.writeVarString(this.m_transactionHash);
+            writer.writeU8(this.m_sourceType);
+            if (this.m_sourceType === ReceiptSourceType.transaction) {
+                writer.writeVarString(this.m_transactionHash);
+            }
+            else {
+                writer.writeU16(this.m_eventIndex);
+            }
             writer.writeI32(this.m_returnCode);
             writer.writeU16(this.m_eventLogs.length);
         }
@@ -236,7 +279,14 @@ class Receipt {
     }
     decode(reader) {
         try {
-            this.m_transactionHash = reader.readVarString();
+            this.m_sourceType = reader.readU8();
+            if (this.m_sourceType === ReceiptSourceType.transaction) {
+                this.m_transactionHash = reader.readVarString();
+            }
+            else if (this.m_sourceType === ReceiptSourceType.preBlockEvent
+                || this.m_sourceType === ReceiptSourceType.postBlockEvent) {
+                this.m_eventIndex = reader.readU16();
+            }
             this.m_returnCode = reader.readI32();
             let nCount = reader.readU16();
             for (let i = 0; i < nCount; i++) {

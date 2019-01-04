@@ -143,11 +143,19 @@ class ChainNode extends events_1.EventEmitter {
         }
         return arr;
     }
+    getInbounds() {
+        let arr = [];
+        for (const network of this.m_networks) {
+            arr.push(...network.node.getInbounds());
+        }
+        return arr;
+    }
     broadcast(content, options) {
         if (!content.length) {
             return error_code_1.ErrorCode.RESULT_OK;
         }
         let pwriter;
+        let strategy;
         if (content[0] instanceof block_1.BlockHeader) {
             let hwriter = new writer_1.BufferWriter();
             for (let header of content) {
@@ -160,6 +168,7 @@ class ChainNode extends events_1.EventEmitter {
             let raw = hwriter.render();
             pwriter = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.header, { count: content.length }, raw.length);
             pwriter.writeData(raw);
+            strategy = block_1.NetworkBroadcastStrategy.headers;
         }
         else if (content[0] instanceof block_1.Transaction) {
             let hwriter = new writer_1.BufferWriter();
@@ -173,10 +182,13 @@ class ChainNode extends events_1.EventEmitter {
             let raw = hwriter.render();
             pwriter = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.tx, { count: content.length }, raw.length);
             pwriter.writeData(raw);
+            strategy = block_1.NetworkBroadcastStrategy.transaction;
         }
         assert(pwriter);
         for (const network of this.m_networks) {
-            network.node.broadcast(pwriter, options);
+            const opt = Object.create(options ? options : null);
+            opt.strategy = strategy;
+            network.broadcast(pwriter, opt);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -339,12 +351,13 @@ class ChainNode extends events_1.EventEmitter {
             network.banConnection(conn.remote, block_1.BAN_LEVEL.day); // 可能分叉？
             return;
         }
-        let err = this._onRecvBlock(block, conn.fullRemote);
+        const eventParams = { from: conn.fullRemote, block, redoLog };
+        let err = this._onRecvBlock(eventParams);
         if (err) {
             return;
         }
         // 数据emit 到chain层
-        this.emit('blocks', { from: conn.fullRemote, block, redoLog });
+        this.emit('blocks', eventParams);
     }
     requestHeaders(from, options) {
         this.logger.debug(`request headers from  with options ${from.fullRemote}`, options);
@@ -375,11 +388,18 @@ class ChainNode extends events_1.EventEmitter {
                 assert(block, `block storage load block ${header.hash} failed while file exists`);
                 if (block) {
                     if (this.m_blockWithLog) {
-                        let redoLog = this.m_storageManager.getRedoLog(header.hash);
-                        if (redoLog) {
-                            setImmediate(() => {
-                                this.emit('blocks', { block, redoLog });
-                            });
+                        if (this.m_storageManager.hasRedoLog(header.hash)) {
+                            let redoLog = this.m_storageManager.getRedoLog(header.hash);
+                            if (redoLog) {
+                                setImmediate(() => {
+                                    this.emit('blocks', { block, redoLog });
+                                });
+                            }
+                            else {
+                                setImmediate(() => {
+                                    this.emit('blocks', { block });
+                                });
+                            }
                         }
                         else {
                             setImmediate(() => {
@@ -420,10 +440,9 @@ class ChainNode extends events_1.EventEmitter {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
         }
         for (let hash of requests) {
-            if (!this._tryRequestBlockFromConnection(hash, connRequesting)) {
-                this._addToPendingBlocks(hash);
-            }
+            this._addToPendingBlocks(hash);
         }
+        this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     _tryRequestBlockFromConnection(hash, from) {
@@ -539,25 +558,28 @@ class ChainNode extends events_1.EventEmitter {
         }
         return valid;
     }
-    _onRecvBlock(block, remote) {
-        let connRequesting = this.m_requestingBlock.connMap.get(remote);
+    _onRecvBlock(params) {
+        let connRequesting = this.m_requestingBlock.connMap.get(params.from);
         if (!connRequesting) {
-            this.logger.error(`requesting info on ${remote} missed, skip it`);
+            this.logger.error(`requesting info on ${params.from} missed, skip it`);
             return error_code_1.ErrorCode.RESULT_NOT_FOUND;
         }
-        let stub = this.m_requestingBlock.hashMap.get(block.hash);
-        assert(stub, `recv block ${block.hash} from ${remote} that never request`);
+        let stub = this.m_requestingBlock.hashMap.get(params.block.hash);
+        assert(stub, `recv block ${params.block.hash} from ${params.from} that never request`);
         if (!stub) {
-            this._banConnection(remote, block_1.BAN_LEVEL.day);
+            this._banConnection(params.from, block_1.BAN_LEVEL.day);
             return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
         }
-        this.logger.debug(`recv block hash: ${block.hash} number: ${block.number} from ${remote}`);
-        this.m_blockStorage.add(block);
-        assert(stub.remote === remote, `request ${block.hash} from ${stub.remote} while recv from ${remote}`);
-        this.m_requestingBlock.hashMap.delete(block.hash);
-        connRequesting.hashes.delete(block.hash);
-        this.m_blockFromMap.delete(block.hash);
-        this.m_cc.onRecvBlock(this, block, connRequesting);
+        this.logger.debug(`recv block hash: ${params.block.hash} number: ${params.block.number} from ${params.from}`);
+        this.m_blockStorage.add(params.block);
+        if (params.redoLog) {
+            this.m_storageManager.addRedoLog(params.block.hash, params.redoLog);
+        }
+        assert(stub.remote === params.from, `request ${params.block.hash} from ${stub.remote} while recv from ${params.from}`);
+        this.m_requestingBlock.hashMap.delete(params.block.hash);
+        connRequesting.hashes.delete(params.block.hash);
+        this.m_blockFromMap.delete(params.block.hash);
+        this.m_cc.onRecvBlock(this, params.block, connRequesting);
         this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -583,7 +605,7 @@ class ChainNode extends events_1.EventEmitter {
                 sources.delete(fullRemote);
                 if (!sources.size) {
                     this.logger.debug(`remove block ${hash} from pending blocks for all source removed`);
-                    this._removeFromPendingBlocks(hash);
+                    // this._removeFromPendingBlocks(hash);
                 }
                 else {
                     for (let from of sources) {

@@ -6,7 +6,6 @@ const path = require("path");
 const fs = require("fs-extra");
 const os = require("os");
 const client_1 = require("../client");
-const addressClass = require("../core/address");
 const pkg = require('../../package.json');
 Error.stackTraceLimit = 1000;
 async function run(argv) {
@@ -48,13 +47,12 @@ async function run(argv) {
     if (!options.has("loggerLevel")) {
         options.set("loggerLevel", "info");
     }
-    let privateKey = addressClass.createKeyPair()[1];
-    let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
+
     if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
         options.set("dataDir", intPath + '/data/intchain/chaindata');
         options.set("genesis", intPath + '/data/intchain/genesis');
-        options.set("networkid", 1555);
+        options.set("networkid", 1777);
         // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
         if (dirPath.indexOf('node_modules') !== -1) {
             blockPath = path.join(homePath, "/Library/", "INTChain/chaindata/");
@@ -85,7 +83,7 @@ async function run(argv) {
         console.log("Please select network to connect: --test or --main");
         process.exit();
     }
-    options.set('peerid', address + '_' + options.get("networkid"));
+
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");

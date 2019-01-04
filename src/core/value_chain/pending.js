@@ -16,8 +16,8 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         this.m_inputLimit = new bignumber_js_1.BigNumber(5); // input数据每个字节费用
         this.m_coefficient = new bignumber_js_1.BigNumber(40); // 调整系数
     }
-    async onCheck(txTime, txOld) {
-        let ret = await super.onCheck(txTime, txOld);
+    async _onCheck(txTime, txOld) {
+        let ret = await super._onCheck(txTime, txOld);
         if (ret) {
             return ret;
         }
@@ -38,7 +38,7 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async onAddedTx(txTime, txOld) {
+    async _onAddedTx(txTime, txOld) {
         let br = await this.getBalance(txTime.tx.address);
         if (br.err) {
             return br.err;
@@ -55,7 +55,7 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
             balance = balance.minus(valueFee).minus(txValue.value);
         }
         this.m_balance.set(txTime.tx.address, balance);
-        return await super.onAddedTx(txTime);
+        return await super._onAddedTx(txTime);
     }
     async updateTipBlock(header) {
         this.m_balance = new Map();
@@ -94,14 +94,14 @@ class ValuePendingTransactions extends chain_1.PendingTransactions {
         }
         return this.getStorageBalance(s);
     }
-    async checkSmallNonceTx(txNew, txOld) {
+    async _checkSmallNonceTx(txNew, txOld) {
         // if (txNew.fee.gt(txOld.fee)) {
         if ((txNew.price).gt(txOld.price)) {
             return error_code_1.ErrorCode.RESULT_OK;
         }
         return error_code_1.ErrorCode.RESULT_FEE_TOO_SMALL;
     }
-    addToQueue(txTime, pos) {
+    _addToQueue(txTime, pos) {
         pos = 0;
         for (let i = 0; i < this.m_transactions.length; i++) {
             if (this.m_transactions[i].tx.address === txTime.tx.address) {

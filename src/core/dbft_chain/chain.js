@@ -8,6 +8,7 @@ const context_1 = require("./context");
 const executor_1 = require("./executor");
 const ValueContext = require("../value_chain/context");
 const header_storage_1 = require("./header_storage");
+const getMinersSql = 'SELECT miners FROM miners WHERE hash=$hash';
 class DbftChain extends value_chain_1.ValueChain {
     constructor(options) {
         super(options);
@@ -85,14 +86,14 @@ class DbftChain extends value_chain_1.ValueChain {
         externalContext.getStake = async (address) => {
             let gm = await dbftProxy.getStake(address);
             if (gm.err) {
-                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
+                throw Error(`newBlockExecutor getStake failed errcode ${gm.err}`);
             }
             return gm.stake;
         };
         externalContext.getCandidates = async () => {
             let gm = await dbftProxy.getCandidates();
             if (gm.err) {
-                throw Error(`newBlockExecutor getMiners failed errcode ${gm.err}`);
+                throw Error(`newBlockExecutor getCandidates failed errcode ${gm.err}`);
             }
             return gm.candidates;
         };
@@ -161,8 +162,8 @@ class DbftChain extends value_chain_1.ValueChain {
             this.m_logger.error(`globalOptions should has numberOffsetToLastBlock`);
             return false;
         }
-        if (util_1.isNullOrUndefined(globalOptions.banMinerInterval)) {
-            this.m_logger.error(`globalOptions should has banMinerInterval`);
+        if (util_1.isNullOrUndefined(globalOptions.banBlocks)) {
+            this.m_logger.error(`globalOptions should has banBlocks`);
             return false;
         }
         // if (isNullOrUndefined(globalOptions.minWaitBlocksToMiner)) {
@@ -194,6 +195,33 @@ class DbftChain extends value_chain_1.ValueChain {
         let reSelectionBlocks = this.globalOptions.reSelectionBlocks;
         return reSelectionBlocks - (hr.header.number % reSelectionBlocks);
     }
+    async getMiners(header) {
+        let en = context_1.DbftContext.getElectionBlockNumber(this.globalOptions, header.number);
+        let electionHeader;
+        if (header.number === en) {
+            electionHeader = header;
+        }
+        else {
+            let hr = await this.getHeader(header.preBlockHash, en - header.number + 1);
+            if (hr.err) {
+                this.logger.error(`get electionHeader error,number=${header.number},prevblockhash=${header.preBlockHash}`);
+                return { err: hr.err };
+            }
+            electionHeader = hr.header;
+        }
+        try {
+            const gm = await this.m_db.get(getMinersSql, { $hash: electionHeader.hash });
+            if (!gm || !gm.miners) {
+                this.logger.error(`getMinersSql error,election block hash=${electionHeader.hash},en=${en},header.height=${header.number}`);
+                return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, miners: JSON.parse(gm.miners) };
+        }
+        catch (e) {
+            this.logger.error(e);
+            return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
+        }
+    }
     async onCreateGenesisBlock(block, storage, genesisOptions) {
         let err = await super.onCreateGenesisBlock(block, storage, genesisOptions);
         if (err) {
@@ -222,6 +250,9 @@ class DbftChain extends value_chain_1.ValueChain {
             return ir.err;
         }
         return error_code_1.ErrorCode.RESULT_OK;
+    }
+    getLastIrreversibleBlockNumber() {
+        return this.m_tip.number;
     }
 }
 exports.DbftChain = DbftChain;

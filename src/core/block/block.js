@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const util_1 = require("util");
+const transaction_1 = require("./transaction");
 const serializable_1 = require("../serializable");
 const error_code_1 = require("../error_code");
 const merkle = require("../lib/merkle");
@@ -67,11 +69,11 @@ class BlockHeader extends serializable_1.SerializableWithHash {
         return root.toString('hex');
     }
     _genReceiptHash(receipts) {
-        if (!receipts.size) {
+        if (!receipts.length) {
             return encoding_1.Encoding.NULL_HASH;
         }
         let writer = new serializable_1.BufferWriter();
-        for (const [tx, receipt] of receipts.entries()) {
+        for (const receipt of receipts) {
             receipt.encode(writer);
         }
         return digest.hash256(writer.render()).toString('hex');
@@ -139,7 +141,10 @@ exports.BlockHeader = BlockHeader;
 class BlockContent {
     constructor(transactionType, receiptType) {
         this.m_transactions = new Array();
-        this.m_receipts = new Map();
+        this.m_preBlockEventReceipts = new Array();
+        this.m_txReceipts = new Map();
+        this.m_postBlockEventReceipts = new Array();
+        this.m_receipts = new Array();
         this.m_transactionType = transactionType;
         this.m_receiptType = receiptType;
     }
@@ -150,6 +155,25 @@ class BlockContent {
     get receipts() {
         const r = this.m_receipts;
         return r;
+    }
+    get preBlockEventReceipts() {
+        const r = this.m_preBlockEventReceipts;
+        return r;
+    }
+    get transactionReceipts() {
+        const r = this.m_txReceipts;
+        return r;
+    }
+    get postBlockEventReceipts() {
+        const r = this.m_postBlockEventReceipts;
+        return r;
+    }
+    get eventLogs() {
+        let logs = [];
+        for (let r of this.m_receipts) {
+            logs.push(...r.eventLogs);
+        }
+        return logs;
     }
     hasTransaction(txHash) {
         for (const tx of this.m_transactions) {
@@ -174,20 +198,55 @@ class BlockContent {
         }
         return null;
     }
-    getReceipt(txHash) {
-        return this.m_receipts.get(txHash);
+    getReceipt(options) {
+        if (util_1.isString(options)) {
+            return this.m_txReceipts.get(options);
+        }
+        else {
+            if (options.sourceType === transaction_1.ReceiptSourceType.preBlockEvent) {
+                return this.m_preBlockEventReceipts[options.eventIndex];
+            }
+            else if (options.sourceType === transaction_1.ReceiptSourceType.postBlockEvent) {
+                return this.m_postBlockEventReceipts[options.eventIndex];
+            }
+            else {
+                assert(false, `invalid receipt source type ${options.sourceType}`);
+                return undefined;
+            }
+        }
     }
     addTransaction(tx) {
         this.m_transactions.push(tx);
     }
-    addReceipt(receipt) {
-        this.m_receipts.set(receipt.transactionHash, receipt);
-    }
     setReceipts(receipts) {
-        this.m_receipts.clear();
+        let txReceipts = new Map();
+        let txReceiptsArr = [];
+        let preBlockEventReceipts = [];
+        let postBlockEventReceipts = [];
         for (let r of receipts) {
-            this.m_receipts.set(r.transactionHash, r);
+            if (r.sourceType === transaction_1.ReceiptSourceType.transaction) {
+                txReceipts.set(r.transactionHash, r);
+                txReceiptsArr.push(r);
+            }
+            else if (r.sourceType === transaction_1.ReceiptSourceType.preBlockEvent) {
+                preBlockEventReceipts.push(r);
+            }
+            else if (r.sourceType === transaction_1.ReceiptSourceType.postBlockEvent) {
+                postBlockEventReceipts.push(r);
+            }
+            else {
+                assert(false, `invalid receipt source type ${r.sourceType}`);
+                return;
+            }
         }
+        this.m_txReceipts = txReceipts;
+        this.m_preBlockEventReceipts = preBlockEventReceipts;
+        this.m_postBlockEventReceipts = postBlockEventReceipts;
+        let _receipts = [];
+        _receipts.push(...preBlockEventReceipts);
+        _receipts.push(...txReceiptsArr);
+        _receipts.push(...postBlockEventReceipts);
+        this.m_receipts = _receipts;
     }
     encode(writer) {
         try {
@@ -198,11 +257,29 @@ class BlockContent {
                     return err;
                 }
             }
-            if (this.m_transactions.length && this.m_receipts.size) {
-                writer.writeU16(this.m_transactions.length);
+            const receiptLength = this.m_txReceipts.size
+                + this.m_preBlockEventReceipts.length
+                + this.m_postBlockEventReceipts.length;
+            if (receiptLength) {
+                if (this.m_txReceipts.size !== this.m_transactions.length) {
+                    return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
+                }
+                writer.writeU16(receiptLength);
                 for (let tx of this.m_transactions) {
-                    let r = this.m_receipts.get(tx.hash);
+                    let r = this.m_txReceipts.get(tx.hash);
                     assert(r);
+                    const err = r.encode(writer);
+                    if (err) {
+                        return err;
+                    }
+                }
+                for (let r of this.m_preBlockEventReceipts) {
+                    const err = r.encode(writer);
+                    if (err) {
+                        return err;
+                    }
+                }
+                for (let r of this.m_postBlockEventReceipts) {
                     const err = r.encode(writer);
                     if (err) {
                         return err;
@@ -220,7 +297,7 @@ class BlockContent {
     }
     decode(reader) {
         this.m_transactions = [];
-        this.m_receipts = new Map();
+        this.m_txReceipts = new Map();
         let txCount;
         try {
             txCount = reader.readU16();
@@ -237,14 +314,26 @@ class BlockContent {
             this.m_transactions.push(tx);
         }
         const rs = reader.readU16();
-        for (let ix = 0; ix < rs; ++ix) {
-            let receipt = new this.m_receiptType();
-            const err = receipt.decode(reader);
-            if (err !== error_code_1.ErrorCode.RESULT_OK) {
-                return err;
+        let receipts = [];
+        if (rs) {
+            for (let ix = 0; ix < txCount; ++ix) {
+                let receipt = new this.m_receiptType();
+                const err = receipt.decode(reader);
+                if (err !== error_code_1.ErrorCode.RESULT_OK) {
+                    return err;
+                }
+                receipts.push(receipt);
             }
-            this.m_receipts.set(receipt.transactionHash, receipt);
+            for (let ix = 0; ix < rs - txCount; ++ix) {
+                let receipt = new transaction_1.Receipt();
+                const err = receipt.decode(reader);
+                if (err !== error_code_1.ErrorCode.RESULT_OK) {
+                    return err;
+                }
+                receipts.push(receipt);
+            }
         }
+        this.setReceipts(receipts);
         return error_code_1.ErrorCode.RESULT_OK;
     }
 }

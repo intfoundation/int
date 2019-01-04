@@ -51,10 +51,10 @@ class ValueChain extends chain_1.Chain {
         return new pending_1.ValuePendingTransactions({
             storageManager: this.m_storageManager,
             logger: this.logger,
-            txlivetime: this.m_globalOptions.txlivetime,
+            overtime: this.m_instanceOptions.pendingOvertime,
             handler: this.m_handler,
-            maxPengdingCount: this.m_globalOptions.maxPengdingCount,
-            warnPendingCount: this.m_globalOptions.warnPengdingCount
+            maxCount: this.m_instanceOptions.maxPendingCount,
+            warnCount: this.m_instanceOptions.warnPendingCount
         });
     }
     async onCreateGenesisBlock(block, storage, genesisOptions) {

@@ -12,9 +12,8 @@ __export(require("./lib/logger_util"));
 __export(require("./lib/decimal_transfer"));
 __export(require("./chain"));
 __export(require("./value_chain"));
-// __export(require("./dpos_chain"));
-__export(require("./dbft_chain"));
 __export(require("./net"));
+__export(require("./dbft_chain"));
 var node_1 = require("./net_tcp/node");
 exports.TcpNode = node_1.TcpNode;
 var node_2 = require("./net_bdt/node");
@@ -29,7 +28,6 @@ const fs = require("fs-extra");
 const network_1 = require("./block/network");
 const chain_creator_2 = require("./chain_creator");
 const value_chain_1 = require("./value_chain");
-// const dpos_chain_1 = require("./dpos_chain");
 const dbft_chain_1 = require("./dbft_chain");
 const logger_util_1 = require("./lib/logger_util");
 const node_4 = require("./net_tcp/node");
@@ -148,19 +146,7 @@ function initChainCreator(options) {
     });
     networkCreator.registerNetwork('random', random_outbound_network_1.RandomOutNetwork);
     networkCreator.registerNetwork('validators', validators_network_1.ValidatorsNetwork);
-
     let _creator = new chain_creator_2.ChainCreator({ logger, networkCreator });
-    // _creator.registerChainType('dpos', {
-    //     newHandler(creator, typeOptions) {
-    //         return new value_chain_1.ValueHandler();
-    //     },
-    //     newChain(creator, dataDir, config) {
-    //         return new dpos_chain_1.DposChain({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
-    //     },
-    //     newMiner(creator, dataDir, config) {
-    //         return new dpos_chain_1.DposMiner({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
-    //     }
-    // });
     _creator.registerChainType('dbft', {
         newHandler(creator, typeOptions) {
             return new value_chain_1.ValueHandler();

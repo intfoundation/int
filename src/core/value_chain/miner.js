@@ -45,16 +45,16 @@ class ValueMiner extends chain_1.Miner {
             this.m_coinbase = options.coinbase;
         }
         this.m_blocklimit = options.blocklimit;
-        return super.initialize(options);
+        return await super.initialize(options);
     }
     async _decorateBlock(block) {
         block.header.coinbase = this.m_coinbase;
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    pushTx(block) {
+    _collectTransactions(block) {
         let txs = this.chain.pending.popTransactionWithFee(this.m_blocklimit);
-        while (txs.length > 0) {
-            block.content.addTransaction(txs.shift());
+        for (const tx of txs) {
+            block.content.addTransaction(tx);
         }
     }
 }

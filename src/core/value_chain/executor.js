@@ -12,7 +12,7 @@ const serializable_1 = require("../serializable");
 const assert = require('assert');
 class ValueBlockExecutor extends chain_1.BlockExecutor {
     _newTransactionExecutor(l, tx) {
-        return new ValueTransactionExecutor(l, tx, this.m_logger);
+        return new ValueTransactionExecutor(this.m_handler, l, tx, this.m_logger);
     }
     async executeMinerWageEvent() {
         let l = this.m_handler.getMinerWageListener();
@@ -29,15 +29,15 @@ class ValueBlockExecutor extends chain_1.BlockExecutor {
     async executePreBlockEvent() {
         const err = await this.executeMinerWageEvent();
         if (err) {
-            return err;
+            return { err };
         }
         return await super.executePreBlockEvent();
     }
 }
 exports.ValueBlockExecutor = ValueBlockExecutor;
 class ValueTransactionExecutor extends chain_1.TransactionExecutor {
-    constructor(listener, tx, logger) {
-        super(listener, tx, logger);
+    constructor(handler, listener, tx, logger) {
+        super(handler, listener, tx, logger);
         this.m_totalCost = new bignumber_js_1.BigNumber(0);
         this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
         this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
@@ -178,11 +178,11 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         let fromAddress = this.m_tx.address;
         let nToValue = this.m_tx.value;
         let receipt = new transaction_1.ValueReceipt();
+        receipt.setSource({ sourceType: chain_1.ReceiptSourceType.transaction, txHash: this.m_tx.hash });
         let ve = new context_1.Context(kvBalance);
         if ((await ve.getBalance(fromAddress)).lt(nToValue)) {
             this.m_logger.error(`methodexecutor failed for value not enough need ${nToValue.toString()} but ${(await ve.getBalance(fromAddress)).toString()} address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             receipt.returnCode = error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
-            receipt.transactionHash = this.m_tx.hash;
             return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
         }
         let context = await this.prepareContext(blockHeader, storage, externContext);
@@ -204,7 +204,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=${receipt.returnCode},address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
-        receipt.transactionHash = this.m_tx.hash;
         if (receipt.returnCode) {
             await work.value.rollback();
         }

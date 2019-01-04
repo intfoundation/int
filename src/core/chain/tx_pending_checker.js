@@ -19,6 +19,9 @@ function createTokenChecker(tx) {
     if (input.amount.isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
+    if (input.amount.gt(new index_1.BigNumber(1e+36))) {
+        return index_1.ErrorCode.RESULT_OK;
+    }
     return index_1.ErrorCode.RESULT_OK;
 }
 exports.createTokenChecker = createTokenChecker;

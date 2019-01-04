@@ -17,11 +17,15 @@ class BdtConnection extends net_1.IConnection {
             this.emit('data', data);
         });
         this.m_bdt_connection.on(P2P.Connection.EVENT.error, () => {
-            this.emit('error', this, error_code_1.ErrorCode.RESULT_EXCEPTION);
+            if (this.listenerCount('error')) {
+                this.emit('error', this, error_code_1.ErrorCode.RESULT_EXCEPTION);
+            }
         });
         this.m_bdt_connection.on(P2P.Connection.EVENT.end, () => {
             // 对端主动关闭了连接，这里先当break一样处理
-            // this.emit('error', this, ErrorCode.RESULT_EXCEPTION);
+            if (this.listenerCount('error')) {
+                this.emit('error', this, error_code_1.ErrorCode.RESULT_EXCEPTION);
+            }
         });
         this.m_bdt_connection.on(P2P.Connection.EVENT.close, () => {
             this.emit('close', this);

@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const client_1 = require("../../src/client");
-const txPendingChecker = require("../../src/core/chain/tx_pending_checker");
-const core_1 = require("../../src/core");
+const client_1 = require("../../../src/client");
+const txPendingChecker = require("../../../src/core/chain/tx_pending_checker");
+const core_1 = require("../../../src/core");
 function registerHandler(handler) {
     handler.onMinerWage(async (height) => {
         return new client_1.BigNumber(0);

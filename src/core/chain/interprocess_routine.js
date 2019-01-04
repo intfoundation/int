@@ -181,7 +181,7 @@ class BlockExecutorWorkerRoutine {
                 }
                 result.block = block;
                 params.chain.logger.debug(`about to remove tmp block `, message.blockPath);
-                fs.removeSync(message.blockPath);
+                fs.unlinkSync(message.blockPath);
             }
         }
         else if (message.type === RoutineType.verify) {
@@ -210,7 +210,7 @@ class BlockExecutorWorkerRoutine {
                 return { err };
             }
             params.chain.logger.debug(`about to remove tmp redo log `, message.redoPath);
-            fs.removeSync(message.redoPath);
+            fs.unlinkSync(message.redoPath);
             result.storage = params.storage;
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, result };

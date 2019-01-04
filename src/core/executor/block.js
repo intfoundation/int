@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const assert = require("assert");
 const error_code_1 = require("../error_code");
+const chain_1 = require("../chain");
 const transaction_1 = require("./transaction");
 class BlockExecutor {
     constructor(options) {
@@ -20,10 +21,10 @@ class BlockExecutor {
         return this.m_externContext;
     }
     _newTransactionExecutor(l, tx) {
-        return new transaction_1.TransactionExecutor(l, tx, this.m_logger);
+        return new transaction_1.TransactionExecutor(this.m_handler, l, tx, this.m_logger);
     }
     _newEventExecutor(l) {
-        return new transaction_1.EventExecutor(l, this.m_logger);
+        return new transaction_1.EventExecutor(this.m_handler, l, this.m_logger);
     }
     async execute() {
         let t1 = Date.now();
@@ -59,22 +60,25 @@ class BlockExecutor {
     }
     async _execute(block) {
         this.m_logger.info(`begin execute block ${block.number}`);
-        let err = await this.executePreBlockEvent();
-        if (err) {
-            this.m_logger.error(`blockexecutor execute begin_event failed,errcode=${err},blockhash=${block.hash}`);
-            return err;
+        let receipts = [];
+        let ebr = await this.executePreBlockEvent();
+        if (ebr.err) {
+            this.m_logger.error(`blockexecutor execute begin_event failed,errcode=${ebr.err},blockhash=${block.hash}`);
+            return ebr.err;
         }
-        let ret = await this._executeTransactions();
-        if (ret.err) {
-            this.m_logger.error(`blockexecutor execute method failed,errcode=${ret.err},blockhash=${block.hash}`);
-            return ret.err;
+        receipts.push(...ebr.receipts);
+        ebr = await this._executeTransactions();
+        if (ebr.err) {
+            this.m_logger.error(`blockexecutor execute method failed,errcode=${ebr.err},blockhash=${block.hash}`);
+            return ebr.err;
         }
-        err = await this.executePostBlockEvent();
-        if (err) {
-            this.m_logger.error(`blockexecutor execute end_event failed,errcode=${err},blockhash=${block.hash}`);
-            return err;
+        receipts.push(...ebr.receipts);
+        ebr = await this.executePostBlockEvent();
+        if (ebr.err) {
+            this.m_logger.error(`blockexecutor execute end_event failed,errcode=${ebr.err},blockhash=${block.hash}`);
+            return ebr.err;
         }
-        let receipts = ret.value;
+        receipts.push(...ebr.receipts);
         // 票据
         block.content.setReceipts(receipts);
         // 更新块信息
@@ -83,41 +87,46 @@ class BlockExecutor {
     async executeBlockEvent(listener) {
         let exec = this._newEventExecutor(listener);
         let ret = await exec.execute(this.m_block.header, this.m_storage, this.m_externContext);
-        if (ret.err || ret.returnCode) {
+        if (ret.err) {
             this.m_logger.error(`block event execute failed`);
-            return error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
-        return error_code_1.ErrorCode.RESULT_OK;
+        return ret;
     }
     async executePreBlockEvent() {
         if (this.m_block.number === 0) {
             // call initialize
             if (this.m_handler.genesisListener) {
-                const err = await this.executeBlockEvent(this.m_handler.genesisListener);
-                if (err) {
+                const eber = await this.executeBlockEvent(this.m_handler.genesisListener);
+                if (eber.err || eber.receipt.returnCode) {
                     this.m_logger.error(`handler's genesisListener execute failed`);
-                    return error_code_1.ErrorCode.RESULT_EXCEPTION;
+                    return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
                 }
             }
         }
+        let receipts = [];
         let listeners = await this.m_handler.getPreBlockListeners(this.m_block.number);
-        for (let l of listeners) {
-            const err = await this.executeBlockEvent(l);
-            if (err) {
-                return err;
+        for (const l of listeners) {
+            const eber = await this.executeBlockEvent(l.listener);
+            if (eber.err) {
+                return { err: eber.err };
             }
+            eber.receipt.setSource({ sourceType: chain_1.ReceiptSourceType.preBlockEvent, eventIndex: l.index });
+            receipts.push(eber.receipt);
         }
-        return error_code_1.ErrorCode.RESULT_OK;
+        return { err: error_code_1.ErrorCode.RESULT_OK, receipts };
     }
     async executePostBlockEvent() {
+        let receipts = [];
         let listeners = await this.m_handler.getPostBlockListeners(this.m_block.number);
-        for (let l of listeners) {
-            const err = await this.executeBlockEvent(l);
-            if (err) {
-                return err;
+        for (const l of listeners) {
+            const eber = await this.executeBlockEvent(l.listener);
+            if (eber.err) {
+                return { err: eber.err };
             }
+            eber.receipt.setSource({ sourceType: chain_1.ReceiptSourceType.postBlockEvent, eventIndex: l.index });
+            receipts.push(eber.receipt);
         }
-        return error_code_1.ErrorCode.RESULT_OK;
+        return { err: error_code_1.ErrorCode.RESULT_OK, receipts };
     }
     async _executeTransactions() {
         let receipts = [];
@@ -129,7 +138,7 @@ class BlockExecutor {
             }
             receipts.push(ret.receipt);
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, value: receipts };
+        return { err: error_code_1.ErrorCode.RESULT_OK, receipts };
     }
     async executeTransaction(tx, flag) {
         const checker = this.m_handler.getTxPendingChecker(tx.method);

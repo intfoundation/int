@@ -84,7 +84,7 @@ export function rejectifyValue<T>(func: (...args: any[]) => Promise<{err: ErrorC
 export function rejectifyErrorCode(func: (...args: any[]) => Promise<ErrorCode>, _this: any): (...args: any[]) => Promise<void>;
 
 export class Transaction {
-   constructor();
+    constructor();
 
     readonly address?:string;
 
@@ -149,13 +149,13 @@ export interface IReadableKeyValue {
 export interface IWritableKeyValue {
     // 单值操作
     set(key: string, value: any): Promise<{ err: ErrorCode }>;
-    
+
     // hash
     hset(key: string, field: string, value: any): Promise<{ err: ErrorCode }>;
     hmset(key: string, fields: string[], values: any[]): Promise<{ err: ErrorCode }>;
     hclean(key: string): Promise<ErrorCode>;
     hdel(key: string, field: string): Promise<{err: ErrorCode}>;
-    
+
     // array
     lset(key: string, index: number, value: any): Promise<{ err: ErrorCode }>;
     lpush(key: string, value: any): Promise<{ err: ErrorCode }>;
@@ -294,7 +294,7 @@ export class BaseHandler {
     constructor();
 
     genesisListener?: BlockHeightListener;
-    
+
     addTX(name: string, listener: TxListener, checker?: TxPendingChecker): void;
 
     getTxListener(name: string): TxListener|undefined;
@@ -307,15 +307,15 @@ export class BaseHandler {
 
     addPreBlockListener(filter: BlockHeigthFilter, listener: BlockHeightListener): void;
 
-    getPreBlockListeners(h: number): Promise<BlockHeightListener[]>;
+    getPreBlockListeners(): {index: number, listener: BlockHeightListener}[];
 
     addPostBlockListener(filter: BlockHeigthFilter, listener: BlockHeightListener): void;
 
-    getPostBlockListeners(h: number): Promise<BlockHeightListener[]>;
+    getPostBlockListeners(h: number): {index: number, listener: BlockHeightListener}[];
 }
 
 
-type MinerWageListener = (height: number) => Promise<BigNumber>; 
+type MinerWageListener = (height: number) => Promise<BigNumber>;
 
 export class ValueHandler extends BaseHandler {
     constructor();
@@ -328,14 +328,14 @@ export class ValueHandler extends BaseHandler {
 
 export class ValueIndependDebugSession {
     init(options: {
-        height: number, 
-        accounts: Buffer[] | number, 
+        height: number,
+        accounts: Buffer[] | number,
         coinbase: number,
         interval: number,
         preBalance?: BigNumber
-    }): Promise<ErrorCode>;
+    }): Promise<{err: ErrorCode}>;
 
-    updateHeightTo(height: number, coinbase: number, events?: boolean): ErrorCode;
+    updateHeightTo(height: number, coinbase: number, events?: boolean): {err: ErrorCode};
 
     transaction(options: {caller: number|Buffer, method: string, input: any, value: BigNumber, fee: BigNumber, nonce?: number}): Promise<{err: ErrorCode, receipt?: Receipt}>;
     wage(): Promise<{err: ErrorCode}>;

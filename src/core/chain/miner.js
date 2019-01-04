@@ -55,9 +55,6 @@ class Miner extends events_1.EventEmitter {
             return chainRet;
         }
         let value = chainRet.value;
-        if (options.origin.has('genesisMiner')) {
-            value.minOutbound = 0;
-        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(options) {
@@ -238,7 +235,7 @@ class Miner extends events_1.EventEmitter {
     }
     async _createBlock(header) {
         let block = this.chain.newBlock(header);
-        this.pushTx(block);
+        this._collectTransactions(block);
         await this._decorateBlock(block);
         const cer = await this._createExecuteRoutine(block);
         if (cer.err) {
@@ -246,7 +243,7 @@ class Miner extends events_1.EventEmitter {
         }
         return cer.next();
     }
-    pushTx(block) {
+    _collectTransactions(block) {
         let tx = this.chain.pending.popTransaction();
         while (tx) {
             block.content.addTransaction(tx);

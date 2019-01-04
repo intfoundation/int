@@ -141,7 +141,6 @@ class StorageLogSnapshotManager {
             return { err: hr.err };
         }
         let blockPath = [];
-        blockPath.push(blockHash);
         let header = hr.header;
         let err = error_code_1.ErrorCode.RESULT_NOT_FOUND;
         let nearestSnapshot;
