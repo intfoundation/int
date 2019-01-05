@@ -52,11 +52,11 @@ async function run(argv) {
         options.set("networkid", 1777);
     }
     if (options.has("test")) {
-        options.set("sn", "SN_PEER_TEST_FIFTH@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEER_FIFTH_TEST@testsn.zeerong.com@8550@8551");
         options.set("genesis", './data/testintchain/genesis');
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
         options.set("dataDir", './data/testintchain/peerData');
-        options.set("networkid", 1998);
+        options.set("networkid", 1990);
     }
     if (!options.has("test") && !options.has("main")) {
         console.log("Please select network to connect: --test or --main");
