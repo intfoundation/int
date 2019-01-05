@@ -1,0 +1,14 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 2
+    },
+    "auditLog": "/Users/like/int/int-cli/data/testintchain/genesis/.215ce8d198c2605092bdb6c8c88eecd75ce7b520-audit.json",
+    "files": [
+        {
+            "date": 1546673065620,
+            "name": "/Users/like/int/int-cli/data/testintchain/genesis/exception.log.2019-01-05-15.",
+            "hash": "d2617ce82b3b4f8c42d5558d4d348c1d"
+        }
+    ]
+}
