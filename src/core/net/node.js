@@ -118,13 +118,13 @@ class INode extends events_1.EventEmitter {
                         resolve(error_code_1.ErrorCode.RESULT_OK);
                     }
                     else {
-                        this.logger.warn(`close conn to ${peerid} by unSupport`);
+                        this.m_logger.warn(`close conn to ${peerid} by unSupport`);
                         conn.destroy();
                         resolve(error_code_1.ErrorCode.RESULT_VER_NOT_SUPPORT);
                     }
                 }
                 else {
-                    this.logger.warn(`close conn to ${peerid} by non versionAck pkg`);
+                    this.m_logger.warn(`close conn to ${peerid} by non versionAck pkg`);
                     conn.destroy();
                     resolve(error_code_1.ErrorCode.RESULT_INVALID_STATE);
                 }
@@ -151,12 +151,12 @@ class INode extends events_1.EventEmitter {
         let other = this.getConnection(peerid);
         if (other) {
             if (conn.version.compare(other.version) > 0) {
-                this.logger.warn(`close conn to ${peerid} by already exist conn`);
+                this.m_logger.warn(`close conn to ${peerid} by already exist conn`);
                 conn.destroy();
                 return { err: error_code_1.ErrorCode.RESULT_ALREADY_EXIST, peerid };
             }
             else {
-                this.logger.warn(`close other conn to ${peerid} by already exist conn`);
+                this.m_logger.warn(`close other conn to ${peerid} by already exist conn`);
                 this.closeConnection(other, true);
             }
         }
