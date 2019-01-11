@@ -62,7 +62,28 @@ class ChainServer {
                 tx.price = new core_1.BigNumber(params.price);
                 tx.input = params.input;
                 if (!util_1.isNullOrUndefined(params.input.amount)) {
-                    tx.input.amount = new core_1.BigNumber(params.input.amount);
+                    if (!util_1.isString(params.input.amount)) {
+                        err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+                    }
+                    else {
+                        tx.input.amount = new core_1.BigNumber(params.input.amount);
+                    }
+                }
+                if (!util_1.isNullOrUndefined(params.input.schedule)) {
+                    if (util_1.isArray(params.input.schedule)) {
+                        let i = 0;
+                        let schedule = params.input.schedule;
+                        while (i < schedule.length) {
+                            if (!util_1.isObject(schedule[i]) || util_1.isNullOrUndefined(schedule[i].value) || !util_1.isString(schedule[i].value)) {
+                                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    else {
+                        err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+                    }
                 }
                 //根据from地址获取用户对应的keystore文件
                 let filePath = process.cwd() + "/data/keystore";
@@ -97,7 +118,7 @@ class ChainServer {
                 if (!keyStore) {
                     err = core_1.ErrorCode.RESULT_ADDRESS_NOT_EXIST;
                 }
-                if (keyStore.address != fromAddress && !err) {
+                if (!err && (!keyStore.address || (keyStore.address != fromAddress))) {
                     err = core_1.ErrorCode.RESULT_KEYSTORE_ERROR;
                 }
             }
@@ -105,13 +126,24 @@ class ChainServer {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
             }
             else {
-                let privateKey = crypt.decrypt(keyStore, password);
-                let { err, nonce } = await this.m_chain.getNonce(fromAddress);
-                tx.nonce = nonce + 1;
-                tx.sign(privateKey.privateKey);
-                this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-                err = await this.m_chain.addTransaction(tx);
-                await promisify(resp.write.bind(resp)(JSON.stringify({ err, hash: tx.hash })));
+                let privateKey;
+                try {
+                    privateKey = crypt.decrypt(keyStore, password);
+                }
+                catch (e) {
+                    this.m_logger.debug(`rpc server sendTransaction decrypt keystore err ${e}`);
+                }
+                if (privateKey) {
+                    let { err, nonce } = await this.m_chain.getNonce(fromAddress);
+                    tx.nonce = nonce + 1;
+                    tx.sign(privateKey.privateKey);
+                    this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                    err = await this.m_chain.addTransaction(tx);
+                    await promisify(resp.write.bind(resp)(JSON.stringify({ err, hash: tx.hash })));
+                }
+                else {
+                    await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_KEYSTORE_ERROR })));
+                }
             }
             await promisify(resp.end.bind(resp)());
         });
@@ -135,38 +167,49 @@ class ChainServer {
                         privKey = secret.toString('hex');
                         address = addressClass.addressFromPublicKey(key);
                     }
-                    let keystore = crypt.encrypt(privKey, password);
-                    keystore.address = address;
-                    let jsonKeystore = JSON.stringify(keystore);
-                    let fileName = new Date().toISOString() + '--' + address + '.json';
-                    let keyPath = process.cwd() + '/data/keystore/';
-                    let homePath = os.homedir();
-                    let dirPath = __dirname;
-                    // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
-                    if (dirPath.indexOf('node_modules') !== -1) {
-                        keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
-                    }
-                    if (os.platform() === 'win32') {
-                        fileName = address + '.json';
-                        if (dirPath.indexOf('node_modules') !== -1) {
-                            homePath = homePath.replace(/\\/g, '\/');
-                            keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
-                        }
-                        else {
-                            let cwd = process.cwd();
-                            cwd = cwd.replace(/\\/g, '\/');
-                            keyPath = cwd + '/data/keystore/';
-                        }
-                    }
-                    if (!fs.existsSync(keyPath)) {
-                        this.makeDirSync(keyPath);
-                    }
+                    let keystore;
                     try {
-                        fs.writeFileSync(keyPath + fileName, jsonKeystore);
+                        keystore = crypt.encrypt(privKey, password);
                     }
                     catch (e) {
-                        this.m_logger.error(`write keystore failed, error:` + e);
-                        err = core_1.ErrorCode.RESULT_EXCEPTION;
+                        this.m_logger.debug(`rpc server newAccount encrypt keystore err ${e}`);
+                    }
+                    if (keystore) {
+                        keystore.address = address;
+                        let jsonKeystore = JSON.stringify(keystore);
+                        let fileName = new Date().toISOString() + '--' + address + '.json';
+                        let keyPath = process.cwd() + '/data/keystore/';
+                        let homePath = os.homedir();
+                        let dirPath = __dirname;
+                        // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+                        if (dirPath.indexOf('node_modules') !== -1) {
+                            keyPath = path.join(homePath, "/Library/", "INTChain/keystore/");
+                        }
+                        if (os.platform() === 'win32') {
+                            fileName = address + '.json';
+                            if (dirPath.indexOf('node_modules') !== -1) {
+                                homePath = homePath.replace(/\\/g, '\/');
+                                keyPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/keystore/');
+                            }
+                            else {
+                                let cwd = process.cwd();
+                                cwd = cwd.replace(/\\/g, '\/');
+                                keyPath = cwd + '/data/keystore/';
+                            }
+                        }
+                        if (!fs.existsSync(keyPath)) {
+                            this.makeDirSync(keyPath);
+                        }
+                        try {
+                            fs.writeFileSync(keyPath + fileName, jsonKeystore);
+                        }
+                        catch (e) {
+                            this.m_logger.error(`write keystore failed, error:` + e);
+                            err = core_1.ErrorCode.RESULT_EXCEPTION;
+                        }
+                    }
+                    else {
+                        err = core_1.ErrorCode.RESULT_KEYSTORE_ERROR;
                     }
                 }
                 else {
@@ -212,13 +255,14 @@ class ChainServer {
                     let accounts = [];
                     for (let fileName of files) {
                         let address = '';
-                        if (os.platform() === 'win32') {
-                            address = fileName.slice(0, -5);
+                        let indexINT = fileName.indexOf('INT');
+                        let indexPoint = fileName.lastIndexOf('.');
+                        if (indexINT !== -1 && indexPoint !== -1) {
+                            address = fileName.substring(indexINT, indexPoint);
+                            if (accounts.indexOf(address) === -1 && addressClass.isValidAddress(address)) {
+                                accounts.push(address);
+                            }
                         }
-                        else {
-                            address = fileName.substring(26, fileName.length - 5);
-                        }
-                        accounts.push(address);
                     }
                     accounts.sort();
                     await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, accounts: accounts })));
@@ -327,13 +371,23 @@ class ChainServer {
             await promisify(resp.end.bind(resp)());
         });
         this.m_server.on('getLastIrreversibleBlockNumber', async (args, resp) => {
-            let num = this.m_chain.getLastIrreversibleBlockNumber();
+            let num = this.m_chain.getLIB().number;
             await promisify(resp.write.bind(resp)(JSON.stringify(num)));
             await promisify(resp.end.bind(resp)());
         });
         this.m_server.on('isValidAddress', async (params, resp) => {
             let isV = addressClass.isValidAddress(params.address);
             await promisify(resp.write.bind(resp)(JSON.stringify(isV)));
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('getPrice', async (args, resp) => {
+            let curPrice = this.m_chain.getPrice();
+            await promisify(resp.write.bind(resp)(JSON.stringify(curPrice)));
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('getTransactionLimit', async (params, resp) => {
+            let limit = this.m_chain.calcTxLimit(params.method, params.input);
+            await promisify(resp.write.bind(resp)(JSON.stringify(limit)));
             await promisify(resp.end.bind(resp)());
         });
     }

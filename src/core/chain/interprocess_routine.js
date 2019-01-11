@@ -18,7 +18,7 @@ var RoutineType;
 class BlockExecutorWorkerRoutine {
     constructor() {
     }
-    static encodeParams(params) {
+    static async encodeParams(params) {
         const writer = new writer_1.BufferWriter();
         let err;
         if (params.type === RoutineType.execute) {
@@ -42,13 +42,18 @@ class BlockExecutorWorkerRoutine {
             params.chain.logger.error(`write block to ${blockPath} failed `, e);
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
+        const epr = await params.chain.executorParamCreator.interprocessEncode(params.externParams);
+        if (epr.err) {
+            return { err: epr.err };
+        }
         try {
             const message = {
                 type: params.type,
                 name: params.name,
                 dataDir: params.chain.dataDir,
                 blockPath,
-                storagePath: params.storage.filePath
+                storagePath: params.storage.filePath,
+                externParams: epr.encoded
             };
             return { err: error_code_1.ErrorCode.RESULT_OK, message };
         }
@@ -97,7 +102,21 @@ class BlockExecutorWorkerRoutine {
             chain.logger.error(`init storage ${message.storagePath} failed `, err);
             return { err };
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, params: { type: message.type, chain, storage, block, name: message.name } };
+        const dpr = await chain.executorParamCreator.interprocessDecode(message.externParams);
+        if (dpr.err) {
+            return { err: dpr.err };
+        }
+        return {
+            err: error_code_1.ErrorCode.RESULT_OK,
+            params: {
+                type: message.type,
+                chain,
+                storage,
+                block,
+                name: message.name,
+                externParams: dpr.params
+            }
+        };
     }
     static encodeResult(result) {
         const message = Object.create(null);
@@ -222,7 +241,7 @@ class BlockExecutorWorkerRoutine {
         result.type = params.type;
         do {
             params.storage.createLogger();
-            const nber = await params.chain.newBlockExecutor(params.block, params.storage);
+            const nber = await params.chain.newBlockExecutor(params);
             if (nber.err) {
                 result.err = nber.err;
                 break;
@@ -287,12 +306,17 @@ class InterprocessRoutine extends executor_routine_1.BlockExecutorRoutine {
         }
         this.m_state = executor_routine_1.BlockExecutorRoutineState.running;
         this.m_worker = new WorkerProxy(this.m_logger);
+        const epr = await this.m_chain.prepareExternParams(this.m_block, this.m_storage);
+        if (epr.err) {
+            return { err: epr.err };
+        }
         const result = await this.m_worker.run({
             type,
             name: this.m_name,
             chain: this.m_chain,
             block: this.m_block,
-            storage: this.m_storage
+            storage: this.m_storage,
+            externParams: epr.params
         });
         if (this.m_cancelSet) {
             return { err: error_code_1.ErrorCode.RESULT_CANCELED };
@@ -329,7 +353,7 @@ class WorkerProxy {
     }
     async run(params) {
         await params.storage.uninit();
-        const epr = BlockExecutorWorkerRoutine.encodeParams(params);
+        const epr = await BlockExecutorWorkerRoutine.encodeParams(params);
         if (epr.err) {
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM, type: params.type, chain: params.chain, name: params.name };
         }

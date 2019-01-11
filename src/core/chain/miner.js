@@ -105,12 +105,13 @@ class Miner extends events_1.EventEmitter {
             if (err) {
                 break;
             }
-            let nber = await this.chain.newBlockExecutor(genesis, sr.storage);
+            let nber = await this.chain.newBlockExecutor({ block: genesis, storage: sr.storage });
             if (nber.err) {
                 err = nber.err;
                 break;
             }
             err = await nber.executor.execute();
+            await nber.executor.finalize();
             if (err) {
                 break;
             }
@@ -235,7 +236,7 @@ class Miner extends events_1.EventEmitter {
     }
     async _createBlock(header) {
         let block = this.chain.newBlock(header);
-        this._collectTransactions(block);
+        await this._collectTransactions(block);
         await this._decorateBlock(block);
         const cer = await this._createExecuteRoutine(block);
         if (cer.err) {
@@ -243,7 +244,7 @@ class Miner extends events_1.EventEmitter {
         }
         return cer.next();
     }
-    _collectTransactions(block) {
+    async _collectTransactions(block) {
         let tx = this.chain.pending.popTransaction();
         while (tx) {
             block.content.addTransaction(tx);

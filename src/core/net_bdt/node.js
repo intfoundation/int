@@ -87,9 +87,18 @@ class BdtNode extends net_1.INode {
         }
         this.m_dht = p2p.dht;
         this.m_bdtStack = p2p.bdtStack;
+        this.m_p2p = p2p;
     }
     _ready() {
         this.m_dht.rootDHT.activeLocalPeer();
+    }
+    // 将某个connection加入黑名单：addBlackList(conn.remote.peerid, conn.remote.endpoint)
+    // ban掉某个IP地址：addBlackList(ipstring)
+    // ban掉某个PEERID：addBlackList(undefined, peerid)
+    addBlackList(peerid, ip) {
+        if (this.m_p2p) {
+            this.m_p2p.forbid(ip ? ip : P2P.FORBID.all, peerid ? peerid : P2P.FORBID.all);
+        }
     }
     async randomPeers(count, excludes) {
         // 过滤掉自己和种子peer
@@ -102,7 +111,7 @@ class BdtNode extends net_1.INode {
                 // this.m_logger.debug(`exclude ${peer.peerid} from skipList`);
                 return false;
             }
-            if (excludes.includes(peer.peerid)) {
+            if (excludes.has(peer.peerid)) {
                 // this.m_logger.debug(`exclude ${peer.peerid} from excludesList`);
                 return false;
             }

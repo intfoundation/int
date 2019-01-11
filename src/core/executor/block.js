@@ -11,11 +11,17 @@ class BlockExecutor {
         this.m_block = options.block;
         this.m_externContext = options.externContext;
         this.m_logger = options.logger;
+        this.m_externParams = options.externParams.slice(0);
         Object.defineProperty(this.m_externContext, 'logger', {
             writable: false,
             value: this.m_logger
         });
         this.m_globalOptions = options.globalOptions;
+    }
+    finalize() {
+        for (const ep of this.m_externParams) {
+            ep.finalize();
+        }
     }
     get externContext() {
         return this.m_externContext;

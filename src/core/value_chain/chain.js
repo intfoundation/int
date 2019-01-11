@@ -14,7 +14,7 @@ class ValueChain extends chain_1.Chain {
     constructor(options) {
         super(options);
     }
-    async newBlockExecutor(block, storage) {
+    async _newBlockExecutor(block, storage, externParams) {
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, ValueChain.kvBalance)).kv;
         let ve = new ValueContext.Context(kvBalance);
         let externContext = Object.create(null);
@@ -24,7 +24,15 @@ class ValueChain extends chain_1.Chain {
         externContext.transferTo = async (address, amount) => {
             return await ve.transferTo(ValueChain.sysAddress, address, amount);
         };
-        let executor = new executor_1.ValueBlockExecutor({ logger: this.logger, block, storage, handler: this.m_handler, externContext, globalOptions: this.m_globalOptions });
+        let executor = new executor_1.ValueBlockExecutor({
+            logger: this.logger,
+            block,
+            storage,
+            handler: this.m_handler,
+            externContext,
+            globalOptions: this.m_globalOptions,
+            externParams
+        });
         return { err: error_code_1.ErrorCode.RESULT_OK, executor };
     }
     async newViewExecutor(header, storage, method, param) {
@@ -54,7 +62,12 @@ class ValueChain extends chain_1.Chain {
             overtime: this.m_instanceOptions.pendingOvertime,
             handler: this.m_handler,
             maxCount: this.m_instanceOptions.maxPendingCount,
-            warnCount: this.m_instanceOptions.warnPendingCount
+            warnCount: this.m_instanceOptions.warnPendingCount,
+            isPeer: this.m_isPeer,
+            maxTxLimit: this.m_instanceOptions.maxTxLimit,
+            minTxLimit: this.m_instanceOptions.minTxLimit,
+            maxTxPrice: this.m_instanceOptions.maxTxPrice,
+            minTxPrice: this.m_instanceOptions.minTxPrice,
         });
     }
     async onCreateGenesisBlock(block, storage, genesisOptions) {
@@ -92,6 +105,27 @@ class ValueChain extends chain_1.Chain {
             }
         }
         return kvr.err;
+    }
+    getPrice() {
+        let curPrice = new bignumber_js_1.BigNumber(0);
+        let minPrice = new bignumber_js_1.BigNumber(this.m_instanceOptions.minTxPrice);
+        let curBlock = this.getBlock(this.m_tip.hash);
+        let preBlock = this.getBlock(this.m_tip.preBlockHash);
+        let txs = [];
+        if (curBlock && preBlock) {
+            txs = txs.concat(curBlock.content.transactions, preBlock.content.transactions);
+            if (txs && txs.length > 20) {
+                txs.forEach((value) => {
+                    curPrice = curPrice.plus(new bignumber_js_1.BigNumber(value.price));
+                });
+                let stringPrice = (curPrice.div(new bignumber_js_1.BigNumber(txs.length))).toFixed(0);
+                return { err: error_code_1.ErrorCode.RESULT_OK, price: new bignumber_js_1.BigNumber(stringPrice) };
+            }
+            else {
+                return { err: error_code_1.ErrorCode.RESULT_OK, price: minPrice };
+            }
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, price: minPrice };
     }
 }
 // 存储每个address的money，其中有一个默认的系统账户

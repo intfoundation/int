@@ -85,7 +85,7 @@ class Network extends events_1.EventEmitter {
     }
     async init() {
         this.m_node.on('error', (conn, err) => {
-            this.emit('error', conn.remote);
+            this.emit('error', conn.remote, conn.id);
         });
         // 收到net/node的ban事件, 调用 ChainNode的banConnection方法做封禁处理
         // 日期先设置为按天

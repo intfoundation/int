@@ -66,9 +66,9 @@ class ChainNode extends events_1.EventEmitter {
                 this._beginSyncWithNode(network, conn);
                 this.emit('outbound', conn);
             });
-            network.on('error', (remote, err) => {
+            network.on('error', (remote, id, err) => {
                 const fullRemote = net_1.INode.fullPeerid(network.name, remote);
-                this._onConnectionError(fullRemote);
+                this._onConnectionError(fullRemote, id);
                 this.emit('error', fullRemote);
             });
             network.on('ban', (remote) => {
@@ -233,6 +233,7 @@ class ChainNode extends events_1.EventEmitter {
                 let buffer = pkg.copyData();
                 let headerReader = new reader_1.BufferReader(buffer);
                 let headers = [];
+                this.logger.debug(`receive headers from ${conn.fullRemote} err ${pkg.body.error} request `, pkg.body.request);
                 if (!pkg.body.error) {
                     let err = error_code_1.ErrorCode.RESULT_OK;
                     let preHeader;
@@ -583,8 +584,8 @@ class ChainNode extends events_1.EventEmitter {
         this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    _onConnectionError(fullRemote) {
-        this.logger.warn(`connection from ${fullRemote} break, close it.`);
+    _onConnectionError(fullRemote, id) {
+        this.logger.warn(`connection ${id} from ${fullRemote} break, close it.`);
         this._onRemoveConnection(fullRemote);
     }
     /*must not async*/

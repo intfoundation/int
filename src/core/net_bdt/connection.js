@@ -32,6 +32,14 @@ class BdtConnection extends net_1.IConnection {
         });
         this.m_remote = options.remote;
     }
+    get id() {
+        if (this.m_bdt_connection) {
+            return this.m_bdt_connection.id;
+        }
+        else {
+            return this.m_id;
+        }
+    }
     send(data) {
         if (this.m_bdt_connection) {
             return this.m_bdt_connection.send(data);
@@ -44,6 +52,7 @@ class BdtConnection extends net_1.IConnection {
             this.m_bdt_connection.removeAllListeners('data');
             this.m_bdt_connection.removeAllListeners('error');
             this.m_bdt_connection.close();
+            this.m_id = this.m_bdt_connection.id;
             delete this.m_bdt_connection;
         }
         return Promise.resolve(error_code_1.ErrorCode.RESULT_OK);
@@ -54,6 +63,7 @@ class BdtConnection extends net_1.IConnection {
             this.m_bdt_connection.removeAllListeners('data');
             this.m_bdt_connection.removeAllListeners('error');
             this.m_bdt_connection.close(true);
+            this.m_id = this.m_bdt_connection.id;
             delete this.m_bdt_connection;
         }
         return Promise.resolve();

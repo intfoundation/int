@@ -31,7 +31,7 @@ function initLogger(options) {
                 prepend: true,
                 handleExceptions: true,
                 humanReadableUnhandledException: true,
-                maxFiles: '2d'
+                maxFiles: '7d'
             }));
         }
         const logger = new winston_1.Logger({

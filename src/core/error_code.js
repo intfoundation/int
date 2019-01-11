@@ -59,6 +59,7 @@ var ErrorCode;
     ErrorCode[ErrorCode["RESULT_CANT_BE_DECIMAL"] = 10029] = "RESULT_CANT_BE_DECIMAL";
     ErrorCode[ErrorCode["RESULT_NOT_INTEGER"] = 10030] = "RESULT_NOT_INTEGER";
     ErrorCode[ErrorCode["RESULT_OUT_OF_RANGE"] = 10031] = "RESULT_OUT_OF_RANGE";
+    ErrorCode[ErrorCode["RESULT_UNLOCK_ZERO"] = 10032] = "RESULT_UNLOCK_ZERO";
     ErrorCode[ErrorCode["RESULT_ADDRESS_NOT_EXIST"] = 10040] = "RESULT_ADDRESS_NOT_EXIST";
     ErrorCode[ErrorCode["RESULT_KEYSTORE_ERROR"] = 10041] = "RESULT_KEYSTORE_ERROR";
 })(ErrorCode = exports.ErrorCode || (exports.ErrorCode = {}));
@@ -218,6 +219,9 @@ function stringifyErrorCode(err) {
     }
     else if (err === ErrorCode.RESULT_OUT_OF_RANGE) {
         return 'out of range, big than 1e+36';
+    }
+    else if (err === ErrorCode.RESULT_UNLOCK_ZERO) {
+        return 'unlock 0 INT';
     }
     else if (err === ErrorCode.RESULT_ADDRESS_NOT_EXIST) {
         return 'address not exist';

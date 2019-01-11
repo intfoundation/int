@@ -236,6 +236,13 @@ function hasDecimals(o) {
     return false;
 }
 exports.hasDecimals = hasDecimals;
+function encodeAddressAndNonce(address, nonce) {
+    let bw = new writer_1.BufferWriter();
+    bw.writeVarString(address);
+    bw.writeU32(nonce);
+    return digest.hash256(bw.render()).toString('hex');
+}
+exports.encodeAddressAndNonce = encodeAddressAndNonce;
 class SerializableWithHash {
     constructor() {
         this.m_hash = encoding_1.Encoding.NULL_HASH;

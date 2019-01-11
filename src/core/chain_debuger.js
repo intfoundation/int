@@ -342,7 +342,7 @@ class ChainDebuger {
     }
     async debugTransaction(storage, header, tx) {
         const block = this.chain.newBlock(header);
-        const nber = await this.chain.newBlockExecutor(block, storage);
+        const nber = await this.chain.newBlockExecutor({ block, storage });
         if (nber.err) {
             return { err: nber.err };
         }
@@ -350,41 +350,51 @@ class ChainDebuger {
         if (etr.err) {
             return { err: etr.err };
         }
+        await nber.executor.finalize();
         return { err: error_code_1.ErrorCode.RESULT_OK, receipt: etr.receipt };
     }
     async debugBlockEvent(storage, header, options) {
         const block = this.chain.newBlock(header);
-        const nber = await this.chain.newBlockExecutor(block, storage);
+        const nber = await this.chain.newBlockExecutor({ block, storage });
         if (nber.err) {
             return { err: nber.err };
         }
-        if (options.listener) {
-            const ebr = await nber.executor.executeBlockEvent(options.listener);
-            if (ebr.err) {
-                return { err: ebr.err };
+        let result;
+        do {
+            if (options.listener) {
+                const ebr = await nber.executor.executeBlockEvent(options.listener);
+                if (ebr.err) {
+                    result = { err: ebr.err };
+                    break;
+                }
+                else {
+                    result = { err: error_code_1.ErrorCode.RESULT_OK, receipts: [ebr.receipt] };
+                    break;
+                }
             }
             else {
-                return { err: error_code_1.ErrorCode.RESULT_OK, receipts: [ebr.receipt] };
-            }
-        }
-        else {
-            let receipts = [];
-            if (options.preBlock) {
-                const ebr = await nber.executor.executePreBlockEvent();
-                if (ebr.err) {
-                    return { err: ebr.err };
+                let receipts = [];
+                if (options.preBlock) {
+                    const ebr = await nber.executor.executePreBlockEvent();
+                    if (ebr.err) {
+                        result = { err: ebr.err };
+                        break;
+                    }
+                    receipts.push(...ebr.receipts);
                 }
-                receipts.push(...ebr.receipts);
-            }
-            if (options.postBlock) {
-                const ebr = await nber.executor.executePostBlockEvent();
-                if (ebr.err) {
-                    return { err: ebr.err };
+                if (options.postBlock) {
+                    const ebr = await nber.executor.executePostBlockEvent();
+                    if (ebr.err) {
+                        result = { err: ebr.err };
+                        break;
+                    }
+                    receipts.push(...ebr.receipts);
                 }
-                receipts.push(...ebr.receipts);
+                result = { err: error_code_1.ErrorCode.RESULT_OK, receipts };
             }
-            return { err: error_code_1.ErrorCode.RESULT_OK, receipts };
-        }
+        } while (false);
+        await nber.executor.finalize();
+        return result;
     }
     async debugView(storage, header, method, params) {
         const nver = await this.chain.newViewExecutor(header, storage, method, params);
@@ -394,22 +404,24 @@ class ChainDebuger {
         return nver.executor.execute();
     }
     async debugBlock(storage, block) {
-        const nber = await this.chain.newBlockExecutor(block, storage);
+        const nber = await this.chain.newBlockExecutor({ block, storage });
         if (nber.err) {
             return { err: nber.err };
         }
         const err = await nber.executor.execute();
+        await nber.executor.finalize();
         return { err };
     }
 }
 class ValueChainDebuger extends ChainDebuger {
     async debugMinerWageEvent(storage, header) {
         const block = this.chain.newBlock(header);
-        const nber = await this.chain.newBlockExecutor(block, storage);
+        const nber = await this.chain.newBlockExecutor({ block, storage });
         if (nber.err) {
             return { err: nber.err };
         }
         const err = await nber.executor.executeMinerWageEvent();
+        await nber.executor.finalize();
         return { err };
     }
     createIndependSession() {

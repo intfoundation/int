@@ -4,10 +4,11 @@ const index_1 = require("../index");
 const util_1 = require("util");
 function createTokenChecker(tx) {
     let input = tx.input;
+    let tokenid = index_1.addressFromPublicKey(index_1.encodeAddressAndNonce(tx.address, tx.nonce));
     if (!input || !input.tokenid || !input.amount || !input.name || !input.symbol || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
-    if (!index_1.isValidAddress(input.tokenid)) {
+    if (!index_1.isValidAddress(input.tokenid) || tokenid !== input.tokenid) {
         return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
     }
     if (!index_1.BigNumber.isBigNumber(input.amount)) {
@@ -235,3 +236,51 @@ function bidChecker(tx) {
     return index_1.ErrorCode.RESULT_OK;
 }
 exports.bidChecker = bidChecker;
+function lockAccountChecker(tx) {
+    let input = tx.input;
+    let lockBalance = new index_1.BigNumber(0);
+    let contractid = index_1.addressFromPublicKey(index_1.encodeAddressAndNonce(tx.address, tx.nonce));
+    if (!input || !input.contractid || !input.lockaddress || !input.schedule || !util_1.isArray(input.schedule) || !(input.schedule.length < 20)) {
+        console.log(`lockAccountChecker-----------------------------------------1`);
+        console.log(`lockAccountChecker-----------------------------------------1 ${!input} ${!input.contractid} ${!input.lockaddress} ${!input.schedule} ${!util_1.isArray(input.schedule)} ${!(input.schedule.length < 20)}`);
+        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    }
+    if (!index_1.isValidAddress(input.contractid) || !index_1.isValidAddress(input.lockaddress) || contractid !== input.contractid) {
+        console.log(`lockAccountChecker-----------------------------------------2`);
+        return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
+    }
+    for (let item of input.schedule) {
+        if (!util_1.isObject(item) || util_1.isNullOrUndefined(item.time) || util_1.isNullOrUndefined(item.value) || !util_1.isNumber(item.time) || (item.time.toString().length < 13) || !util_1.isString(item.value)) {
+            console.log(`lockAccountChecker-----------------------------------------3`);
+            return index_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
+        if (!(new index_1.BigNumber(item.value).isInteger())) {
+            console.log(`lockAccountChecker-----------------------------------------4`);
+            return index_1.ErrorCode.RESULT_NOT_INTEGER;
+        }
+        if ((new index_1.BigNumber(item.value).isNegative())) {
+            console.log(`lockAccountChecker-----------------------------------------5`);
+            return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
+        }
+        lockBalance = lockBalance.plus(new index_1.BigNumber(item.value));
+    }
+    if (!tx.value.isEqualTo(lockBalance)) {
+        console.log(`lockAccountChecker-----------------------------------------6`);
+        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    }
+    return index_1.ErrorCode.RESULT_OK;
+}
+exports.lockAccountChecker = lockAccountChecker;
+function transferFromLockAccountChecker(tx) {
+    let input = tx.input;
+    if (!input || !input.contractid || !tx.value.isEqualTo(new index_1.BigNumber(0))) {
+        console.log(`transferFromLockAccountChecker-----------------------------------------1`);
+        return index_1.ErrorCode.RESULT_INVALID_PARAM;
+    }
+    if (!index_1.isValidAddress(input.contractid)) {
+        console.log(`transferFromLockAccountChecker-----------------------------------------2`);
+        return index_1.ErrorCode.RESULT_INVALID_ADDRESS;
+    }
+    return index_1.ErrorCode.RESULT_OK;
+}
+exports.transferFromLockAccountChecker = transferFromLockAccountChecker;

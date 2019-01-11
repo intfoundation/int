@@ -170,7 +170,7 @@ class StorageManager {
             }
         }
     }
-    recycleSnapShot() {
+    recycleSnapshot() {
         return this.m_snapshotManager.recycle();
     }
 }

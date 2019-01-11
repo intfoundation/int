@@ -206,7 +206,9 @@ export type ViewContext = {
 
 export type ValueTransactionContext = {
     value: BigNumber;
-    fee: BigNumber;
+    limit: BigNumber;
+    price: BigNumber;
+    totallimit: BigNumber;
     getBalance: (address: string) => Promise<BigNumber>;
     transferTo: (address: string, amount: BigNumber) => Promise<ErrorCode>;
     cost: (fee: BigNumber) => ErrorCode;

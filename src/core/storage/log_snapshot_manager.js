@@ -11,7 +11,6 @@ const dump_snapshot_manager_1 = require("./dump_snapshot_manager");
 class StorageLogSnapshotManager {
     constructor(options) {
         this.m_snapshots = new Map();
-        this.m_recycling = false;
         this.m_logPath = path.join(options.path, 'log');
         if (options.dumpSnapshotManager) {
             this.m_dumpManager = options.dumpSnapshotManager;
@@ -25,18 +24,17 @@ class StorageLogSnapshotManager {
         this.m_readonly = !!(options && options.readonly);
     }
     recycle() {
-        this.m_logger.info(`begin recycle snanshot`);
+        this.m_logger.debug(`begin recycle snanshot`);
         let recycledMap = new Map(this.m_snapshots);
         for (let [blockHash, stub] of recycledMap.entries()) {
             if (!stub.ref) {
-                this.m_logger.info(`delete snapshot ${blockHash}`);
+                this.m_logger.debug(`delete snapshot ${blockHash}`);
                 const err = this.m_dumpManager.removeSnapshot(blockHash);
                 if (!err) {
                     this.m_snapshots.delete(blockHash);
                 }
             }
         }
-        this.m_recycling = false;
     }
     async init() {
         if (!this.m_readonly) {

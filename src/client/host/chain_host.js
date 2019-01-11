@@ -63,34 +63,38 @@ class ChainHost {
             return { ret: false };
         }
         //处理peerId相关逻辑
-        let optionsFile = path.join(dataDir, 'options.json');
+        let optionsFile = path.join(dataDir, '../', '.options.json');
+        let writeFlag = false;
+        let json = {};
+        let propertyName = "peerid";
+        if (commandOptions.has("test")) {
+            propertyName = "testPeerid";
+        }
         try {
             if (fs.existsSync(optionsFile)) {
-                let json = fs.readJsonSync(optionsFile);
+                json = fs.readJsonSync(optionsFile);
                 if (json["peerid"]) {
-                    commandOptions.set("peerid", json["peerid"]);
+                    commandOptions.set("peerid", json[propertyName]);
                 }
                 else {
-                    let privateKey = addressClass.createKeyPair()[1];
-                    let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-                    commandOptions.set("peerid", address);
-                    json["peerid"] = address;
-                    fs.writeJsonSync(optionsFile, json);
+                    writeFlag = true;
                 }
             }
             else {
-                let privateKey = addressClass.createKeyPair()[1];
-                let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-                commandOptions.set("peerid", address);
-                let json = {};
-                json["peerid"] = address;
-                fs.writeJsonSync(optionsFile, json);
+                writeFlag = true;
             }
         }
         catch (error) {
-            console.error(`read or write nodeinfo error `, error);
-            return { ret: false };
+            console.error(`read or write nodeinfo error, rebuild file`);
+            writeFlag = true;
         }
+        if (writeFlag) {
+            let privateKey = addressClass.createKeyPair()[1];
+            let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
+            json[propertyName] = address;
+            fs.writeJsonSync(optionsFile, json);
+        }
+        commandOptions.set("peerid", json[propertyName]);
         let logger = this._parseLogger(dataDir, commandOptions);
         let creator = core_1.initChainCreator({ logger });
         let cr = await creator.createChainInstance(dataDir, { initComponents: true });

@@ -18,10 +18,10 @@ class DbftChain extends value_chain_1.ValueChain {
         return true;
     }
     // 不会分叉
-    get _morkSnapshot() {
-        return false;
+    async _onMorkSnapshot(options) {
+        return { err: error_code_1.ErrorCode.RESULT_OK };
     }
-    async newBlockExecutor(block, storage) {
+    async _newBlockExecutor(block, storage, externParams) {
         let kvBalance = (await storage.getKeyValue(value_chain_1.Chain.dbSystem, value_chain_1.ValueChain.kvBalance)).kv;
         let ve = new ValueContext.Context(kvBalance);
         let externalContext = Object.create(null);
@@ -62,7 +62,15 @@ class DbftChain extends value_chain_1.ValueChain {
         //
         //     return im.isminer!;
         // };
-        let executor = new executor_1.DbftBlockExecutor({ logger: this.logger, block, storage, handler: this.m_handler, externContext: externalContext, globalOptions: this.m_globalOptions });
+        let executor = new executor_1.DbftBlockExecutor({
+            logger: this.logger,
+            block,
+            storage,
+            handler: this.m_handler,
+            externContext: externalContext,
+            globalOptions: this.m_globalOptions,
+            externParams
+        });
         return { err: error_code_1.ErrorCode.RESULT_OK, executor: executor };
     }
     async newViewExecutor(header, storage, method, param) {
@@ -251,8 +259,8 @@ class DbftChain extends value_chain_1.ValueChain {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    getLastIrreversibleBlockNumber() {
-        return this.m_tip.number;
+    getLIB() {
+        return { number: this.m_tip.number, hash: this.m_tip.hash };
     }
 }
 exports.DbftChain = DbftChain;

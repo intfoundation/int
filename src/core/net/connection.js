@@ -18,6 +18,9 @@ class IConnection extends events_1.EventEmitter {
     destroy() {
         return Promise.resolve();
     }
+    get id() {
+        return 'conn';
+    }
     getTimeDelta() {
         return 0;
     }

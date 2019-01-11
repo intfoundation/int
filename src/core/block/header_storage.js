@@ -6,6 +6,7 @@ const reader_1 = require("../lib/reader");
 const error_code_1 = require("../error_code");
 const assert = require("assert");
 const LRUCache_1 = require("../lib/LRUCache");
+const util_1 = require("util");
 const Lock_1 = require("../lib/Lock");
 const tx_storage_1 = require("./tx_storage");
 const initHeaderSql = 'CREATE TABLE IF NOT EXISTS "headers"("hash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "pre" CHAR(64) NOT NULL, "verified" TINYINT NOT NULL, "raw" BLOB NOT NULL);';
@@ -63,9 +64,9 @@ class HeaderStorage {
     uninit() {
         this.m_txView.uninit();
     }
-    async getHeader(arg1, arg2) {
+    async getHeader(arg1, arg2, arg3) {
         let header;
-        if (arg2 === undefined || arg2 === undefined) {
+        if (util_1.isNullOrUndefined(arg2)) {
             if (arg1 instanceof block_1.BlockHeader) {
                 assert(false);
                 return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
@@ -84,8 +85,12 @@ class HeaderStorage {
                 }
                 fromHeader = hr.header;
             }
-            let headers = [];
-            headers.push(fromHeader);
+            const withHeaders = util_1.isNullOrUndefined(arg3) ? true : arg3;
+            let headers;
+            if (withHeaders) {
+                headers = [];
+                headers.unshift(fromHeader);
+            }
             if (arg2 > 0) {
                 assert(false);
                 return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
@@ -100,10 +105,11 @@ class HeaderStorage {
                         return hr;
                     }
                     fromHeader = hr.header;
-                    headers.push(fromHeader);
+                    if (headers) {
+                        headers.unshift(fromHeader);
+                    }
                 }
-                headers = headers.reverse();
-                return { err: error_code_1.ErrorCode.RESULT_OK, header: headers[0], headers };
+                return { err: error_code_1.ErrorCode.RESULT_OK, header: fromHeader, headers };
             }
         }
     }
@@ -176,7 +182,7 @@ class HeaderStorage {
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
         let entry = new BlockHeaderEntry(header, verified);
-        this.m_logger.debug(`update header storage cache hash: ${header.hash} number: ${header.number} verified: ${verified}`);
+        // this.m_logger.debug(`update header storage cache hash: ${header.hash} number: ${header.number} verified: ${verified}`);
         this.m_cacheHash.set(header.hash, entry);
         if (typeof arg === 'number') {
             this.m_cacheHeight.set(header.number, entry);
@@ -339,7 +345,7 @@ class HeaderStorage {
         }
         catch (e) {
             this.m_logger.error(`changeBest ${header.hash}(${header.number}) failed, ${e}`);
-            this._rollback();
+            await this._rollback();
             return error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
         this.m_logger.debug(`remove header storage cache hash: ${header.hash} number: ${header.number}`);

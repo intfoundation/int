@@ -62,29 +62,31 @@ class RandomOutNetwork extends network_1.Network {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async _newOutbounds(count, callback) {
-        let peerids = this.m_nodeStorage.get('all');
         let willConn = new Set();
+        let excludes = new Set();
+        for (const pid of this.m_connecting) {
+            excludes.add(pid);
+        }
+        for (const pid of willConn) {
+            excludes.add(pid);
+        }
+        for (const ib of this.node.getInbounds()) {
+            excludes.add(ib.remote);
+        }
+        for (const ob of this.node.getOutbounds()) {
+            excludes.add(ob.remote);
+        }
+        let peerids = this.m_nodeStorage.get('all');
         peerids.forEach((pid) => {
-            willConn.add(pid);
+            if (!excludes.has(pid)) {
+                willConn.add(pid);
+            }
         });
         this.logger.debug(`will connect to peers from node storage: `, willConn);
         if (willConn.size < count) {
-            let excludes = [];
-            for (const pid of this.m_connecting) {
-                excludes.push(pid);
-            }
-            for (const pid of willConn) {
-                excludes.push(pid);
-            }
-            for (const ib of this.node.getInbounds()) {
-                excludes.push(ib.remote);
-            }
-            for (const ob of this.node.getOutbounds()) {
-                excludes.push(ob.remote);
-            }
             let result = await this.m_node.randomPeers(count, excludes);
             if (result.peers.length === 0) {
-                result.peers = this.m_nodeStorage.staticNodes.filter((value) => !excludes.includes(value));
+                result.peers = this.m_nodeStorage.staticNodes.filter((value) => !excludes.has(value));
                 result.err = result.peers.length > 0 ? error_code_1.ErrorCode.RESULT_OK : error_code_1.ErrorCode.RESULT_SKIPPED;
             }
             if (result.err === error_code_1.ErrorCode.RESULT_OK) {

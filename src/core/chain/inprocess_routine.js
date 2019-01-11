@@ -23,7 +23,7 @@ class InprogressRoutine extends executor_routine_1.BlockExecutorRoutine {
             name: options.name,
             logger: options.chain.logger,
             block: options.block,
-            storage: options.storage
+            storage: options.storage,
         });
         this.m_state = executor_routine_1.BlockExecutorRoutineState.init;
         this.m_cancelSet = false;
@@ -44,6 +44,7 @@ class InprogressRoutine extends executor_routine_1.BlockExecutorRoutine {
         if (this.m_cancelSet && !this.m_canceled) {
             this.m_canceled = true;
         }
+        await ner.executor.finalize();
         this.m_state = executor_routine_1.BlockExecutorRoutineState.finished;
         if (this.m_canceled) {
             return { err: error_code_1.ErrorCode.RESULT_CANCELED };
@@ -66,6 +67,7 @@ class InprogressRoutine extends executor_routine_1.BlockExecutorRoutine {
         if (this.m_cancelSet && !this.m_canceled) {
             this.m_canceled = true;
         }
+        await ner.executor.finalize();
         this.m_state = executor_routine_1.BlockExecutorRoutineState.finished;
         if (this.m_canceled) {
             return { err: error_code_1.ErrorCode.RESULT_CANCELED };
@@ -85,7 +87,7 @@ class InprogressRoutine extends executor_routine_1.BlockExecutorRoutine {
         this.m_cancelSet = true;
     }
     async _newBlockExecutor(block, storage) {
-        let nber = await this.m_chain.newBlockExecutor(block, storage);
+        let nber = await this.m_chain.newBlockExecutor({ block, storage });
         if (nber.err) {
             this.m_canceled = true;
             return nber;

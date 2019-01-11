@@ -10,10 +10,9 @@ function instance(superClass) {
         async randomPeers(count, excludes) {
             const doubleCount = 2 * count;
             if (this.m_staticPeers.length) {
-                const ex = new Set(excludes);
                 let inc = [];
                 for (const peerid of this.m_staticPeers) {
-                    if (!ex.has(peerid)) {
+                    if (!excludes.has(peerid)) {
                         inc.push(peerid);
                     }
                 }

@@ -51,7 +51,13 @@ class INode extends events_1.EventEmitter {
         this.m_genesis = genesis_hash;
     }
     set logger(logger) {
+        if (!logger) {
+            return;
+        }
         this.m_logger = logger;
+    }
+    get logger() {
+        return this.m_logger;
     }
     get peerid() {
         return this.m_peerid;
@@ -70,6 +76,9 @@ class INode extends events_1.EventEmitter {
             ret.push(` => ${element.remote}`);
         });
         return ret;
+    }
+    addBlackList(peerid, ip) {
+        return;
     }
     uninit() {
         this.removeAllListeners('inbound');
@@ -118,13 +127,13 @@ class INode extends events_1.EventEmitter {
                         resolve(error_code_1.ErrorCode.RESULT_OK);
                     }
                     else {
-                        this.m_logger.warn(`close conn to ${peerid} by unSupport`);
+                        this.logger.warn(`close conn ${conn.id} to ${peerid} by unSupport`);
                         conn.destroy();
                         resolve(error_code_1.ErrorCode.RESULT_VER_NOT_SUPPORT);
                     }
                 }
                 else {
-                    this.m_logger.warn(`close conn to ${peerid} by non versionAck pkg`);
+                    this.logger.warn(`close conn ${conn.id} to ${peerid} by non versionAck pkg`);
                     conn.destroy();
                     resolve(error_code_1.ErrorCode.RESULT_INVALID_STATE);
                 }
@@ -151,12 +160,12 @@ class INode extends events_1.EventEmitter {
         let other = this.getConnection(peerid);
         if (other) {
             if (conn.version.compare(other.version) > 0) {
-                this.m_logger.warn(`close conn to ${peerid} by already exist conn`);
+                this.logger.warn(`close conn ${conn.id} to ${peerid} by already exist conn`);
                 conn.destroy();
                 return { err: error_code_1.ErrorCode.RESULT_ALREADY_EXIST, peerid };
             }
             else {
-                this.m_logger.warn(`close other conn to ${peerid} by already exist conn`);
+                this.logger.warn(`close other conn ${conn.id} to ${peerid} by already exist conn`);
                 this.closeConnection(other, true);
             }
         }
@@ -305,19 +314,19 @@ class INode extends events_1.EventEmitter {
                 let ackWriter = writer_1.PackageStreamWriter.fromPackage(CMD_TYPE.versionAck, { isSupport, timestamp: Date.now() }, 0);
                 inbound.addPendingWriter(ackWriter);
                 if (!isSupport) {
-                    this.m_logger.warn(`close inbound conn to ${inbound.fullRemote} by unSupport`);
+                    this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by unSupport`);
                     inbound.destroy();
                     return;
                 }
                 let other = this.getConnection(inbound.remote);
                 if (other) {
                     if (inbound.version.compare(other.version) > 0) {
-                        this.m_logger.warn(`close inbound conn to ${inbound.fullRemote} by already exist`);
+                        this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by already exist`);
                         inbound.destroy();
                         return;
                     }
                     else {
-                        this.m_logger.warn(`close other conn to ${inbound.fullRemote} by already exist`);
+                        this.m_logger.warn(`close other conn ${inbound.id} to ${inbound.fullRemote} by already exist`);
                         this.closeConnection(other, true);
                     }
                 }
@@ -330,7 +339,7 @@ class INode extends events_1.EventEmitter {
                 this.emit('inbound', inbound);
             }
             else {
-                this.m_logger.warn(`close inbound conn to ${inbound.fullRemote} by non version pkg`);
+                this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by non version pkg`);
                 inbound.destroy();
             }
         });

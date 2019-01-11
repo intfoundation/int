@@ -7,3 +7,4 @@ __export(require("./transaction"));
 __export(require("./view"));
 __export(require("./handler"));
 __export(require("./block"));
+__export(require("./external_param"));
