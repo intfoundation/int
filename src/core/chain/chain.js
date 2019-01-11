@@ -381,7 +381,7 @@ class Chain extends events_1.EventEmitter {
         _instanceOptions.warnPendingCount = !util_1.isNullOrUndefined(instanceOptions.warnPendingCount) ? instanceOptions.warnPendingCount : 500;
         // limit and price
         _instanceOptions.maxTxLimit = !util_1.isNullOrUndefined(instanceOptions.maxTxLimit) ? instanceOptions.maxTxLimit : 7000000; // 单笔 tx 最大 limit
-        _instanceOptions.minTxLimit = !util_1.isNullOrUndefined(instanceOptions.minTxLimit) ? instanceOptions.minTxLimit : 0; // 单笔 tx 最小 limit
+        _instanceOptions.minTxLimit = !util_1.isNullOrUndefined(instanceOptions.minTxLimit) ? instanceOptions.minTxLimit : 25000; // 单笔 tx 最小 limit
         _instanceOptions.maxTxPrice = !util_1.isNullOrUndefined(instanceOptions.maxTxPrice) ? instanceOptions.maxTxPrice : 2000000000000; //单笔 tx 最大price
         _instanceOptions.minTxPrice = !util_1.isNullOrUndefined(instanceOptions.minTxPrice) ? instanceOptions.minTxPrice : 200000000000; //单笔 tx 最小price
         this.m_instanceOptions = _instanceOptions;

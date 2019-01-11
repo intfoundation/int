@@ -61,30 +61,6 @@ class ChainServer {
                 tx.limit = new core_1.BigNumber(params.limit);
                 tx.price = new core_1.BigNumber(params.price);
                 tx.input = params.input;
-                if (!util_1.isNullOrUndefined(params.input.amount)) {
-                    if (!util_1.isString(params.input.amount)) {
-                        err = core_1.ErrorCode.RESULT_INVALID_PARAM;
-                    }
-                    else {
-                        tx.input.amount = new core_1.BigNumber(params.input.amount);
-                    }
-                }
-                if (!util_1.isNullOrUndefined(params.input.schedule)) {
-                    if (util_1.isArray(params.input.schedule)) {
-                        let i = 0;
-                        let schedule = params.input.schedule;
-                        while (i < schedule.length) {
-                            if (!util_1.isObject(schedule[i]) || util_1.isNullOrUndefined(schedule[i].value) || !util_1.isString(schedule[i].value)) {
-                                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
-                                break;
-                            }
-                            i++;
-                        }
-                    }
-                    else {
-                        err = core_1.ErrorCode.RESULT_INVALID_PARAM;
-                    }
-                }
                 //根据from地址获取用户对应的keystore文件
                 let filePath = process.cwd() + "/data/keystore";
                 let homePath = os.homedir();
@@ -388,6 +364,16 @@ class ChainServer {
         this.m_server.on('getTransactionLimit', async (params, resp) => {
             let limit = this.m_chain.calcTxLimit(params.method, params.input);
             await promisify(resp.write.bind(resp)(JSON.stringify(limit)));
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('createContractAddress', async (params, resp) => {
+            let { err, nonce } = await this.m_chain.getNonce(params.address);
+            if (err) {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
+                await promisify(resp.end.bind(resp)());
+            }
+            let address = addressClass.addressFromPublicKey(core_1.encodeAddressAndNonce(params.address, nonce + 1));
+            await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, contract: address })));
             await promisify(resp.end.bind(resp)());
         });
     }

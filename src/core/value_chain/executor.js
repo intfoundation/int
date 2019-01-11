@@ -38,6 +38,12 @@ exports.ValueBlockExecutor = ValueBlockExecutor;
 class ValueTransactionExecutor extends chain_1.TransactionExecutor {
     constructor(handler, listener, tx, logger) {
         super(handler, listener, tx, logger);
+        this.m_options = {
+            maxTxLimit: new bignumber_js_1.BigNumber(7000000),
+            minTxLimit: new bignumber_js_1.BigNumber(25000),
+            maxTxPrice: new bignumber_js_1.BigNumber(2000000000000),
+            minTxPrice: new bignumber_js_1.BigNumber(200000000000) //单笔 tx 最小price
+        };
         this.m_totalCost = new bignumber_js_1.BigNumber(0);
         this.m_calcTxLimit = new calculate_tx_limit_1.CalcuateLimit();
     }
@@ -82,6 +88,11 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             if (nonceErr !== error_code_1.ErrorCode.RESULT_OK) {
                 return { err: nonceErr };
             }
+        }
+        let bt = this.baseMethodChecker(this.m_tx);
+        if (bt) {
+            this.m_logger.info(`execute baseMethodChecker failed for ${bt}, hash=${this.m_tx.hash}`);
+            return { err: bt };
         }
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, chain_2.ValueChain.kvBalance)).kv;
         let fromAddress = this.m_tx.address;
@@ -130,6 +141,33 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             return { err };
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
+    }
+    baseMethodChecker(tx) {
+        if (util_1.isNullOrUndefined(tx.limit) || util_1.isNullOrUndefined(tx.price) || util_1.isNullOrUndefined(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
+        if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+        }
+        if (!tx.limit.isInteger() || !tx.price.isInteger() || !tx.value.isInteger()) {
+            return error_code_1.ErrorCode.RESULT_NOT_INTEGER;
+        }
+        if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
+            return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
+        }
+        if (tx.limit.gt(this.m_options.maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        if (tx.limit.lt(this.m_options.minTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
+        }
+        if (tx.price.gt(this.m_options.maxTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
+        }
+        if (tx.price.lt(this.m_options.minTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
     }
 }
 exports.ValueTransactionExecutor = ValueTransactionExecutor;

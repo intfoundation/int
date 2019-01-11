@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-const client_1 = require("../../../src/client");
-const txPendingChecker = require("../../../src/core/chain/tx_pending_checker");
-const core_1 = require("../../../src/core");
+const client_1 = require("../../src/client");
+const txPendingChecker = require("../../src/core/chain/tx_pending_checker");
+const core_1 = require("../../src/core");
 function registerHandler(handler) {
     handler.genesisListener = async (context) => {
         await context.storage.createKeyValue('lock');
@@ -330,7 +330,11 @@ function registerHandler(handler) {
         if (totalSupply.err !== client_1.ErrorCode.RESULT_OK) {
             return totalSupply.err;
         }
-        await tokenkv.kv.hset(params.tokenid, 'supply', totalSupply.value.plus(mintAmount));
+        let newSupply = totalSupply.value.plus(mintAmount);
+        if (newSupply.gt(new client_1.BigNumber(1e+36))) {
+            return client_1.ErrorCode.RESULT_OUT_OF_RANGE;
+        }
+        await tokenkv.kv.hset(params.tokenid, 'supply', newSupply);
         await tokenkv.kv.hset(params.tokenid, owner, ownerBalance.plus(mintAmount));
         return client_1.ErrorCode.RESULT_OK;
     }, txPendingChecker.mintTokenChecker);
