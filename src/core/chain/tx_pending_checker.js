@@ -119,6 +119,9 @@ function mintTokenChecker(tx) {
     if (new index_1.BigNumber(input.amount).isNegative()) {
         return index_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
     }
+    if (new index_1.BigNumber(input.amount).gt(new index_1.BigNumber(1e+36))) {
+        return index_1.ErrorCode.RESULT_OUT_OF_RANGE;
+    }
     return index_1.ErrorCode.RESULT_OK;
 }
 exports.mintTokenChecker = mintTokenChecker;

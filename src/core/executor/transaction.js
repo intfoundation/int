@@ -112,7 +112,7 @@ class TransactionExecutor extends BaseExecutor {
     }
     async _execute(env, input) {
         try {
-            this.m_logger.info(`will execute tx ${this.m_tx.hash}: ${this.m_tx.method},from ${this.m_tx.address}, params ${JSON.stringify(this.m_tx.input)}`);
+            this.m_logger.debug(`will execute tx ${this.m_tx.hash}: ${this.m_tx.method},from ${this.m_tx.address}, params ${JSON.stringify(this.m_tx.input)}`);
             return await this.m_listener(env, this.m_tx.input);
         }
         catch (e) {

@@ -115,7 +115,12 @@ class ChainServer {
                     tx.sign(privateKey.privateKey);
                     this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
                     err = await this.m_chain.addTransaction(tx);
-                    await promisify(resp.write.bind(resp)(JSON.stringify({ err, hash: tx.hash })));
+                    if (err) {
+                        await promisify(resp.write.bind(resp)(JSON.stringify({ err })));
+                    }
+                    else {
+                        await promisify(resp.write.bind(resp)(JSON.stringify({ err, hash: tx.hash })));
+                    }
                 }
                 else {
                     await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_KEYSTORE_ERROR })));
