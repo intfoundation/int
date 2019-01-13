@@ -91,7 +91,7 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         }
         let bt = this.baseMethodChecker(this.m_tx);
         if (bt) {
-            this.m_logger.info(`execute baseMethodChecker failed for ${bt}, hash=${this.m_tx.hash}`);
+            this.m_logger.error(`execute baseMethodChecker failed for ${bt}, hash=${this.m_tx.hash}`);
             return { err: bt };
         }
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, chain_2.ValueChain.kvBalance)).kv;
@@ -155,17 +155,18 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
             return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
-        if (tx.limit.gt(this.m_options.maxTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
-        }
-        if (tx.limit.lt(this.m_options.minTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
-        }
         if (tx.price.gt(this.m_options.maxTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
         }
         if (tx.price.lt(this.m_options.minTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
+        if (tx.limit.gt(this.m_options.maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        let txLimit = this.m_calcTxLimit.calcTxLimit(tx.method, tx.input);
+        if (tx.limit.lt(this.m_options.minTxLimit) || tx.limit.lt(txLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }

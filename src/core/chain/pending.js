@@ -93,17 +93,18 @@ class PendingTransactions extends events_1.EventEmitter {
         if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
             return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
-        if (tx.limit.gt(this.m_maxTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
-        }
-        if (tx.limit.lt(this.m_minTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
-        }
         if (tx.price.gt(this.m_maxTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
         }
         if (tx.price.lt(this.m_minTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
+        if (tx.limit.gt(this.m_maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        let txLimit = this.m_calcTxLimit.calcTxLimit(tx.method, tx.input);
+        if (tx.limit.lt(this.m_minTxLimit) || tx.limit.lt(txLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }

@@ -159,7 +159,7 @@ function voteChecker(tx) {
 exports.voteChecker = voteChecker;
 function mortgageChecker(tx) {
     let input = tx.input;
-    if (!input || !tx.value.isEqualTo(input.amount) || util_1.isNullOrUndefined(input.amount) || !util_1.isString(input.amount)) {
+    if (!input || !util_1.isString(input.amount) || !tx.value.isEqualTo(new index_1.BigNumber(input.amount)) || util_1.isNullOrUndefined(input.amount)) {
         return index_1.ErrorCode.RESULT_INVALID_PARAM;
     }
     if (!(new index_1.BigNumber(input.amount).isInteger())) {
