@@ -1292,7 +1292,7 @@ class Chain extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async onPostCreateGenesis(genesis, storage) {
-        // assert(genesis.header.storageHash === (await storage.messageDigest()).value);
+        // assert(genesis1.header.storageHash === (await storage.messageDigest()).value);
         assert(genesis.number === 0);
         if (genesis.number !== 0) {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
