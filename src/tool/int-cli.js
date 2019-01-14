@@ -83,6 +83,8 @@ async function run(argv) {
         console.log("Please select network to connect: --test or --main");
         process.exit();
     }
+    console.log(options.get('dataDir'));
+    console.log(options.get('genesis'));
 
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
