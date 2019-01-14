@@ -7,12 +7,12 @@
     "global": {
         "minValidator": 1,
         "maxValidator": 13,
-        "reSelectionBlocks": 360,
+        "reSelectionBlocks": 364,
         "blockInterval": 10,
         "superAdmin": "INT1BVZ6YZhr4EbtEvgLP9UHGsWFgZMmodzYn",
         "agreeRateNumerator": 2,
         "agreeRateDenominator": 3,
-        "numberOffsetToLastBlock": 2160,
-        "banBlocks": 8640
+        "numberOffsetToLastBlock": 2184,
+        "banBlocks": 8736
     }
 }
