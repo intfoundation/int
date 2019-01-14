@@ -1,0 +1,18 @@
+{
+    "handler": "./intchain/chain/handler.js",
+    "type": {
+        "consensus": "dbft",
+        "features": []
+    },
+    "global": {
+        "minValidator": 1,
+        "maxValidator": 13,
+        "reSelectionBlocks": 364,
+        "blockInterval": 10,
+        "superAdmin": "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
+        "agreeRateNumerator": 2,
+        "agreeRateDenominator": 3,
+        "numberOffsetToLastBlock": 2184,
+        "banBlocks": 8736
+    }
+}
