@@ -95,6 +95,9 @@ function verify(md, signature, publicKey) {
 }
 exports.verify = verify;
 function isValidAddress(address) {
+    if (!address || !util_1.isString(address) || address.slice(0, 3) != "INT") {
+        return false;
+    }
     let subAddress = address.slice(3);
     try {
         let buf = base58.decode(subAddress);

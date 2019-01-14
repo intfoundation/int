@@ -46,7 +46,7 @@ async function run(argv) {
     if (options.has("test")) {
         options.set("dataDir", './data/testintchain/minerData_' + address);
         options.set("genesis", './data/testintchain/genesis');
-        options.set("sn", "SN_PEER_TEST@testsn.zeerong.com@8550@8551");
+        options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
         // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
     }

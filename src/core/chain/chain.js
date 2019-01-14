@@ -1395,7 +1395,7 @@ class Chain extends events_1.EventEmitter {
     }
     calcTxLimit(method, input) {
         let limit = this.m_calcTxLimit.calcTxLimit(method, input);
-        return { err: error_code_1.ErrorCode.RESULT_OK, limit: limit };
+        return { err: error_code_1.ErrorCode.RESULT_OK, limit: limit.toString() };
     }
 }
 // 存储address入链的tx的最大nonce

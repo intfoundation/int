@@ -23,7 +23,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
     
 ### Start a miner
 
-    node src/tool/starDtMiner.js --minerSecret ... --coinbase ... .......
+    node src/tool/startDMiner.js --minerSecret ... --coinbase ... .......
 
     options:
         --minerSecret                    It's required to give signature to block

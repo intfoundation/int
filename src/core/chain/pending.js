@@ -102,6 +102,9 @@ class PendingTransactions extends events_1.EventEmitter {
         if (tx.limit.gt(this.m_maxTxLimit)) {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
         }
+        if (tx.value.gt(new bignumber_js_1.BigNumber(1e+36))) {
+            return error_code_1.ErrorCode.RESULT_OUT_OF_RANGE;
+        }
         let txLimit = this.m_calcTxLimit.calcTxLimit(tx.method, tx.input);
         if (tx.limit.lt(this.m_minTxLimit) || tx.limit.lt(txLimit)) {
             return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;

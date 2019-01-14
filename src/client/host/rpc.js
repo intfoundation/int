@@ -260,7 +260,12 @@ class ChainServer {
             else {
                 this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
                 err = await this.m_chain.addTransaction(tx);
-                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
+                if (err) {
+                    await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
+                }
+                else {
+                    await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
+                }
             }
             await promisify(resp.end.bind(resp)());
         });
