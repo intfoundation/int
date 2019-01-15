@@ -112,13 +112,12 @@ function registerHandler(handler) {
         else if (fromInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
             return client_1.ErrorCode.RESULT_EXCEPTION;
         }
-        let toInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${params.to}`);
-        if (toInfo.err === client_1.ErrorCode.RESULT_OK && toInfo.value === true) {
-            return client_1.ErrorCode.RESULT_IS_FROZEN;
-        }
-        else if (toInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
-            return client_1.ErrorCode.RESULT_EXCEPTION;
-        }
+        // let toInfo = await tokenkv.kv!.hget(params.tokenid,`freeze^${params.to}`);
+        // if (toInfo.err === ErrorCode.RESULT_OK && toInfo.value === true) {
+        //     return ErrorCode.RESULT_IS_FROZEN;
+        // } else if (toInfo.err === ErrorCode.RESULT_EXCEPTION) {
+        //     return ErrorCode.RESULT_EXCEPTION
+        // }
         let fromTotal = await getTokenBalance(tokenkv.kv, params.tokenid, context.caller);
         let amount = new client_1.BigNumber(params.amount);
         if (fromTotal.lt(amount)) {
@@ -154,13 +153,12 @@ function registerHandler(handler) {
         else if (fromInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
             return client_1.ErrorCode.RESULT_EXCEPTION;
         }
-        let toInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${params.to}`);
-        if (toInfo.err === client_1.ErrorCode.RESULT_OK && toInfo.value === true) {
-            return client_1.ErrorCode.RESULT_IS_FROZEN;
-        }
-        else if (toInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
-            return client_1.ErrorCode.RESULT_EXCEPTION;
-        }
+        // let toInfo = await tokenkv.kv!.hget(params.tokenid,`freeze^${params.to}`);
+        // if (toInfo.err === ErrorCode.RESULT_OK && toInfo.value === true) {
+        //     return ErrorCode.RESULT_IS_FROZEN;
+        // } else if (toInfo.err === ErrorCode.RESULT_EXCEPTION) {
+        //     return ErrorCode.RESULT_EXCEPTION
+        // }
         let callerInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${context.caller}`);
         if (callerInfo.err === client_1.ErrorCode.RESULT_OK && callerInfo.value === true) {
             return client_1.ErrorCode.RESULT_IS_FROZEN;
@@ -173,6 +171,9 @@ function registerHandler(handler) {
             return callerApproval.err;
         }
         let callerMap = core_1.MapFromObject(callerApproval.value);
+        if (!callerMap.has(context.caller)) {
+            return client_1.ErrorCode.RESULT_NOT_FOUND;
+        }
         if (callerMap.get(context.caller).lt(amount)) {
             return client_1.ErrorCode.RESULT_NOT_ENOUGH;
         }
@@ -187,7 +188,13 @@ function registerHandler(handler) {
             await tokenkv.kv.hset(params.tokenid, `approval^${params.from}`, core_1.MapToObject(callerMap));
         }
         else {
-            await tokenkv.kv.hdel(params.tokenid, `approval^${params.from}`);
+            callerMap.delete(context.caller);
+            if (callerMap.size === 0) {
+                await tokenkv.kv.hdel(params.tokenid, `approval^${params.from}`);
+            }
+            else {
+                await tokenkv.kv.hset(params.tokenid, `approval^${params.from}`, core_1.MapToObject(callerMap));
+            }
         }
         let remainingFrom = fromBalance.minus(amount);
         if (remainingFrom.gt(new client_1.BigNumber(0))) {
@@ -213,6 +220,13 @@ function registerHandler(handler) {
         if (tokenkv.err) {
             return tokenkv.err;
         }
+        let fromInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${context.caller}`);
+        if (fromInfo.err === client_1.ErrorCode.RESULT_OK && fromInfo.value === true) {
+            return client_1.ErrorCode.RESULT_IS_FROZEN;
+        }
+        else if (fromInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
+            return client_1.ErrorCode.RESULT_EXCEPTION;
+        }
         let senderBalance = await getTokenBalance(tokenkv.kv, params.tokenid, context.caller);
         if (senderBalance.lt(amount)) {
             return client_1.ErrorCode.RESULT_NOT_ENOUGH;
@@ -220,9 +234,14 @@ function registerHandler(handler) {
         let senderApproval = await tokenkv.kv.hget(params.tokenid, `approval^${context.caller}`);
         if (senderApproval.err === client_1.ErrorCode.RESULT_OK) {
             let senderMap = core_1.MapFromObject(senderApproval.value);
-            senderMap.set(spender, senderMap.get(spender).plus(amount));
-            let senderObj = core_1.MapToObject(senderMap);
-            await tokenkv.kv.hset(params.tokenid, `approval^${context.caller}`, senderObj);
+            if (senderMap.size < 20) {
+                senderMap.set(spender, amount);
+                let senderObj = core_1.MapToObject(senderMap);
+                await tokenkv.kv.hset(params.tokenid, `approval^${context.caller}`, senderObj);
+            }
+            else {
+                return client_1.ErrorCode.RESULT_OUT_OF_RANGE;
+            }
         }
         else if (senderApproval.err === client_1.ErrorCode.RESULT_NOT_FOUND) {
             let approvalMap = new Map();
@@ -317,6 +336,13 @@ function registerHandler(handler) {
         if (tokenkv.err) {
             return tokenkv.err;
         }
+        let callerInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${context.caller}`);
+        if (callerInfo.err === client_1.ErrorCode.RESULT_OK && callerInfo.value === true) {
+            return client_1.ErrorCode.RESULT_IS_FROZEN;
+        }
+        else if (callerInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
+            return client_1.ErrorCode.RESULT_EXCEPTION;
+        }
         let ret = await tokenkv.kv.hget(params.tokenid, 'creator');
         if (ret.err !== client_1.ErrorCode.RESULT_OK) {
             return ret.err;
@@ -349,6 +375,13 @@ function registerHandler(handler) {
         let tokenkv = await context.storage.getReadWritableKeyValue('token');
         if (tokenkv.err) {
             return tokenkv.err;
+        }
+        let callerInfo = await tokenkv.kv.hget(params.tokenid, `freeze^${context.caller}`);
+        if (callerInfo.err === client_1.ErrorCode.RESULT_OK && callerInfo.value === true) {
+            return client_1.ErrorCode.RESULT_IS_FROZEN;
+        }
+        else if (callerInfo.err === client_1.ErrorCode.RESULT_EXCEPTION) {
+            return client_1.ErrorCode.RESULT_EXCEPTION;
         }
         let ret = await tokenkv.kv.hget(params.tokenid, 'creator');
         if (ret.err !== client_1.ErrorCode.RESULT_OK) {

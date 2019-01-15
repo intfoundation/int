@@ -179,7 +179,7 @@ function lockAccountChecker(tx) {
         if (!item || !util_1.isObject(item)) {
             return index_1.ErrorCode.RESULT_INVALID_PARAM;
         }
-        if (util_1.isNullOrUndefined(item.time) || !util_1.isNumber(item.time) || (item.time < Math.pow(10, 13))) {
+        if (util_1.isNullOrUndefined(item.time) || !util_1.isNumber(item.time) || (item.time < Math.pow(10, 12))) {
             return index_1.ErrorCode.RESULT_INVALID_PARAM;
         }
         let checkAmountResult = checkAmount(item.value);
