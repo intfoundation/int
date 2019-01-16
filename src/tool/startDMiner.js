@@ -57,7 +57,7 @@ async function run(argv) {
         options.set("loggerConsole", true);
     }
     if (!options.has("blocklimit")) {
-        options.set("blocklimit", 50000000);
+        options.set("blocklimit", 20000000);
     }
     if (!options.has("port")) {
         options.set("port", '8553|8554');

@@ -377,7 +377,7 @@ class Chain extends events_1.EventEmitter {
         _instanceOptions.confirmDepth = !util_1.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
         _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
         _instanceOptions.pendingOvertime = !util_1.isNullOrUndefined(instanceOptions.pendingOvertime) ? instanceOptions.pendingOvertime : 60 * 60 * 6;
-        _instanceOptions.maxPendingCount = !util_1.isNullOrUndefined(instanceOptions.maxPendingCount) ? instanceOptions.maxPendingCount : 10000;
+        _instanceOptions.maxPendingCount = !util_1.isNullOrUndefined(instanceOptions.maxPendingCount) ? instanceOptions.maxPendingCount : 2000;
         _instanceOptions.warnPendingCount = !util_1.isNullOrUndefined(instanceOptions.warnPendingCount) ? instanceOptions.warnPendingCount : 500;
         // limit and price
         _instanceOptions.maxTxLimit = 7000000; // 单笔 tx 最大 limit
