@@ -1,0 +1,14 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 7
+    },
+    "auditLog": "/Users/ali/WebstormProjects/int/data/intchain/genesis/.d2829c45f77be8add804f315621c6140b6d8df43-audit.json",
+    "files": [
+        {
+            "date": 1547628812396,
+            "name": "/Users/ali/WebstormProjects/int/data/intchain/genesis/exception.log.2019-01-16-16.",
+            "hash": "6c3191d58bb4cf2a8424972037552c3b"
+        }
+    ]
+}
