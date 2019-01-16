@@ -4,8 +4,10 @@ node_modules/
 data/testintchain/peerData*
 data/testintchain/intchaindata
 data/testintchain/minerData*
+data/testintchain/.options.json
 data/intchain/peerData
 data/intchain/minerData*
+data/intchain/.options.json
 data/keystore
 data/dbft/*
 data/testdbft/*
