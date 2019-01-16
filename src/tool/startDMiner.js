@@ -37,7 +37,7 @@ async function run(argv) {
 
     options.set("dataDir", './data/intchain/minerData_' + address);
     options.set("genesis", './data/intchain/genesis');
-    options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
+    options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("networkid", 1777);
 
     if (options.has("test")) {

@@ -48,7 +48,7 @@ async function run(argv) {
         options.set("loggerLevel", "info");
     }
 
-    options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
+    options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("dataDir", intPath + '/data/intchain/chaindata');
     options.set("genesis", intPath + '/data/intchain/genesis');
     options.set("networkid", 1777);
