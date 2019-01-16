@@ -46,10 +46,7 @@ async function run(argv) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
     }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Please select network to connect: --test or --main");
-        process.exit();
-    }
+
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }

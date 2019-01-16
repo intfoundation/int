@@ -51,7 +51,7 @@ async function run(argv) {
     options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("dataDir", intPath + '/data/intchain/chaindata');
     options.set("genesis", intPath + '/data/intchain/genesis');
-    options.set("networkid", 1777);
+    options.set("networkid", 1888);
     // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
     if (dirPath.indexOf('node_modules') !== -1) {
         blockPath = path.join(homePath, "/Library/", "INTChain/chaindata/");
@@ -76,10 +76,6 @@ async function run(argv) {
             }
             options.set("dataDir", blockPath);
         }
-    }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Please select network to connect: --test or --main");
-        process.exit();
     }
 
     options.set("net", "bdt");

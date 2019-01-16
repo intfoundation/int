@@ -48,7 +48,7 @@ async function run(argv) {
     options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("genesis", './data/intchain/genesis');
     options.set("dataDir", './data/intchain/peerData');
-    options.set("networkid", 1777);
+    options.set("networkid", 1888);
 
     if (options.has("test")) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
@@ -56,10 +56,7 @@ async function run(argv) {
         options.set("dataDir", './data/testintchain/peerData');
         options.set("networkid", 1666);
     }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Please select network to connect: --test or --main");
-        process.exit();
-    }
+
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
