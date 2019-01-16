@@ -1,23 +1,23 @@
 {
 	"preBalances": [{
-			"address": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79",
+			"address": "INT19bhCH7BdbTAVznJqFkbdkHNXYdPgGGUjv",
 			"amount": 1000000000000000000000000000
 		}
 	],
 	"miners": [
-        "INT13CS9dBwmaboedj2hPWx6Dgzt4cowWWoNZ",
-		"INT1LuwjNj8wkqo237N7Gh8nZSSvUa6TZ5ds4",
-		"INT12nD5LgUnLZDbyncFnoFB43YxhSFsERcgQ",
-		"INT18YQ9fHJbwJPzBBqJvBNMswPinsa1fXe9e",
-		"INT16SvD3wWP7g3PWZHdAP2fG58kM2RSz8tGM",
-		"INT12CdrtMEKwRqycjYWHw2gSUVTHKoF4wULx",
-		"INT17Rnp25o6JMwRiyvMCfLu4kN6AiacerA7y",
-		"INT1CmG5MyRWY7hNmQWaZ2WphpJeT29RV9gvm",
-		"INT1B8YVUXatMGTUzBw6YSgVAyDxsjXseuK12",
-		"INT15kqnEnSGPv3rPMRVfbe5VsCJQJ6NuoexS",
-		"INT1LuhKvTq3XdHYNu82p1A7vL7Mkv2G8XE2H",
-		"INT1Q2vABryL9rjeNLbbMdeE8hnTDnNe3tYVp",
-		"INT14vJCTrNCS7buSRsti5Y7nTFLSuDDYooZ6"
+        "INT1HtnwUJMUkgPo6hQicViqwsM2Sgy5crVG4",
+		"INT1FVFrUUmmK7BCiKUQuytLEfNu2KbmLycW3",
+		"INT19jJJ9aTMCUBRLSjHBpE5gUu1yxMsVzppM",
+		"INT1BGD6gYKmfd4qoJrk64Qb6S4Kaz61K4Cxb",
+		"INT1eQHH5Py5J7gykbGWbpZdNUcfajRjFBbK",
+		"INT17pBchWLpQjxXfh8kdTaWRjm4DkbyePdXq",
+		"INT1ECwyC2k2rYFvEDLSytvZpEMUgFf3ikaJh",
+		"INT1NvvVxQW4891PPpMf4U4nqzKh7eJaScUbX",
+		"INT12C78YTKg5G4aewSFqWqVttH7UBBT4h8P2",
+		"INT19Z6u8Mu724XdkB8yUSBpFgfmrp4DyeihM",
+		"INT1BUje4ndh9CfrMaWEQnRfeYfGRntHnk1xN",
+		"INT1AiB5381Bc93Azn62wqNBPFiPBHefpTtx2",
+		"INT1M2BGjEgqhApYLBqJ653o2qcFoQaRNKKqK"
 	],
-	"coinbase": "INT1EYLLvMtXGeiBJ7AZ6KJRP2BdAQ2Bof79"
+	"coinbase": "INT19bhCH7BdbTAVznJqFkbdkHNXYdPgGGUjv"
 }

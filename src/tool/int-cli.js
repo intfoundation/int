@@ -48,20 +48,18 @@ async function run(argv) {
         options.set("loggerLevel", "info");
     }
 
-    if (options.has("main")) {
-        options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
-        options.set("dataDir", intPath + '/data/intchain/chaindata');
-        options.set("genesis", intPath + '/data/intchain/genesis');
-        options.set("networkid", 1777);
-        // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
-        if (dirPath.indexOf('node_modules') !== -1) {
-            blockPath = path.join(homePath, "/Library/", "INTChain/chaindata/");
-            if (os.platform() === 'win32') {
-                homePath = homePath.replace(/\\/g, '\/');
-                blockPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/chaindata/');
-            }
-            options.set("dataDir", blockPath);
+    options.set("sn", "SN_PEER_MAIN_TEST@mainsn.zeerong.com@8550@8551");
+    options.set("dataDir", intPath + '/data/intchain/chaindata');
+    options.set("genesis", intPath + '/data/intchain/genesis');
+    options.set("networkid", 1777);
+    // 如果是命令行启动，则用新的路径替换掉 process.cwd()获得的路径
+    if (dirPath.indexOf('node_modules') !== -1) {
+        blockPath = path.join(homePath, "/Library/", "INTChain/chaindata/");
+        if (os.platform() === 'win32') {
+            homePath = homePath.replace(/\\/g, '\/');
+            blockPath = path.join(homePath, '/AppData/Roaming/', 'INTChain/chaindata/');
         }
+        options.set("dataDir", blockPath);
     }
     if (options.has("test")) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
