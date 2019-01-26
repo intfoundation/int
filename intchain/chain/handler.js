@@ -448,12 +448,13 @@ function registerHandler(handler) {
         }
         let schedule = ret.value;
         let nowTime = Date.now();
-        schedule.forEach((value, index) => {
-            if (nowTime >= value.time) {
-                unlockBalance = unlockBalance.plus(new client_1.BigNumber(value.value));
-                schedule.splice(index, 1);
+        for (let i = 0; i < schedule.length; i++) {
+            if (nowTime >= schedule[i].time) {
+                unlockBalance = unlockBalance.plus(new client_1.BigNumber(schedule[i].value));
+                schedule.splice(i, 1);
+                i -= 1;
             }
-        });
+        }
         if (unlockBalance.isEqualTo(new client_1.BigNumber(0))) {
             return client_1.ErrorCode.RESULT_UNLOCK_ZERO;
         }
