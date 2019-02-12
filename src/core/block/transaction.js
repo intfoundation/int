@@ -35,6 +35,18 @@ class Transaction extends serializable_1.SerializableWithHash {
     set input(i) {
         this.m_input = i;
     }
+    get publicKey() {
+        return this.m_publicKey;
+    }
+    set publicKey(k) {
+        this.m_publicKey = k;
+    }
+    get signature() {
+        return this.m_signature;
+    }
+    set signature(s) {
+        this.m_signature = s;
+    }
     /**
      *  virtual验证交易的签名段
      */
