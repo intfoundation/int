@@ -386,6 +386,63 @@ class ChainServer {
             await promisify(resp.write.bind(resp)(JSON.stringify({ err: core_1.ErrorCode.RESULT_OK, contract: address })));
             await promisify(resp.end.bind(resp)());
         });
+        this.m_server.on('getTransactionHash', async (params, resp) => {
+            let tx = new core_1.ValueTransaction();
+            let err = core_1.ErrorCode.RESULT_OK;
+            if (!util_1.isString(params.value) || !util_1.isString(params.limit) || !util_1.isString(params.price)) {
+                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+            }
+            tx.method = params.method;
+            tx.nonce = params.nonce;
+            tx.input = params.input;
+            try {
+                tx.publicKey = Buffer.from(params.publicKey, 'hex');
+                tx.value = new core_1.BigNumber(params.value);
+                tx.limit = new core_1.BigNumber(params.limit);
+                tx.price = new core_1.BigNumber(params.price);
+                tx.updateHash();
+            }
+            catch (e) {
+                err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
+            }
+            if (err) {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
+            }
+            else {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
+            }
+            await promisify(resp.end.bind(resp)());
+        });
+        this.m_server.on('sendTransactionWithSignature', async (params, resp) => {
+            let tx = new core_1.ValueTransaction();
+            let err = core_1.ErrorCode.RESULT_OK;
+            if (!util_1.isString(params.value) || !util_1.isString(params.limit) || !util_1.isString(params.price)) {
+                err = core_1.ErrorCode.RESULT_INVALID_PARAM;
+            }
+            tx.method = params.method;
+            tx.nonce = params.nonce;
+            tx.input = params.input;
+            try {
+                tx.publicKey = Buffer.from(params.publicKey, 'hex');
+                tx.signature = Buffer.from(params.signature, 'hex');
+                tx.value = new core_1.BigNumber(params.value);
+                tx.limit = new core_1.BigNumber(params.limit);
+                tx.price = new core_1.BigNumber(params.price);
+                tx.updateHash();
+                this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                err = await this.m_chain.addTransaction(tx);
+            }
+            catch (e) {
+                err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
+            }
+            if (err) {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
+            }
+            else {
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
+            }
+            await promisify(resp.end.bind(resp)());
+        });
     }
     makeDirSync(p) {
         if (fs.existsSync(p)) {
