@@ -11,15 +11,15 @@ const Lock_1 = require("../lib/Lock");
 const tx_storage_1 = require("./tx_storage");
 const initHeaderSql = 'CREATE TABLE IF NOT EXISTS "headers"("hash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "pre" CHAR(64) NOT NULL, "verified" TINYINT NOT NULL, "raw" BLOB NOT NULL);';
 const initBestSql = 'CREATE TABLE IF NOT EXISTS "best"("height" INTEGER PRIMARY KEY NOT NULL UNIQUE, "hash" CHAR(64) NOT NULL,  "timestamp" INTEGER NOT NULL);';
+const initBestHashIndexSql = 'create index if not exists "index_hash" on best (hash)';
 const getByHashSql = 'SELECT raw, verified FROM headers WHERE hash = $hash';
-const getByTimestampSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.timestamp = $timestamp';
-const getHeightOnBestSql = 'SELECT b.height, h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.hash = $hash';
-const getByHeightSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.height = $height';
+const getHeightOnBestSql = 'select b.height, h.raw, h.verified from (select * from headers where hash=$hash) as h left join (select * from best where hash=$hash) as b on h.hash=b.hash';
+const getByHeightSql = 'select raw, verified from headers where hash in (select hash from best where height=$height)';
 const insertHeaderSql = 'INSERT INTO headers (hash, pre, raw, verified) VALUES($hash, $pre, $raw, $verified)';
 const getBestHeightSql = 'SELECT max(height) AS height FROM best';
 const rollbackBestSql = 'DELETE best WHERE height > $height';
 const extendBestSql = 'INSERT INTO best (hash, height, timestamp) VALUES($hash, $height, $timestamp)';
-const getTipSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash ORDER BY b.height DESC';
+const getTipSql = 'select raw, verified from headers where hash in (select hash from best order by height desc limit 1)';
 const updateVerifiedSql = 'UPDATE headers SET verified=$verified WHERE hash=$hash';
 const getByPreBlockSql = 'SELECT raw, verified FROM headers WHERE pre = $pre';
 var VERIFY_STATE;
@@ -190,17 +190,21 @@ class HeaderStorage {
         return { err: error_code_1.ErrorCode.RESULT_OK, header, verified };
     }
     async getHeightOnBest(hash) {
-        let result = await this.m_db.get(getHeightOnBestSql, { $hash: hash });
-        if (!result || result.height === undefined) {
+        let result = await this.m_db.get('select raw from headers where hash=$hash', { $hash: hash });
+        if (!result || !result.raw) {
             return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
         }
         let header = new this.m_blockHeaderType();
-        let err = header.decode(new reader_1.BufferReader(result.raw, false));
+        let err = header.decode(new reader_1.BufferReader(result['raw'], false));
         if (err !== error_code_1.ErrorCode.RESULT_OK) {
             this.m_logger.error(`decode header ${hash} from header storage failed`);
             return { err };
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, height: result.height, header };
+        result = await this.m_db.get('select hash from best where height=$height', { $height: header.number });
+        if (!result || !result.hash || result.hash !== header.hash) {
+            return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, height: header.number, header };
     }
     async _saveHeader(header) {
         let writer = new writer_1.BufferWriter();
