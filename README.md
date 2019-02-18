@@ -30,7 +30,7 @@ You can install it from Node.js official website(https://nodejs.org/en/download/
         --coinbase                       It's required to receive block reward.
                                          Please keep the private key of the coinbase, do not tell others.
         --blocklimit                     The max sum of transactions limit in a block. 
-                                         Max value is 80000000,and default value is 50000000.
+                                         Max value is 80000000,and default value is 20000000.
         --port                           Network communication port of P2P,default value is 8553|8554.
         --loggerLevel                    The log leverl [all, trace, debug, info, warn, error, off]
         --hander                         The location of the handler file, which is the entry of the chain handler
