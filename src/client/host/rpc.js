@@ -430,6 +430,7 @@ class ChainServer {
                 tx.price = new core_1.BigNumber(params.price);
                 tx.updateHash();
                 if (tx.hash !== params.hash) {
+                    this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, params.hash=${params.hash}`);
                     err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
                 }
                 if (!err) {
