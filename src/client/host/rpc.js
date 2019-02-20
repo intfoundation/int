@@ -432,8 +432,10 @@ class ChainServer {
                 if (tx.hash !== params.hash) {
                     err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
                 }
-                this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-                err = await this.m_chain.addTransaction(tx);
+                if (!err) {
+                    this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                    err = await this.m_chain.addTransaction(tx);
+                }
             }
             catch (e) {
                 err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
