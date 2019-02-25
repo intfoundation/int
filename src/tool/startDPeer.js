@@ -41,26 +41,31 @@ async function run(argv) {
     if (!options.has("loggerLevel")) {
         options.set("loggerLevel", "info");
     }
-    if (!options.has("dataDir")) {
-        options.set("dataDir", './data/intchain/peerData');
+
+    if (!options.has("port")) {
+        options.set("port", "8553|8554");
     }
 
     options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("genesis", './data/intchain/genesis');
-    options.set("dataDir", './data/intchain/peerData');
+    if (!options.has("dataDir")) {
+        options.set("dataDir", './data/intchain/peerData');
+    }
     options.set("networkid", 1888);
 
     if (options.has("test")) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
         options.set("genesis", './data/testintchain/genesis');
-        options.set("dataDir", './data/testintchain/peerData');
+        if (!options.has("dataDir")) {
+            options.set("dataDir", './data/testintchain/peerData');
+        }
         options.set("networkid", 1666);
     }
 
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
-    options.set("port", '8553|8554');
+    // options.set("port", '8553|8554');
     options.set("saveMismatch", true);
     options.set("ignoreBan", true);
     //options.set("broadcast_limit_transaction",3);

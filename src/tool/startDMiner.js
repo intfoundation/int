@@ -35,13 +35,17 @@ async function run(argv) {
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
 
-    options.set("dataDir", './data/intchain/minerData_' + address);
+    if (!options.has("dataDir")) {
+        options.set("dataDir", './data/intchain/minerData_' + address);
+    }
     options.set("genesis", './data/intchain/genesis');
     options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
     options.set("networkid", 1888);
 
     if (options.has("test")) {
-        options.set("dataDir", './data/testintchain/minerData_' + address);
+        if (!options.has("dataDir")) {
+            options.set("dataDir", './data/testintchain/minerData_' + address);
+        }
         options.set("genesis", './data/testintchain/genesis');
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
         options.set("networkid", 1666);
