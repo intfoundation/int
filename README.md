@@ -4,7 +4,7 @@ Official Node.js implementation of the INT Chain protocol.
 
 ### Environment dependence
 
-Building int requires a Node.js (version 8.0 or later).
+Building int requires a version 8 Node.js (version 8.9 or later of version 8).
 You can install it from Node.js official website(https://nodejs.org/en/download/).
 
 ### Installation Instructions
