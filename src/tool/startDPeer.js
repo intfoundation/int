@@ -50,15 +50,15 @@ async function run(argv) {
     options.set("genesis", './data/intchain/genesis');
     if (!options.has("dataDir")) {
         options.set("dataDir", './data/intchain/peerData');
+        if(options.has("test")){
+            options.set("dataDir", './data/testintchain/peerData');
+        }
     }
     options.set("networkid", 1888);
 
     if (options.has("test")) {
         options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
         options.set("genesis", './data/testintchain/genesis');
-        if (!options.has("dataDir")) {
-            options.set("dataDir", './data/testintchain/peerData');
-        }
         options.set("networkid", 1666);
     }
 
