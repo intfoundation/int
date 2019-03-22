@@ -96,7 +96,8 @@ class LRUCache {
             this.m_memValue.set(key, [value, node]);
         }
         else {
-            if (this.m_link.length >= this.m_maxCount) {
+            if (this.m_link.length >= this.m_maxCount && this.m_link.tail) {
+                this.m_memValue.delete(this.m_link.tail.value);
                 this.m_link.removeTail();
             }
             let node = new LRUNode(key);
