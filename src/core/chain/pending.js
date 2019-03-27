@@ -130,6 +130,22 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         this.m_curHeader = header;
         this.m_storageView = svr.storage;
+        // 每10个块清除一次 tx record的数据
+        if (header.number % 10 == 0) {
+            let txRecord;
+            txRecord = this.m_txRecord;
+            console.log(this.m_txRecord);
+            this.m_logger.info(`begin remove timeout tx of txRecord, block number=${header.number}, block hash=${header.hash}`);
+            console.log(this.m_txRecord.m_memValue);
+            for (let [hash, value] of txRecord.m_memValue) {
+                let t = Date.now();
+                if (t >= value[0]) {
+                    this.m_logger.debug(`txRecord remove timeout tx hash ${hash}, time ${value[0]}, date now ${t}`);
+                    this.m_txRecord.remove(hash);
+                }
+            }
+            this.m_logger.info(`finish remove timeout tx of txRecord, block number=${header.number}, block hash=${header.hash}`);
+        }
         //每100个区块进行一次孤块序列超时判断
         if (header.number % 100 == 0) {
             this.m_logger.info(`clear timeout tx of orphanTxs,number=${header.number},hash=${header.hash}`);
