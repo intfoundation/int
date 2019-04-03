@@ -134,9 +134,7 @@ class PendingTransactions extends events_1.EventEmitter {
         if (header.number % 10 == 0) {
             let txRecord;
             txRecord = this.m_txRecord;
-            console.log(this.m_txRecord);
             this.m_logger.info(`begin remove timeout tx of txRecord, block number=${header.number}, block hash=${header.hash}`);
-            console.log(this.m_txRecord.m_memValue);
             for (let [hash, value] of txRecord.m_memValue) {
                 let t = Date.now();
                 if (t >= value[0]) {
