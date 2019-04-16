@@ -436,12 +436,12 @@ class ChainServer {
                 if (tx.hash !== params.hash) {
                     this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, params.hash=${params.hash}`);
                     err = core_1.ErrorCode.RESULT_INVALID_FORMAT;
-                }
-
-                let verifyResult = addressClass.verify(tx.hash, tx.signature, tx.publicKey);
-                if (!verifyResult) {
-                    err = core_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
-                    this.m_logger.error(`rpc server sendTransactionWithSignature error signature verify fail, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                } else {
+                    let verifyResult = addressClass.verify(tx.hash, tx.signature, tx.publicKey);
+                    if (!verifyResult) {
+                        err = core_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
+                        this.m_logger.error(`rpc server sendTransactionWithSignature error signature verify fail, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                    }
                 }
 
                 if (!err) {
