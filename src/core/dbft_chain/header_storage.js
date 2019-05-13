@@ -28,7 +28,6 @@ class DbftHeaderStorage {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     uninit() {
-        // do nothing
     }
     updateGlobalOptions(globalOptions) {
         this.m_globalOptions = globalOptions;

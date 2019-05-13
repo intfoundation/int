@@ -639,11 +639,11 @@ class Chain extends events_1.EventEmitter {
         return err;
     }
     async _compareWork(comparedHeader, bestChainTip) {
-        // TODO: pow 用height并不安全， 因为大bits高height的工作量可能低于小bits低height 的工作量
+
         return { err: error_code_1.ErrorCode.RESULT_OK, result: comparedHeader.number - bestChainTip.number };
     }
     async _addPendingHeaders(params) {
-        // TODO: 这里可以和pending block一样优化，去重已经有的
+
         this.m_pendingHeaders.push(params);
         if (this.m_pendingHeaders.length === 1) {
             while (this.m_pendingHeaders.length) {
