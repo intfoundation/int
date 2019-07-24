@@ -389,7 +389,7 @@ class ChainServer {
         this.m_server.on('getTransactionHash', async (params, resp) => {
             let tx = new core_1.ValueTransaction();
             let err = core_1.ErrorCode.RESULT_OK;
-            this.m_logger.debug(`rpc server getTransactionHash method=${params.method}, nonce=${params.nonce}, publicKey=${params.publicKey}, input=${params.input}, value=${params.value}, limit=${params.limit}, price=${params.price}`);
+            this.m_logger.info(`rpc server getTransactionHash method=${params.method}, nonce=${params.nonce}, publicKey=${params.publicKey}, input=${params.input}, value=${params.value}, limit=${params.limit}, price=${params.price}`);
             if (!util_1.isString(params.value) || !util_1.isString(params.limit) || !util_1.isString(params.price)) {
                 err = core_1.ErrorCode.RESULT_INVALID_PARAM;
             }
@@ -432,7 +432,7 @@ class ChainServer {
                 tx.limit = new core_1.BigNumber(params.limit);
                 tx.price = new core_1.BigNumber(params.price);
                 tx.updateHash();
-                this.m_logger.debug(`rpc server sendTransactionWithSignature tx=`, tx);
+                this.m_logger.info(`rpc server sendTransactionWithSignature tx=`, tx);
                 if (tx.hash !== params.hash) {
                     this.m_logger.debug(`rpc server sendTransactionWithSignature txhash=${tx.hash}, params.hash=${params.hash}`);
                     err = core_1.ErrorCode.RESULT_INVALID_FORMAT;

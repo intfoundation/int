@@ -177,7 +177,7 @@ function toStringifiable(o, parsable = false) {
         return s;
     }
     else {
-        throw new Error('not JSONable');
+        throw new Error('not JSON able');
     }
 }
 exports.toStringifiable = toStringifiable;

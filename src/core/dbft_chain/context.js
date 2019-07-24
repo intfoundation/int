@@ -116,7 +116,7 @@ class DbftContext {
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
-        // 如果投票者的权益不够，则返回
+        // if voter does not have enough stake , return error
         let her = await kvDBFT.hexists(DbftContext.keyStake, address);
         if (her.err) {
             return { err: her.err };
@@ -178,29 +178,7 @@ class DbftContext {
         });
         return { err: error_code_1.ErrorCode.RESULT_OK, vote };
     }
-    // public async isMiner(address: string): Promise<{err: ErrorCode, isminer?: boolean}> {
-    //     let dbr = await this.storage.getReadableDataBase(Chain.dbSystem);
-    //     if (dbr.err) {
-    //         this.logger.error(`get system database failed ${dbr.err}`);
-    //         return {err: dbr.err};
-    //     }
-    //     let kvr = await dbr.value!.getReadableKeyValue(DbftContext.kvDBFT);
-    //     if (kvr.err) {
-    //         this.logger.error(`get dbft keyvalue failed ${dbr.err}`);
-    //         return {err: kvr.err};
-    //     }
-    //     let kvDBFT = kvr.kv!;
-    //     let gm = await kvDBFT.get(DbftContext.keyMiners);
-    //     if (gm.err) {
-    //         if (gm.err  === ErrorCode.RESULT_NOT_FOUND) {
-    //             return {err: ErrorCode.RESULT_OK, isminer: false};
-    //         } else {
-    //             return {err: gm.err};
-    //         }
-    //     }
-    //     let miners = new Set(JSON.parse(gm.value!));
-    //     return {err: ErrorCode.RESULT_OK, isminer: miners.has(address)};
-    // }
+
     async registerToCandidate(candidate, blockheight) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
@@ -220,35 +198,7 @@ class DbftContext {
         let { err } = await kvDBFT.hset(DbftContext.keyCandidate, candidate, 0);
         return err;
     }
-    // async unRegisterFromCandidate(superAdmin: string, address: string): Promise<ErrorCode> {
-    //     if (superAdmin !== this.globalOptions.superAdmin) {
-    //         this.logger.error(`registerToCandidate superadmin error should ${this.globalOptions.superAdmin} but ${superAdmin} address=${address}`);
-    //         return ErrorCode.RESULT_NOT_SUPPORT;
-    //     }
-    //     /*
-    //     if (!libAddress.verify(Buffer.from(digest.md5(Buffer.from(address, 'hex')).toString('hex')), Buffer.from(sign, 'hex'), Buffer.from(this.globalOptions.systemPubkey, 'hex'))) {
-    //         this.logger.error(`registerToCandidate superadmin sign error,address=${address}`);
-    //         return ErrorCode.RESULT_NOT_SUPPORT;
-    //     }
-    //     */
-    //
-    //     let storage = this.storage as IReadWritableStorage;
-    //     let dbr = await storage.getReadWritableDatabase(Chain.dbSystem);
-    //     if (dbr.err) {
-    //         this.logger.error(`get system database failed ${dbr.err}`);
-    //         return dbr.err;
-    //     }
-    //     let kvr = await dbr.value!.getReadWritableKeyValue(DbftContext.kvDBFT);
-    //     if (kvr.err) {
-    //         this.logger.error(`get dbft keyvalue failed ${dbr.err}`);
-    //         return kvr.err;
-    //     }
-    //     let kvDBFT = kvr.kv!;
-    //
-    //     let {err} = await kvDBFT.hdel(DbftContext.keyCandidate, address);
-    //
-    //     return err;
-    // }
+
     async mortgage(from, amount) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
         if (kvr.err) {
