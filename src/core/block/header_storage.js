@@ -6,19 +6,21 @@ const reader_1 = require("../lib/reader");
 const error_code_1 = require("../error_code");
 const assert = require("assert");
 const LRUCache_1 = require("../lib/LRUCache");
+const util_1 = require("util");
 const Lock_1 = require("../lib/Lock");
 const tx_storage_1 = require("./tx_storage");
 const initHeaderSql = 'CREATE TABLE IF NOT EXISTS "headers"("hash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "pre" CHAR(64) NOT NULL, "verified" TINYINT NOT NULL, "raw" BLOB NOT NULL);';
 const initBestSql = 'CREATE TABLE IF NOT EXISTS "best"("height" INTEGER PRIMARY KEY NOT NULL UNIQUE, "hash" CHAR(64) NOT NULL,  "timestamp" INTEGER NOT NULL);';
+const initBestHashIndexSql = 'create index if not exists "index_hash" on best (hash)';
+const initHeadersPreIndexSql = 'create index if not exists "index_pre" on headers (pre)';
 const getByHashSql = 'SELECT raw, verified FROM headers WHERE hash = $hash';
-const getByTimestampSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.timestamp = $timestamp';
-const getHeightOnBestSql = 'SELECT b.height, h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.hash = $hash';
-const getByHeightSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash WHERE b.height = $height';
+const getHeightOnBestSql = 'select b.height, h.raw, h.verified from (select * from headers where hash=$hash) as h left join (select * from best where hash=$hash) as b on h.hash=b.hash';
+const getByHeightSql = 'select raw, verified from headers where hash in (select hash from best where height=$height)';
 const insertHeaderSql = 'INSERT INTO headers (hash, pre, raw, verified) VALUES($hash, $pre, $raw, $verified)';
 const getBestHeightSql = 'SELECT max(height) AS height FROM best';
 const rollbackBestSql = 'DELETE best WHERE height > $height';
 const extendBestSql = 'INSERT INTO best (hash, height, timestamp) VALUES($hash, $height, $timestamp)';
-const getTipSql = 'SELECT h.raw, h.verified FROM headers AS h LEFT JOIN best AS b ON b.hash = h.hash ORDER BY b.height DESC';
+const getTipSql = 'select raw, verified from headers where hash in (select hash from best order by height desc limit 1)';
 const updateVerifiedSql = 'UPDATE headers SET verified=$verified WHERE hash=$hash';
 const getByPreBlockSql = 'SELECT raw, verified FROM headers WHERE pre = $pre';
 var VERIFY_STATE;
@@ -58,14 +60,15 @@ class HeaderStorage {
                 return error_code_1.ErrorCode.RESULT_EXCEPTION;
             }
         }
+        await this.m_db.run(initHeadersPreIndexSql);
         return await this.m_txView.init();
     }
     uninit() {
         this.m_txView.uninit();
     }
-    async getHeader(arg1, arg2) {
+    async getHeader(arg1, arg2, arg3) {
         let header;
-        if (arg2 === undefined || arg2 === undefined) {
+        if (util_1.isNullOrUndefined(arg2)) {
             if (arg1 instanceof block_1.BlockHeader) {
                 assert(false);
                 return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
@@ -84,8 +87,12 @@ class HeaderStorage {
                 }
                 fromHeader = hr.header;
             }
-            let headers = [];
-            headers.push(fromHeader);
+            const withHeaders = util_1.isNullOrUndefined(arg3) ? true : arg3;
+            let headers;
+            if (withHeaders) {
+                headers = [];
+                headers.unshift(fromHeader);
+            }
             if (arg2 > 0) {
                 assert(false);
                 return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
@@ -100,10 +107,11 @@ class HeaderStorage {
                         return hr;
                     }
                     fromHeader = hr.header;
-                    headers.push(fromHeader);
+                    if (headers) {
+                        headers.unshift(fromHeader);
+                    }
                 }
-                headers = headers.reverse();
-                return { err: error_code_1.ErrorCode.RESULT_OK, header: headers[0], headers };
+                return { err: error_code_1.ErrorCode.RESULT_OK, header: fromHeader, headers };
             }
         }
     }
@@ -176,7 +184,7 @@ class HeaderStorage {
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
         let entry = new BlockHeaderEntry(header, verified);
-        this.m_logger.debug(`update header storage cache hash: ${header.hash} number: ${header.number} verified: ${verified}`);
+        // this.m_logger.debug(`update header storage cache hash: ${header.hash} number: ${header.number} verified: ${verified}`);
         this.m_cacheHash.set(header.hash, entry);
         if (typeof arg === 'number') {
             this.m_cacheHeight.set(header.number, entry);
@@ -184,17 +192,21 @@ class HeaderStorage {
         return { err: error_code_1.ErrorCode.RESULT_OK, header, verified };
     }
     async getHeightOnBest(hash) {
-        let result = await this.m_db.get(getHeightOnBestSql, { $hash: hash });
-        if (!result || result.height === undefined) {
+        let result = await this.m_db.get('select raw from headers where hash=$hash', { $hash: hash });
+        if (!result || !result.raw) {
             return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
         }
         let header = new this.m_blockHeaderType();
-        let err = header.decode(new reader_1.BufferReader(result.raw, false));
+        let err = header.decode(new reader_1.BufferReader(result['raw'], false));
         if (err !== error_code_1.ErrorCode.RESULT_OK) {
             this.m_logger.error(`decode header ${hash} from header storage failed`);
             return { err };
         }
-        return { err: error_code_1.ErrorCode.RESULT_OK, height: result.height, header };
+        result = await this.m_db.get('select hash from best where height=$height', { $height: header.number });
+        if (!result || !result.hash || result.hash !== header.hash) {
+            return { err: error_code_1.ErrorCode.RESULT_NOT_FOUND };
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, height: header.number, header };
     }
     async _saveHeader(header) {
         let writer = new writer_1.BufferWriter();
@@ -208,10 +220,6 @@ class HeaderStorage {
             await this.m_db.run(insertHeaderSql, { $hash: header.hash, $raw: headerRaw, $pre: header.preBlockHash, $verified: VERIFY_STATE.notVerified });
         }
         catch (e) {
-            let s = `${e}`;
-            if (s.includes('UNIQUE constraint failed')) {
-                return error_code_1.ErrorCode.RESULT_OK;
-            }
             this.m_logger.error(`save Header ${header.hash}(${header.number}) failed, ${e}`);
             return error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
@@ -343,7 +351,7 @@ class HeaderStorage {
         }
         catch (e) {
             this.m_logger.error(`changeBest ${header.hash}(${header.number}) failed, ${e}`);
-            this._rollback();
+            await this._rollback();
             return error_code_1.ErrorCode.RESULT_EXCEPTION;
         }
         this.m_logger.debug(`remove header storage cache hash: ${header.hash} number: ${header.number}`);
