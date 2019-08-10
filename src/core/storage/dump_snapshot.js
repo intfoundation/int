@@ -24,7 +24,7 @@ class StorageDumpSnapshot {
     }
     remove() {
         if (fs.existsSync(this.filePath)) {
-            fs.removeSync(this.filePath);
+            fs.unlinkSync(this.filePath);
             return error_code_1.ErrorCode.RESULT_OK;
         }
         return error_code_1.ErrorCode.RESULT_NOT_FOUND;

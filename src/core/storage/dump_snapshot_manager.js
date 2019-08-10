@@ -50,7 +50,7 @@ class StorageDumpSnapshotManager {
     removeSnapshot(blockHash) {
         const snapshot = new dump_snapshot_1.StorageDumpSnapshot(blockHash, this.getSnapshotFilePath(blockHash));
         try {
-            fs.removeSync(snapshot.filePath);
+            fs.unlinkSync(snapshot.filePath);
         }
         catch (e) {
             this.m_logger.error(`removeSnapshot ${blockHash} `, e);

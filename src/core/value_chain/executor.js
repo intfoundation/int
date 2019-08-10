@@ -7,12 +7,12 @@ const chain_1 = require("../chain");
 const context_1 = require("./context");
 const transaction_1 = require("./transaction");
 const chain_2 = require("./chain");
+const calculate_tx_limit_1 = require("../executor/calculate_tx_limit");
 const util_1 = require("util");
-const serializable_1 = require("../serializable");
 const assert = require('assert');
 class ValueBlockExecutor extends chain_1.BlockExecutor {
     _newTransactionExecutor(l, tx) {
-        return new ValueTransactionExecutor(l, tx, this.m_logger);
+        return new ValueTransactionExecutor(this.m_handler, l, tx, this.m_logger);
     }
     async executeMinerWageEvent() {
         let l = this.m_handler.getMinerWageListener();
@@ -29,41 +29,31 @@ class ValueBlockExecutor extends chain_1.BlockExecutor {
     async executePreBlockEvent() {
         const err = await this.executeMinerWageEvent();
         if (err) {
-            return err;
+            return { err };
         }
         return await super.executePreBlockEvent();
     }
 }
 exports.ValueBlockExecutor = ValueBlockExecutor;
 class ValueTransactionExecutor extends chain_1.TransactionExecutor {
-    constructor(listener, tx, logger) {
-        super(listener, tx, logger);
+    constructor(handler, listener, tx, logger) {
+        super(handler, listener, tx, logger);
+        this.m_options = {
+            maxTxLimit: new bignumber_js_1.BigNumber(7000000),
+            minTxLimit: new bignumber_js_1.BigNumber(25000),
+            maxTxPrice: new bignumber_js_1.BigNumber(2000000000000),
+            minTxPrice: new bignumber_js_1.BigNumber(200000000000) //单笔 tx 最小price
+        };
         this.m_totalCost = new bignumber_js_1.BigNumber(0);
-        this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
-        this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
-        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
-        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
-        this.m_baseLimit = new bignumber_js_1.BigNumber(500); // 基础交易费用
-        this.m_getLimit = new bignumber_js_1.BigNumber(20); // get操作费用
-        this.m_setLimit = new bignumber_js_1.BigNumber(100); // set操作费用
-        this.m_createLimit = new bignumber_js_1.BigNumber(50000); // 建表操作费用
-        this.m_inputLimit = new bignumber_js_1.BigNumber(5); // input数据每个字节费用
-        this.m_coefficient = new bignumber_js_1.BigNumber(40); // 调整系数
+        this.m_calcTxLimit = new calculate_tx_limit_1.CalcuateLimit();
     }
     async prepareContext(blockHeader, storage, externContext) {
         let context = await super.prepareContext(blockHeader, storage, externContext);
-        let txTotalLimit = this.calcTxLimit(this.m_tx);
+        let txTotalLimit = this.m_calcTxLimit.calcTxLimit(this.m_tx.method, this.m_tx.input);
         Object.defineProperty(context, 'value', {
             writable: false,
             value: this.m_tx.value
         });
-        // Object.defineProperty(
-        //     context, 'fee', {
-        //         writable: false,
-        //         value: (this.m_tx as ValueTransaction).fee
-        //     }
-        //
-        // );
         Object.defineProperty(context, 'limit', {
             writable: false,
             value: this.m_tx.limit
@@ -92,81 +82,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
         };
         return context;
     }
-    // 计算执行tx的 limit
-    calcTxLimit(tx) {
-        let txTotalLimit = new bignumber_js_1.BigNumber(0);
-        switch (tx.method) {
-            case 'transferTo':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'createToken':
-                txTotalLimit = this.calcLimit(tx.input, 6, 0, true);
-                break;
-            case 'transferTokenTo':
-                txTotalLimit = this.calcLimit(tx.input, 2, 4, false);
-                break;
-            case 'transferFrom':
-                txTotalLimit = this.calcLimit(tx.input, 3, 6, false);
-                break;
-            case 'approve':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'freezeAccount':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'burn':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'mintToken':
-                txTotalLimit = this.calcLimit(tx.input, 2, 3, false);
-                break;
-            case 'transferOwnership':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'vote':
-                txTotalLimit = this.calcLimit(tx.input, 2, 5, false);
-                break;
-            case 'mortgage':
-                txTotalLimit = this.calcLimit(tx.input, 2, 2, false);
-                break;
-            case 'unmortgage':
-                txTotalLimit = this.calcLimit(tx.input, 3, 2, false);
-                break;
-            case 'register':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            case 'publish':
-                txTotalLimit = this.calcLimit(tx.input, 3, 1, false);
-                break;
-            case 'bid':
-                txTotalLimit = this.calcLimit(tx.input, 1, 1, false);
-                break;
-            default:
-                txTotalLimit = this.calcLimit(tx.input, 0, 0, false);
-                break;
-        }
-        return txTotalLimit;
-    }
-    objectToBuffer(input) {
-        let inputString;
-        if (input) {
-            inputString = JSON.stringify(serializable_1.toStringifiable(input, true));
-        }
-        else {
-            inputString = JSON.stringify({});
-        }
-        return Buffer.from(inputString);
-    }
-    calcLimit(input, setN, getN, create) {
-        let txTotalLimit = new bignumber_js_1.BigNumber(0);
-        let txInputBytes = new bignumber_js_1.BigNumber(this.objectToBuffer(input).length);
-        txTotalLimit = txTotalLimit.plus(this.m_baseLimit).plus(this.m_setLimit.times(new bignumber_js_1.BigNumber(setN))).plus(this.m_getLimit.times(new bignumber_js_1.BigNumber(getN))).plus(txInputBytes.times(this.m_inputLimit));
-        if (create) {
-            txTotalLimit = txTotalLimit.plus(this.m_createLimit);
-        }
-        txTotalLimit = txTotalLimit.times(this.m_coefficient);
-        return txTotalLimit;
-    }
     async execute(blockHeader, storage, externContext, flag) {
         if (!(flag && flag.ignoreNoce)) {
             let nonceErr = await this._dealNonce(this.m_tx, storage);
@@ -174,15 +89,20 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
                 return { err: nonceErr };
             }
         }
+        let bt = this.baseMethodChecker(this.m_tx);
+        if (bt) {
+            this.m_logger.error(`execute baseMethodChecker failed for ${bt}, hash=${this.m_tx.hash}`);
+            return { err: bt };
+        }
         let kvBalance = (await storage.getKeyValue(chain_1.Chain.dbSystem, chain_2.ValueChain.kvBalance)).kv;
         let fromAddress = this.m_tx.address;
         let nToValue = this.m_tx.value;
         let receipt = new transaction_1.ValueReceipt();
+        receipt.setSource({ sourceType: chain_1.ReceiptSourceType.transaction, txHash: this.m_tx.hash });
         let ve = new context_1.Context(kvBalance);
         if ((await ve.getBalance(fromAddress)).lt(nToValue)) {
             this.m_logger.error(`methodexecutor failed for value not enough need ${nToValue.toString()} but ${(await ve.getBalance(fromAddress)).toString()} address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             receipt.returnCode = error_code_1.ErrorCode.RESULT_NOT_ENOUGH;
-            receipt.transactionHash = this.m_tx.hash;
             return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
         }
         let context = await this.prepareContext(blockHeader, storage, externContext);
@@ -204,7 +124,6 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             this.m_logger.error(`methodexecutor failed for invalid handler return code type, return=${receipt.returnCode},address=${this.m_tx.address}, hash=${this.m_tx.hash}`);
             return { err: error_code_1.ErrorCode.RESULT_INVALID_PARAM };
         }
-        receipt.transactionHash = this.m_tx.hash;
         if (receipt.returnCode) {
             await work.value.rollback();
         }
@@ -222,6 +141,37 @@ class ValueTransactionExecutor extends chain_1.TransactionExecutor {
             return { err };
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, receipt };
+    }
+    baseMethodChecker(tx) {
+        if (util_1.isNullOrUndefined(tx.limit) || util_1.isNullOrUndefined(tx.price) || util_1.isNullOrUndefined(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
+        if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
+        }
+        if (!tx.limit.isInteger() || !tx.price.isInteger() || !tx.value.isInteger()) {
+            return error_code_1.ErrorCode.RESULT_NOT_INTEGER;
+        }
+        if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
+            return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
+        }
+        if (tx.price.gt(this.m_options.maxTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
+        }
+        if (tx.price.lt(this.m_options.minTxPrice)) {
+            return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
+        if (tx.limit.gt(this.m_options.maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        if (tx.value.gt(new bignumber_js_1.BigNumber(1e+36))) {
+            return error_code_1.ErrorCode.RESULT_OUT_OF_RANGE;
+        }
+        let txLimit = this.m_calcTxLimit.calcTxLimit(tx.method, tx.input);
+        if (tx.limit.lt(this.m_options.minTxLimit) || tx.limit.lt(txLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
+        }
+        return error_code_1.ErrorCode.RESULT_OK;
     }
 }
 exports.ValueTransactionExecutor = ValueTransactionExecutor;

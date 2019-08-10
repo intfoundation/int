@@ -42,10 +42,7 @@ function SetFromObject(input) {
         throw new Error('input MUST be a Object');
     }
     let ret = new Set();
-    do {
-        const item = input.shift();
-        ret.add(item);
-    } while (input.length > 0);
+    input.forEach((v) => ret.add(v));
     return ret;
 }
 exports.SetFromObject = SetFromObject;
@@ -180,7 +177,7 @@ function toStringifiable(o, parsable = false) {
         return s;
     }
     else {
-        throw new Error('not JSONable');
+        throw new Error('not JSON able');
     }
 }
 exports.toStringifiable = toStringifiable;
@@ -239,6 +236,13 @@ function hasDecimals(o) {
     return false;
 }
 exports.hasDecimals = hasDecimals;
+function encodeAddressAndNonce(address, nonce) {
+    let bw = new writer_1.BufferWriter();
+    bw.writeVarString(address);
+    bw.writeU32(nonce);
+    return digest.hash256(bw.render()).toString('hex');
+}
+exports.encodeAddressAndNonce = encodeAddressAndNonce;
 class SerializableWithHash {
     constructor() {
         this.m_hash = encoding_1.Encoding.NULL_HASH;

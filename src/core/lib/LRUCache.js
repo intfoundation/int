@@ -47,21 +47,22 @@ class DLink {
             prev.next = next;
         }
         if (this.m_head === node) {
-            this.m_head = next;
+            this.m_head = prev;
         }
         if (next) {
             next.prev = prev;
         }
         if (this.m_tail === node) {
-            this.m_tail = prev;
+            this.m_tail = next;
         }
+        node.next = node.prev = null;
         this.m_count--;
     }
     addToHead(node) {
-        let head = this.m_head;
-        node.next = this.m_head;
+        node.next = node.prev = null;
+        node.prev = this.m_head;
         if (this.m_head) {
-            this.m_head.prev = node;
+            this.m_head.next = node;
         }
         this.m_head = node;
         if (this.m_count === 0) {
@@ -95,7 +96,8 @@ class LRUCache {
             this.m_memValue.set(key, [value, node]);
         }
         else {
-            if (this.m_link.length >= this.m_maxCount) {
+            if (this.m_link.length >= this.m_maxCount && this.m_link.tail) {
+                this.m_memValue.delete(this.m_link.tail.value);
                 this.m_link.removeTail();
             }
             let node = new LRUNode(key);

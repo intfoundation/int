@@ -1,10 +1,10 @@
 #! /usr/bin/env node
+
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
 const path = require("path");
 const client_1 = require("../client");
-const addressClass = require("../core/address");
 const pkg = require('../../package.json');
 Error.stackTraceLimit = 1000;
 async function run(argv) {
@@ -23,9 +23,11 @@ async function run(argv) {
     let exit = false;
     if (options.has("help")) {
         help();
+        process.exit();
     }
     if (options.has("version")) {
         version();
+        process.exit();
     }
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
@@ -39,31 +41,34 @@ async function run(argv) {
     if (!options.has("loggerLevel")) {
         options.set("loggerLevel", "info");
     }
+
+    if (!options.has("port")) {
+        options.set("port", "8553|8554");
+    }
+
+    options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
+    options.set("genesis", './data/intchain/genesis');
     if (!options.has("dataDir")) {
         options.set("dataDir", './data/intchain/peerData');
+        if(options.has("test")){
+            options.set("dataDir", './data/testintchain/peerData');
+        }
     }
+    options.set("networkid", 1888);
+
     if (options.has("test")) {
-        // options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
-        options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-        options.set("dataDir", './data/testintchain/peerData');
+        options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
+        options.set("genesis", './data/testintchain/genesis');
+        options.set("networkid", 1666);
     }
-    if (options.has("main")) {
-        options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
-        options.set("dataDir", './data/intchain/peerData');
-    }
-    if (!options.has("test") && !options.has("main")) {
-        console.log("Usage: --test or --main");
-        process.exit();
-    }
-    let privateKey = addressClass.createKeyPair()[1];
-    let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
-    options.set('peerid', address);
-    options.set("genesis", './data/intchain/genesis');
+
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
-    options.set("port", '8563|8564');
+    // options.set("port", '8553|8554');
     options.set("saveMismatch", true);
+    options.set("ignoreBan", true);
+    //options.set("broadcast_limit_transaction",3);
     exit = !(await client_1.host.initPeer(command.options)).ret;
     if (exit) {
         process.exit();
@@ -73,8 +78,9 @@ exports.run = run;
 if (require.main === module) {
     run(process.argv);
 }
+
 function help() {
-    console.log(["The INT Chain Command Line Interface. Version:" + pkg.version,
+    console.log(["The INT Chain Command Line Interface. Version:" + pkg.version + ".",
         "",
         "Copyright intfoundation <intfoundation@intchain.io>",
         "",
@@ -91,9 +97,6 @@ function help() {
         "--main",
         "        Connect the main net.",
         "",
-        "--dataDir",
-        "        Data directory for the databases and keystore.",
-        "",
         "--rpchost",
         "        RPC server listening interface (default: localhost).",
         "",
@@ -106,7 +109,9 @@ function help() {
         "--version",
         "        Print versions that match the INT Chain."
     ].join("\n"));
+    console.log("\n");
 }
+
 function version() {
-    console.log("Version:" + pkg.version);
+    console.log("Version:" + pkg.version + "\n");
 }

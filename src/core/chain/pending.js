@@ -5,7 +5,8 @@ const error_code_1 = require("../error_code");
 const events_1 = require("events");
 const LRUCache_1 = require("../lib/LRUCache");
 const bignumber_js_1 = require("bignumber.js");
-const serializable_1 = require("../serializable");
+const util_1 = require("util");
+const calculate_tx_limit_1 = require("../executor/calculate_tx_limit");
 var SyncOptType;
 (function (SyncOptType) {
     SyncOptType[SyncOptType["updateTip"] = 0] = "updateTip";
@@ -16,20 +17,22 @@ class PendingTransactions extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_queueOpt = [];
-        this.m_maxTxLimit = new bignumber_js_1.BigNumber(7000000); // 单笔 tx 最大 limit
-        this.m_minTxLimit = new bignumber_js_1.BigNumber(0); // 单笔 tx 最小 limit
-        this.m_minTxPrice = new bignumber_js_1.BigNumber(200000000000); // 单笔 tx 最小price
-        this.m_maxTxPrice = new bignumber_js_1.BigNumber(2000000000000); // 单笔 tx 最大price
         this.m_transactions = [];
         this.m_orphanTx = new Map();
         this.m_mapNonce = new Map();
         this.m_logger = options.logger;
         this.m_storageManager = options.storageManager;
-        this.m_txLiveTime = options.txlivetime;
+        this.m_txLiveTime = options.overtime;
         this.m_handler = options.handler;
-        this.m_maxPengdingCount = options.maxPengdingCount;
-        this.m_warnPendingCount = options.warnPendingCount;
+        this.m_maxPengdingCount = options.maxCount;
+        this.m_maxphanTxCount = options.warnCount;
         this.m_txRecord = new LRUCache_1.LRUCache(this.m_maxPengdingCount);
+        this.m_isPeer = options.isPeer;
+        this.m_maxTxLimit = new bignumber_js_1.BigNumber(options.maxTxLimit);
+        this.m_minTxLimit = new bignumber_js_1.BigNumber(options.minTxLimit);
+        this.m_maxTxPrice = new bignumber_js_1.BigNumber(options.maxTxPrice);
+        this.m_minTxPrice = new bignumber_js_1.BigNumber(options.minTxPrice);
+        this.m_calcTxLimit = new calculate_tx_limit_1.CalcuateLimit();
     }
     on(event, listener) {
         return super.on(event, listener);
@@ -38,7 +41,27 @@ class PendingTransactions extends events_1.EventEmitter {
         return super.once(event, listener);
     }
     async addTransaction(tx) {
+        let latest = this.m_txRecord.get(tx.hash);
+        if (latest && Date.now() < latest) {
+            this.m_logger.warn(`addTransaction failed, add too frequently,hash=${tx.hash}`);
+            return error_code_1.ErrorCode.RESULT_TX_EXIST;
+        }
+        this.m_txRecord.set(tx.hash, Date.now() + 60 * 1000);
+        let nCount = this._getPendingCount() + this.m_queueOpt.length;
+        if (nCount >= this.m_maxPengdingCount) {
+            let orphanTxcount = this._getOrphanTxCount();
+            this.m_logger.warn(`pengding count=${nCount}, maxPengdingCount=${this.m_maxPengdingCount},orphanTxcount=${orphanTxcount}`);
+            return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
+        }
+        // if (this.m_isPeer && this._isExist(tx)) {
+        //     this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
+        //     return ErrorCode.RESULT_TX_EXIST;
+        // }
         this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+        let bt = this.baseMethodChecker(tx);
+        if (bt) {
+            return bt;
+        }
         const checker = this.m_handler.getTxPendingChecker(tx.method);
         if (!checker) {
             this.m_logger.error(`txhash=${tx.hash} method=${tx.method} has no match listener`);
@@ -49,47 +72,42 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.error(`txhash=${tx.hash} checker error ${err}`);
             return err;
         }
-        let bt = this.baseMethodChecker(tx);
-        if (bt) {
-            return bt;
+        let retCode = await this._onCheck({ tx, ct: Date.now() });
+        if (retCode) {
+            return retCode;
         }
-        let nCount = this.getPengdingCount() + this.m_queueOpt.length;
-        if (nCount >= this.m_maxPengdingCount) {
-            this.m_logger.warn(`pengding count ${nCount}, maxPengdingCount ${this.m_maxPengdingCount}`);
-            return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
-        }
-        let latest = this.m_txRecord.get(tx.hash);
-        if (latest && Date.now() - latest < 2 * 60 * 1000) {
-            this.m_logger.warn(`addTransaction failed, add too frequently,hash=${tx.hash}`);
-            return error_code_1.ErrorCode.RESULT_TX_EXIST;
-        }
-        this.m_txRecord.set(tx.hash, Date.now());
-        if (this.isExist(tx)) {
-            this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
-            return error_code_1.ErrorCode.RESULT_TX_EXIST;
-        }
-        let opt = { _type: SyncOptType.addTx, param: { tx, ct: Date.now() } };
-        this.addPendingOpt(opt);
+        let opt = { _type: SyncOptType.addTx, param: { tx, ct: Date.now(), broadcastTimes: 0 } };
+        this._addPendingOpt(opt);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     baseMethodChecker(tx) {
+        if (util_1.isNullOrUndefined(tx.limit) || util_1.isNullOrUndefined(tx.price) || util_1.isNullOrUndefined(tx.value)) {
+            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        }
         if (!bignumber_js_1.BigNumber.isBigNumber(tx.limit) || !bignumber_js_1.BigNumber.isBigNumber(tx.price) || !bignumber_js_1.BigNumber.isBigNumber(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+            return error_code_1.ErrorCode.RESULT_NOT_BIGNUMBER;
         }
-        if (serializable_1.hasDecimals(tx.limit) || serializable_1.hasDecimals(tx.price) || serializable_1.hasDecimals(tx.value)) {
-            return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
+        if (!tx.limit.isInteger() || !tx.price.isInteger() || !tx.value.isInteger()) {
+            return error_code_1.ErrorCode.RESULT_NOT_INTEGER;
         }
-        if (tx.limit.gt(this.m_maxTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
-        }
-        if (tx.limit.lt(this.m_minTxLimit)) {
-            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
+        if (tx.limit.isNegative() || tx.price.isNegative() || tx.value.isNegative()) {
+            return error_code_1.ErrorCode.RESULT_CANT_BE_LESS_THAN_ZERO;
         }
         if (tx.price.gt(this.m_maxTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_BIG;
         }
         if (tx.price.lt(this.m_minTxPrice)) {
             return error_code_1.ErrorCode.RESULT_PRICE_TOO_SMALL;
+        }
+        if (tx.limit.gt(this.m_maxTxLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_BIG;
+        }
+        if (tx.value.gt(new bignumber_js_1.BigNumber(1e+36))) {
+            return error_code_1.ErrorCode.RESULT_OUT_OF_RANGE;
+        }
+        let txLimit = this.m_calcTxLimit.calcTxLimit(tx.method, tx.input);
+        if (tx.limit.lt(this.m_minTxLimit) || tx.limit.lt(txLimit)) {
+            return error_code_1.ErrorCode.RESULT_LIMIT_TOO_SMALL;
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -112,7 +130,38 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         this.m_curHeader = header;
         this.m_storageView = svr.storage;
-        this.addPendingOpt({ _type: SyncOptType.updateTip, param: undefined });
+        // 每10个块清除一次 tx record的数据
+        if (header.number % 10 == 0) {
+            let txRecord;
+            txRecord = this.m_txRecord;
+            this.m_logger.info(`begin remove timeout tx of txRecord, block number=${header.number}, block hash=${header.hash}`);
+            for (let [hash, value] of txRecord.m_memValue) {
+                let t = Date.now();
+                if (t >= value[0]) {
+                    this.m_logger.debug(`txRecord remove timeout tx hash ${hash}, time ${value[0]}, date now ${t}`);
+                    this.m_txRecord.remove(hash);
+                }
+            }
+            this.m_logger.info(`finish remove timeout tx of txRecord, block number=${header.number}, block hash=${header.hash}`);
+        }
+        //每100个区块进行一次孤块序列超时判断
+        if (header.number % 100 == 0) {
+            this.m_logger.info(`clear timeout tx of orphanTxs,number=${header.number},hash=${header.hash}`);
+            for (let [address, l] of this.m_orphanTx) {
+                for (let i = 0; i < l.length; i++) {
+                    if (this._isTimeout(l[i])) {
+                        l.splice(i, 1);
+                        this.m_logger.debug(`clear one timeout orphan tx hash=${header.hash}`);
+                        i--;
+                    }
+                }
+                if (l.length === 0) {
+                    this.m_orphanTx.delete(address);
+                    this.m_logger.debug(`remove one empty orphan address address=${address}`);
+                }
+            }
+        }
+        this._addPendingOpt({ _type: SyncOptType.updateTip, param: undefined });
         return error_code_1.ErrorCode.RESULT_OK;
     }
     init() {
@@ -126,10 +175,17 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         this.m_mapNonce.clear();
     }
-    isExist(tx) {
+    _isExist(tx) {
         for (let t of this.m_transactions) {
             if (t.tx.hash === tx.hash) {
                 return true;
+            }
+        }
+        for (let opt of this.m_queueOpt) {
+            if (opt._type === SyncOptType.addTx) {
+                if (opt.param.tx.hash === tx.hash) {
+                    return true;
+                }
             }
         }
         if (!this.m_orphanTx.get(tx.address)) {
@@ -142,7 +198,7 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         return false;
     }
-    async addPendingOpt(opt) {
+    async _addPendingOpt(opt) {
         if (opt._type === SyncOptType.updateTip) {
             for (let i = 0; i < this.m_queueOpt.length; i++) {
                 if (this.m_queueOpt[i]._type === SyncOptType.addTx) {
@@ -182,18 +238,22 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_currAdding = undefined;
         }
     }
-    async onCheck(txTime, txOld) {
+    async _onCheck(txTime, txOld) {
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async onAddedTx(txTime, txOld) {
+    async _onAddedTx(txTime, txOld) {
         if (!txOld) {
             this.m_mapNonce.set(txTime.tx.address, txTime.tx.nonce);
         }
-        this.emit('txAdded', txTime.tx);
-        return error_code_1.ErrorCode.RESULT_OK;
+        this.m_logger.debug(`_onAddedTx txhash ${txTime.tx.hash}, isPeer ${this.m_isPeer}, broadcast times ${txTime.broadcastTimes}, isBroadcast ${Date.now() >= txTime.ct + txTime.broadcastTimes * 60 * 1000}`);
+        if (this.m_isPeer && Date.now() >= txTime.ct + txTime.broadcastTimes * 60 * 1000) {
+            this.emit('txAdded', txTime.tx);
+            return error_code_1.ErrorCode.RESULT_OK;
+        }
+        return error_code_1.ErrorCode.RESULT_CANCELED;
     }
     async _addTx(txTime) {
-        if (this.isTimeout(txTime)) {
+        if (this._isTimeout(txTime)) {
             this.m_logger.warn(`_addTx tx timeout, txhash=${txTime.tx.hash}`);
             return error_code_1.ErrorCode.RESULT_TIMEOUT;
         }
@@ -210,22 +270,32 @@ class PendingTransactions extends events_1.EventEmitter {
         let { err, nonce } = await this.getNonce(address);
         this.m_logger.debug(`_addTx, nonce=${nonce}, txNonce=${txTime.tx.nonce}, txhash=${txTime.tx.hash}, address=${txTime.tx.address}`);
         if (nonce + 1 === txTime.tx.nonce) {
-            let retCode = await this.onCheck(txTime);
+            let retCode = await this._onCheck(txTime);
             if (retCode) {
                 return retCode;
             }
-            this.addToQueue(txTime, -1);
-            await this.onAddedTx(txTime);
-            await this.ScanOrphan(address);
+            this._addToQueue(txTime, -1);
+            let returnCode = await this._onAddedTx(txTime);
+            if (!returnCode) {
+                txTime.broadcastTimes = txTime.broadcastTimes + 1;
+            }
+            // //只有peer才会进行操作
+            // if(this.m_isPeer){
+            await this._scanOrphan(address);
+            // }
             return error_code_1.ErrorCode.RESULT_OK;
         }
         if (nonce + 1 < txTime.tx.nonce) {
-            return await this.addToOrphanMayNonceExist(txTime);
+            let returnCode = await this._addToOrphanMayNonceExist(txTime);
+            if (!returnCode) {
+                this.m_txRecord.set(txTime.tx.hash, Date.now() + 60 * 60 * 1000);
+            }
+            return returnCode;
         }
-        return await this.addToQueueMayNonceExist(txTime);
+        return await this._addToQueueMayNonceExist(txTime);
     }
     // 同个address的两个相同nonce的tx存在，且先前的也还没有入链
-    async checkSmallNonceTx(txNew, txOld) {
+    async _checkSmallNonceTx(txNew, txOld) {
         return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
     }
     // 获取mem中的nonce值
@@ -239,7 +309,17 @@ class PendingTransactions extends events_1.EventEmitter {
     }
     // 获取mem中的未处理的交易
     async getPendingTransactions() {
-        return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: this.m_transactions };
+        let pendingTransactions = [];
+        for (let opt of this.m_queueOpt) {
+            if (opt._type === SyncOptType.addTx) {
+                pendingTransactions.push(opt.param);
+            }
+        }
+        pendingTransactions = pendingTransactions.concat(this.m_transactions);
+        for (let [address, l] of this.m_orphanTx) {
+            pendingTransactions = pendingTransactions.concat(l);
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, pendingTransactions: pendingTransactions };
     }
     async getStorageNonce(s) {
         try {
@@ -267,7 +347,7 @@ class PendingTransactions extends events_1.EventEmitter {
             return { err: error_code_1.ErrorCode.RESULT_EXCEPTION };
         }
     }
-    addToOrphan(txTime) {
+    _addToOrphan(txTime) {
         let s = txTime.tx.address;
         let l;
         if (this.m_orphanTx.has(s)) {
@@ -290,7 +370,7 @@ class PendingTransactions extends events_1.EventEmitter {
             l.push(txTime);
         }
     }
-    async ScanOrphan(s) {
+    async _scanOrphan(s) {
         if (!this.m_orphanTx.has(s)) {
             return;
         }
@@ -301,58 +381,72 @@ class PendingTransactions extends events_1.EventEmitter {
                 this.m_orphanTx.delete(s);
                 break;
             }
-            if (this.isTimeout(l[0])) {
+            if (this._isTimeout(l[0])) {
                 l.shift();
                 continue;
             }
             if (nonce + 1 === l[0].tx.nonce) {
                 let txTime = l.shift();
-                this.addPendingOpt({ _type: SyncOptType.addTx, param: txTime });
+                this._addPendingOpt({ _type: SyncOptType.addTx, param: txTime });
             }
             break;
         }
     }
-    isTimeout(txTime) {
+    _isTimeout(txTime) {
         return Date.now() >= txTime.ct + this.m_txLiveTime * 1000;
     }
-    addToQueue(txTime, pos) {
+    _addToQueue(txTime, pos) {
         if (pos === -1) {
             this.m_transactions.push(txTime);
         }
         else {
             this.m_transactions.splice(pos, 0, txTime);
         }
+        this.m_txRecord.set(txTime.tx.hash, Date.now() + 60 * 60 * 1000);
     }
-    getPengdingCount() {
+    _getPendingCount() {
         let count = this.m_transactions.length;
         for (let [address, l] of this.m_orphanTx) {
             count += l.length;
         }
         return count;
     }
-    async addToQueueMayNonceExist(txTime) {
+    _getOrphanTxCount() {
+        let count = 0;
+        for (let [address, l] of this.m_orphanTx) {
+            count += l.length;
+        }
+        return count;
+    }
+    async _addToQueueMayNonceExist(txTime) {
         for (let i = 0; i < this.m_transactions.length; i++) {
             if (this.m_transactions[i].tx.address === txTime.tx.address && this.m_transactions[i].tx.nonce === txTime.tx.nonce) {
                 let txOld = this.m_transactions[i];
-                if (this.isTimeout(this.m_transactions[i])) {
-                    let retCode = await this.onCheck(txTime, txOld);
+                if (this._isTimeout(this.m_transactions[i])) {
+                    let retCode = await this._onCheck(txTime, txOld);
                     if (retCode) {
                         return retCode;
                     }
                     this.m_transactions.splice(i, 1);
-                    this.addToQueue(txTime, i);
-                    await this.onAddedTx(txTime, txOld);
+                    this._addToQueue(txTime, i);
+                    let returnCode = await this._onAddedTx(txTime, txOld);
+                    if (!returnCode) {
+                        txTime.broadcastTimes = txTime.broadcastTimes + 1;
+                    }
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
-                let _err = await this.checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
+                let _err = await this._checkSmallNonceTx(txTime.tx, this.m_transactions[i].tx);
                 if (_err === error_code_1.ErrorCode.RESULT_OK) {
-                    let retCode = await this.onCheck(txTime, txOld);
+                    let retCode = await this._onCheck(txTime, txOld);
                     if (retCode) {
                         return retCode;
                     }
                     this.m_transactions.splice(i, 1);
-                    this.addToQueue(txTime, i);
-                    await this.onAddedTx(txTime, txOld);
+                    this._addToQueue(txTime, i);
+                    let returnCode = await this._onAddedTx(txTime, txOld);
+                    if (!returnCode) {
+                        txTime.broadcastTimes = txTime.broadcastTimes + 1;
+                    }
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
                 return _err;
@@ -360,9 +454,18 @@ class PendingTransactions extends events_1.EventEmitter {
         }
         return error_code_1.ErrorCode.RESULT_ERROR_NONCE_IN_TX;
     }
-    async addToOrphanMayNonceExist(txTime) {
+    async _addToOrphanMayNonceExist(txTime) {
         let s = txTime.tx.address;
         let l;
+        //判断孤交易池是否已经满了
+        let orphanNumber = this._getOrphanTxCount();
+        if (orphanNumber >= this.m_maxphanTxCount) {
+            this.m_logger.error(`orphan tx pool is full,orphan number=${orphanNumber},m_transactionsNumber=${this.m_transactions.length}`);
+            return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
+        }
+        else {
+            this.m_logger.debug(`add orphan tx ,orphan number=${orphanNumber},m_transactionsNumber=${this.m_transactions.length}`);
+        }
         if (this.m_orphanTx.has(s)) {
             l = this.m_orphanTx.get(s);
         }
@@ -377,11 +480,11 @@ class PendingTransactions extends events_1.EventEmitter {
         for (let i = 0; i < l.length; i++) {
             if (txTime.tx.nonce === l[i].tx.nonce) {
                 let txOld = l[i].tx;
-                if (this.isTimeout(l[i])) {
+                if (this._isTimeout(l[i])) {
                     l.splice(i, 1, txTime);
                     return error_code_1.ErrorCode.RESULT_OK;
                 }
-                let _err = await this.checkSmallNonceTx(txTime.tx, l[i].tx);
+                let _err = await this._checkSmallNonceTx(txTime.tx, l[i].tx);
                 if (_err === error_code_1.ErrorCode.RESULT_OK) {
                     l.splice(i, 1, txTime);
                     return error_code_1.ErrorCode.RESULT_OK;

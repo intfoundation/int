@@ -35,32 +35,42 @@ async function run(argv) {
     }
     let address = addressClass.addressFromSecretKey(options.get("minerSecret"));
 
-    if (options.has("main")) {
-        options.set("dataDir", './data/intchain/minerData_'+address);
-        options.set("sn", "SN_PEER_MAIN@40.73.37.99@8550@8551");
-        // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
-    }else {
-        options.set("dataDir", './data/intchain/minerData_test_'+address);
-        options.set("sn", "SN_PEER_TEST@testsn.intchain.io@8550@8551");
-        // options.set("sn", "SN_PEER_TEST@127.0.0.1@12999@12998");
+    if (!options.has("dataDir")) {
+        options.set("dataDir", './data/intchain/minerData_' + address);
     }
-    options.set('peerid', address);
     options.set("genesis", './data/intchain/genesis');
+    options.set("sn", "SN_PEERID_MAIN@mainsn.zeerong.com@8550@8551");
+    options.set("networkid", 1888);
+
+    if (options.has("test")) {
+        if (!options.has("dataDir")) {
+            options.set("dataDir", './data/testintchain/minerData_' + address);
+        }
+        options.set("genesis", './data/testintchain/genesis');
+        options.set("sn", "SN_PEERID_TEST@testsn.zeerong.com@8550@8551");
+        options.set("networkid", 1666);
+    }
+
     if (!options.has("loggerConsole")) {
         options.set("loggerConsole", true);
     }
     if (!options.has("blocklimit")) {
-        options.set("blocklimit", 50000000);
+        options.set("blocklimit", 20000000);
     }
     if (!options.has("port")) {
         options.set("port", '8553|8554');
     }
-    options.set("loggerLevel", "info");
+    if (!options.has("loggerLevel")) {
+        options.set("loggerLevel", "info");
+    }
+    options.set('peerid', address);
     options.set("net", "bdt");
     options.set("host", "0.0.0.0");
     options.set("bdt_log_level", "info");
     options.set("saveMismatch", true);
-    // options.set("executor", "interprocess");
+    options.set("executor", "interprocess");
+    options.set("ignoreBan",true);
+    //options.set("broadcast_limit_transaction",3);
     let exit = false;
     exit = !(await client_1.host.initMiner(command.options)).ret;
     if (exit) {

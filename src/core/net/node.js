@@ -10,6 +10,7 @@ const version_1 = require("./version");
 const reader_2 = require("../lib/reader");
 const writer_2 = require("../lib/writer");
 const logger_util_1 = require("../lib/logger_util");
+const util_1 = require("util");
 var CMD_TYPE;
 (function (CMD_TYPE) {
     CMD_TYPE[CMD_TYPE["version"] = 1] = "version";
@@ -50,7 +51,13 @@ class INode extends events_1.EventEmitter {
         this.m_genesis = genesis_hash;
     }
     set logger(logger) {
+        if (!logger) {
+            return;
+        }
         this.m_logger = logger;
+    }
+    get logger() {
+        return this.m_logger;
     }
     get peerid() {
         return this.m_peerid;
@@ -69,6 +76,9 @@ class INode extends events_1.EventEmitter {
             ret.push(` => ${element.remote}`);
         });
         return ret;
+    }
+    addBlackList(peerid, ip) {
+        return;
     }
     uninit() {
         this.removeAllListeners('inbound');
@@ -117,12 +127,14 @@ class INode extends events_1.EventEmitter {
                         resolve(error_code_1.ErrorCode.RESULT_OK);
                     }
                     else {
-                        conn.close();
+                        this.logger.warn(`close conn ${conn.id} to ${peerid} by unSupport`);
+                        conn.destroy();
                         resolve(error_code_1.ErrorCode.RESULT_VER_NOT_SUPPORT);
                     }
                 }
                 else {
-                    conn.close();
+                    this.logger.warn(`close conn ${conn.id} to ${peerid} by non versionAck pkg`);
+                    conn.destroy();
                     resolve(error_code_1.ErrorCode.RESULT_INVALID_STATE);
                 }
             });
@@ -148,11 +160,13 @@ class INode extends events_1.EventEmitter {
         let other = this.getConnection(peerid);
         if (other) {
             if (conn.version.compare(other.version) > 0) {
-                conn.close();
+                this.logger.warn(`close conn ${conn.id} to ${peerid} by already exist conn`);
+                conn.destroy();
                 return { err: error_code_1.ErrorCode.RESULT_ALREADY_EXIST, peerid };
             }
             else {
-                this.closeConnection(other);
+                this.logger.warn(`close other conn ${conn.id} to ${peerid} by already exist conn`);
+                this.closeConnection(other, true);
             }
         }
         this.m_outConn.push(result.conn);
@@ -166,34 +180,36 @@ class INode extends events_1.EventEmitter {
     async broadcast(writer, options) {
         let nSend = 0;
         let nMax = 999999999;
-        if (options && options.count) {
+        if (options && !util_1.isNullOrUndefined(options.count)) {
+            if (!options.count) {
+                return { err: error_code_1.ErrorCode.RESULT_OK, count: 0 };
+            }
             nMax = options.count;
         }
-        let sent = new Map();
-        for (let conn of this.m_inConn) {
+        let conns = this.m_inConn.slice(0);
+        conns.push(...this.m_outConn);
+        if (!conns.length) {
+            return { err: error_code_1.ErrorCode.RESULT_OK, count: 0 };
+        }
+        let rstart = Math.floor(Math.random() * (conns.length - 1));
+        for (let i = rstart; i < conns.length; ++i) {
+            const conn = conns[i];
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
-            }
-            if (sent.has(conn.remote)) {
-                continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sent.set(conn.remote, 1);
             }
         }
-        for (let conn of this.m_outConn) {
+        for (let i = 0; i < rstart; ++i) {
+            const conn = conns[i];
             if (nSend === nMax) {
                 return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
-            }
-            if (sent.has(conn.remote)) {
-                continue;
             }
             if (!options || !options.filter || options.filter(conn)) {
                 conn.addPendingWriter(writer.clone());
                 nSend++;
-                sent.set(conn.remote, 1);
             }
         }
         return { err: error_code_1.ErrorCode.RESULT_OK, count: nSend };
@@ -280,13 +296,13 @@ class INode extends events_1.EventEmitter {
                 let err = ver.decode(dataReader);
                 if (err) {
                     this.m_logger.warn(`recv version in invalid format from ${inbound.remote} `);
-                    inbound.close();
+                    inbound.destroy();
                     return;
                 }
                 // 检查对方包里的genesis_hash是否对应得上
                 if (ver.genesis !== this.m_genesis) {
                     this.m_logger.warn(`recv version genesis ${ver.genesis} not match ${this.m_genesis} from ${inbound.remote} `);
-                    inbound.close();
+                    inbound.destroy();
                     return;
                 }
                 // 忽略网络传输时间
@@ -298,17 +314,20 @@ class INode extends events_1.EventEmitter {
                 let ackWriter = writer_1.PackageStreamWriter.fromPackage(CMD_TYPE.versionAck, { isSupport, timestamp: Date.now() }, 0);
                 inbound.addPendingWriter(ackWriter);
                 if (!isSupport) {
-                    inbound.close();
+                    this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by unSupport`);
+                    inbound.destroy();
                     return;
                 }
                 let other = this.getConnection(inbound.remote);
                 if (other) {
                     if (inbound.version.compare(other.version) > 0) {
-                        inbound.close();
+                        this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by already exist`);
+                        inbound.destroy();
                         return;
                     }
                     else {
-                        this.closeConnection(other);
+                        this.m_logger.warn(`close other conn ${inbound.id} to ${inbound.fullRemote} by already exist`);
+                        this.closeConnection(other, true);
                     }
                 }
                 this.m_inConn.push(inbound);
@@ -320,7 +339,8 @@ class INode extends events_1.EventEmitter {
                 this.emit('inbound', inbound);
             }
             else {
-                inbound.close();
+                this.m_logger.warn(`close inbound conn ${inbound.id} to ${inbound.fullRemote} by non version pkg`);
+                inbound.destroy();
             }
         });
         let fn = () => {

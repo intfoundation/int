@@ -82,6 +82,11 @@ class ChainCreator {
         if (!path.isAbsolute(handlerPath)) {
             handlerPath = path.join(process.cwd(), handlerPath);
         }
+        // 如果是命令行启动，则替换掉 handler.js 的加载路径
+        let dirPath = __dirname;
+        if (dirPath.indexOf('node_modules') !== -1) {
+            handlerPath = path.join(__dirname, '../../', constConfig['handler']);
+        }
         let typeOptions = constConfig['type'];
         if (!typeOptions || !typeOptions.consensus || !typeOptions.features) {
             this.m_logger.error(`invalid type from package ${dataDir}`);

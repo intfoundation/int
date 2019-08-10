@@ -6,5 +6,4 @@ Object.defineProperty(exports, "__esModule", { value: true });
 __export(require("../value_chain"));
 __export(require("./block"));
 __export(require("./chain"));
-__export(require("./executor"));
 __export(require("./miner"));

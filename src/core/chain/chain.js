@@ -10,6 +10,7 @@ const util_1 = require("util");
 const error_code_1 = require("../error_code");
 const logger_util_1 = require("../lib/logger_util");
 const tmp_manager_1 = require("../lib/tmp_manager");
+const LRUCache_1 = require("../lib/LRUCache");
 const block_1 = require("../block");
 const storage_1 = require("../storage");
 const storage_2 = require("../storage_sqlite/storage");
@@ -18,6 +19,7 @@ const pending_1 = require("./pending");
 const chain_node_1 = require("./chain_node");
 const executor_routine_1 = require("./executor_routine");
 const client_1 = require("../../client");
+const calculate_tx_limit_1 = require("../executor/calculate_tx_limit");
 var ChainState;
 (function (ChainState) {
     ChainState[ChainState["none"] = 0] = "none";
@@ -34,14 +36,18 @@ class Chain extends events_1.EventEmitter {
     constructor(options) {
         super();
         this.m_state = ChainState.none;
-        this.m_refSnapshots = [];
         this.m_constSnapshots = [];
         this.m_pendingHeaders = new Array();
         this.m_pendingBlocks = {
             hashes: new Set(),
             sequence: new Array()
         };
+        this.m_miners = [];
+        this.m_cache = new LRUCache_1.LRUCache(1);
+        this.m_refSnapshots = new Set();
+        this.m_storageMorkRequests = {};
         this.m_connSyncMap = new Map();
+        this.m_minersExcept = new Set();
         this.m_logger = logger_util_1.initLogger(options);
         this.m_dataDir = options.dataDir;
         this.m_handler = options.handler;
@@ -49,6 +55,7 @@ class Chain extends events_1.EventEmitter {
         Object.assign(this.m_globalOptions, options.globalOptions);
         this.m_tmpManager = new tmp_manager_1.TmpManager({ root: this.m_dataDir, logger: this.logger });
         this.m_networkCreator = options.networkCreator;
+        this.m_executorParamCreator = new executor_1.BlockExecutorExternParamCreator({ logger: this.m_logger });
     }
     static dataDirValid(dataDir) {
         if (!fs.pathExistsSync(dataDir)) {
@@ -73,10 +80,7 @@ class Chain extends events_1.EventEmitter {
     }
     // broadcast数目，广播header时会同时广播tip到这个深度的header
     get _broadcastDepth() {
-        return this.m_instanceOptions.confirmDepth;
-    }
-    get _confirmDepth() {
-        return this.m_instanceOptions.confirmDepth;
+        return 1;
     }
     get _headerReqLimit() {
         return this.m_instanceOptions.headerReqLimit;
@@ -89,9 +93,6 @@ class Chain extends events_1.EventEmitter {
     }
     get _saveMismatch() {
         return this.m_logger.level === 'debug';
-    }
-    get _morkSnapshot() {
-        return true;
     }
     get globalOptions() {
         const c = this.m_globalOptions;
@@ -126,6 +127,9 @@ class Chain extends events_1.EventEmitter {
     }
     get tmpManager() {
         return this.m_tmpManager;
+    }
+    get executorParamCreator() {
+        return this.m_executorParamCreator;
     }
     async _loadGenesis() {
         let genesis = await this.m_headerStorage.getHeader(0);
@@ -292,15 +296,6 @@ class Chain extends events_1.EventEmitter {
         return true;
     }
     _onCheckGlobalOptions(globalOptions) {
-        if (util_1.isNullOrUndefined(globalOptions.txlivetime)) {
-            globalOptions.txlivetime = 60 * 60;
-        }
-        if (util_1.isNullOrUndefined(globalOptions.maxPengdingCount)) {
-            globalOptions.maxPengdingCount = 10000;
-        }
-        if (util_1.isNullOrUndefined(globalOptions.warnPengdingCount)) {
-            globalOptions.warnPengdingCount = 5000;
-        }
         return true;
     }
     parseInstanceOptions(options) {
@@ -354,9 +349,13 @@ class Chain extends events_1.EventEmitter {
             }
             value.networks.push(pnr.network);
         }
+        value.pendingOvertime = options.origin.get('pendingOvertime');
+        value.maxPendingCount = options.origin.get('maxPendingCount');
+        value.warnPendingCount = options.origin.get('warnPendingCount');
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
-    async initialize(instanceOptions) {
+    async initialize(instanceOptions, peer) {
+        this.m_isPeer = peer;
         // 上层保证await调用别重入了, 不加入中间状态了
         if (this.m_state !== ChainState.init) {
             this.m_logger.error(`chain initialize failed for hasn't initComponent`);
@@ -377,11 +376,51 @@ class Chain extends events_1.EventEmitter {
         // confirm数目，当块的depth超过这个值时，认为时绝对安全的；分叉超过这个depth的两个fork，无法自动合并回去
         _instanceOptions.confirmDepth = !util_1.isNullOrUndefined(instanceOptions.confirmDepth) ? instanceOptions.confirmDepth : 6;
         _instanceOptions.ignoreVerify = !util_1.isNullOrUndefined(instanceOptions.ignoreVerify) ? instanceOptions.ignoreVerify : false;
+        _instanceOptions.pendingOvertime = !util_1.isNullOrUndefined(instanceOptions.pendingOvertime) ? instanceOptions.pendingOvertime : 60 * 60 * 6;
+        _instanceOptions.maxPendingCount = !util_1.isNullOrUndefined(instanceOptions.maxPendingCount) ? instanceOptions.maxPendingCount : 2000;
+        _instanceOptions.warnPendingCount = !util_1.isNullOrUndefined(instanceOptions.warnPendingCount) ? instanceOptions.warnPendingCount : 500;
+        // limit and price
+        _instanceOptions.maxTxLimit = 7000000; // 单笔 tx 最大 limit
+        _instanceOptions.minTxLimit = 25000; // 单笔 tx 最小 limit
+        _instanceOptions.maxTxPrice = 2000000000000; //单笔 tx 最大price
+        _instanceOptions.minTxPrice = 200000000000; //单笔 tx 最小price
         this.m_instanceOptions = _instanceOptions;
+        this.m_calcTxLimit = new calculate_tx_limit_1.CalcuateLimit();
         this.m_pending = this._createPending();
-        this.m_pending.on('txAdded', (tx) => {
+        this.m_pending.on('txAdded', async (tx) => {
+            let cr = this.m_cache.get(this.m_tip.hash);
+            if (cr) {
+                this.m_miners = cr.m;
+                this.logger.debug(`txAdded block hash ${this.m_tip.hash} get cache miners ${cr.m}`);
+            }
+            else {
+                let hr = await this.m_headerStorage.getHeader(this.m_tip.hash);
+                if (!hr.err) {
+                    let mr = await this.getMiners(hr.header);
+                    if (!mr.err && mr.miners.length !== 0) {
+                        this.m_miners = mr.miners.map((val) => `${this.m_networkname}^${val}`);
+                        this.logger.debug(`txAdded block hash ${this.m_tip.hash} get miners ${this.m_miners}`);
+                        this.m_cache.set(hr.header.hash, { m: this.m_miners });
+                    }
+                }
+            }
+            let remoteOutNodes = this.node.getOutbounds().map(value => value.fullRemote);
+            let remoteInNodes = this.node.getInbounds().map(value => value.fullRemote);
+            let remoteNodes = remoteOutNodes.concat(remoteInNodes);
+            this.logger.debug(`txAdded connect remote nodes ${remoteNodes}`);
+            let connMiners = remoteNodes.filter(conn => this.m_miners.indexOf(conn) !== -1);
+            this.logger.debug(`txAdded connect miners ${connMiners}`);
             this.logger.debug(`broadcast transaction txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-            this.m_node.broadcast([tx]);
+            this.m_node.broadcast([tx], { filter: (conn) => {
+                    if (this.m_miners.indexOf(`${this.m_networkname}^${this.m_peerId}`) == -1) {
+                        this.logger.debug(`peer txAdded broadcast to ${conn.fullRemote}: ${connMiners.length < 3 ? true : connMiners.indexOf(conn.fullRemote) > -1}`);
+                        return connMiners.length < 3 ? true : connMiners.indexOf(conn.fullRemote) > -1;
+                    }
+                    else {
+                        this.logger.debug(`miner txAdded broadcast to ${conn.fullRemote}: false`);
+                        return false;
+                    }
+                } });
         });
         this.m_pending.init();
         this.m_routineManager = new instanceOptions.routineManagerType(this);
@@ -393,6 +432,8 @@ class Chain extends events_1.EventEmitter {
             blockWithLog: !!this._ignoreVerify
         });
         this.m_node = node;
+        this.m_networkname = this.node.getNetwork().node.network;
+        this.m_peerId = this.node.getNetwork().node.peerid;
         this.m_node.on('blocks', (params) => {
             this._addPendingBlocks(params);
         });
@@ -462,11 +503,19 @@ class Chain extends events_1.EventEmitter {
         return new pending_1.PendingTransactions({
             storageManager: this.m_storageManager,
             logger: this.logger,
-            txlivetime: this.m_globalOptions.txlivetime,
+            overtime: this.m_instanceOptions.pendingOvertime,
             handler: this.m_handler,
-            maxPengdingCount: this.m_globalOptions.maxPengdingCount,
-            warnPendingCount: this.m_globalOptions.warnPengdingCount
+            maxCount: this.m_instanceOptions.maxPendingCount,
+            warnCount: this.m_instanceOptions.warnPendingCount,
+            isPeer: this.m_isPeer,
+            maxTxLimit: this.m_instanceOptions.maxTxLimit,
+            minTxLimit: this.m_instanceOptions.minTxLimit,
+            maxTxPrice: this.m_instanceOptions.maxTxPrice,
+            minTxPrice: this.m_instanceOptions.minTxPrice,
         });
+    }
+    async getMiners(header) {
+        return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     _defaultNetworkOptions() {
         return { netType: 'random' };
@@ -498,47 +547,83 @@ class Chain extends events_1.EventEmitter {
         if (err || !result.header) {
             return err;
         }
-        err = await this._updateTip(result.header);
+        err = await this._onUpdateTip(result.header);
         if (err) {
             return err;
         }
         this.m_logger.info(`load chain tip from disk, height:${this.m_tip.number}, hash:${this.m_tip.hash}`);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    async _updateTip(tip) {
-        this.m_tip = tip;
-        for (let blockHash of this.m_refSnapshots) {
-            this.m_storageManager.releaseSnapshotView(blockHash);
-        }
-        this.m_refSnapshots = [];
-        let gsv = await this.m_storageManager.getSnapshotView(tip.hash);
-        if (gsv.err) {
-            return gsv.err;
-        }
-        this.m_refSnapshots.push(tip.hash);
-        if (this._morkSnapshot) {
-            let mork = tip.number - 2 * this._confirmDepth;
-            mork = mork >= 0 ? mork : 0;
-            if (mork !== tip.number) {
-                let hr = await this.m_headerStorage.getHeader(mork);
-                if (hr.err) {
-                    return hr.err;
-                }
-                this.logger.info(`=============_updateTip get 2,number=${mork},hash=${hr.header.hash}`);
-                gsv = await this.m_storageManager.getSnapshotView(hr.header.hash);
-                this.logger.info(`=============_updateTip get 2 1,number=${mork},hash=${hr.header.hash}`);
-                if (gsv.err) {
-                    return gsv.err;
-                }
-                this.m_refSnapshots.push(hr.header.hash);
+    async _morkSnapshot(hashes) {
+        this.m_logger.debug(`request to mork storage `, hashes);
+        if (this.m_storageMorkRequests.morking) {
+            if (this.m_storageMorkRequests.pending) {
+                this.m_logger.debug(`ignore pending mork storage request`, this.m_storageMorkRequests.pending);
             }
+            this.m_storageMorkRequests.pending = new Set(hashes.values());
+            return;
         }
-        this.m_storageManager.recycleSnapShot();
+        this.m_storageMorkRequests.morking = new Set(hashes.values());
+        const doMork = async () => {
+            const morking = this.m_storageMorkRequests.morking;
+            this.m_logger.debug(`begin to mork storage `, morking);
+            let toMork = [];
+            for (const blockHash of morking) {
+                if (!this.m_refSnapshots.has(blockHash)) {
+                    toMork.push(blockHash);
+                }
+            }
+            let toRelease = [];
+            for (const blockHash of this.m_refSnapshots) {
+                if (!morking.has(blockHash)) {
+                    toRelease.push(blockHash);
+                }
+            }
+            let morked = [];
+            for (const blockHash of toMork) {
+                this.logger.debug(`=============_updateTip get 2, hash=${blockHash}`);
+                const gsv = await this.m_storageManager.getSnapshotView(blockHash);
+                this.logger.debug(`=============_updateTip get 2 1,hash=${blockHash}`);
+                if (gsv.err) {
+                    this.m_logger.error(`mork ${blockHash}'s storage failed`);
+                    continue;
+                }
+                morked.push(blockHash);
+            }
+            this.m_logger.debug(`morking release snapshots `, toRelease);
+            for (const hash of toRelease) {
+                this.m_storageManager.releaseSnapshotView(hash);
+                this.m_refSnapshots.delete(hash);
+            }
+            this.m_logger.debug(`morking add ref snapshots `, morked);
+            for (const hash of morked) {
+                this.m_refSnapshots.add(hash);
+            }
+            this.m_logger.debug(`recyclde snapshots`);
+            this.m_storageManager.recycleSnapshot();
+        };
+        while (this.m_storageMorkRequests.morking) {
+            await doMork();
+            delete this.m_storageMorkRequests.morking;
+            this.m_storageMorkRequests.morking = this.m_storageMorkRequests.pending;
+        }
+    }
+    async _onUpdateTip(tip) {
+        this.m_tip = tip;
+        let toMork = new Set([tip.hash]);
+        const msr = await this._onMorkSnapshot({ tip, toMork });
+        if (msr.err) {
+            this.m_logger.error(`on mork snapshot failed for ${error_code_1.stringifyErrorCode(msr.err)}`);
+        }
+        this._morkSnapshot(toMork);
         let err = await this.m_pending.updateTipBlock(tip);
         if (err) {
             return err;
         }
         return error_code_1.ErrorCode.RESULT_OK;
+    }
+    async _onMorkSnapshot(options) {
+        return { err: error_code_1.ErrorCode.RESULT_OK };
     }
     get tipBlockHeader() {
         return this.m_tip;
@@ -553,12 +638,12 @@ class Chain extends events_1.EventEmitter {
         let err = await this.m_pending.addTransaction(tx);
         return err;
     }
-    async _compareWork(left, right) {
-        // TODO: pow 用height并不安全， 因为大bits高height的工作量可能低于小bits低height 的工作量
-        return { err: error_code_1.ErrorCode.RESULT_OK, result: left.number - right.number };
+    async _compareWork(comparedHeader, bestChainTip) {
+
+        return { err: error_code_1.ErrorCode.RESULT_OK, result: comparedHeader.number - bestChainTip.number };
     }
     async _addPendingHeaders(params) {
-        // TODO: 这里可以和pending block一样优化，去重已经有的
+
         this.m_pendingHeaders.push(params);
         if (this.m_pendingHeaders.length === 1) {
             while (this.m_pendingHeaders.length) {
@@ -833,7 +918,7 @@ class Chain extends events_1.EventEmitter {
                 }
                 else if (vsh.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
                     // 找不到可能是因为落后太久了，先从当前tip请求吧
-                    let hsr = await this.getHeader(this.m_tip, -this._confirmDepth + 1);
+                    let hsr = await this.getHeader(this.getLIB().number);
                     if (hsr.err) {
                         return hsr.err;
                     }
@@ -904,7 +989,7 @@ class Chain extends events_1.EventEmitter {
                 }
                 else if (headerResult.verified === block_1.VERIFY_STATE.invalid) {
                     this.m_logger.info(`ignore block for previous block has been verified as invalid`);
-                    this.m_headerStorage.updateVerified(block.header, block_1.VERIFY_STATE.invalid);
+                    await this.m_headerStorage.updateVerified(block.header, block_1.VERIFY_STATE.invalid);
                     err = error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
                     break;
                 }
@@ -929,10 +1014,9 @@ class Chain extends events_1.EventEmitter {
             if (vbr.valid === error_code_1.ErrorCode.RESULT_OK) {
                 this.m_logger.info(`${routine.name} block verified`);
                 assert(routine.storage, `${routine.name} verified ok but storage missed`);
-                let csr = await this.m_storageManager.createSnapshot(routine.storage, block.hash);
+                let csr = await this.m_storageManager.createSnapshot(routine.storage, block.hash, true);
                 if (csr.err) {
                     this.m_logger.error(`${name} verified ok but save snapshot failed`);
-                    await routine.storage.remove();
                     return csr.err;
                 }
                 let _err = await this._addVerifiedBlock(block, csr.snapshot);
@@ -975,8 +1059,6 @@ class Chain extends events_1.EventEmitter {
             if (this.m_tip.hash === block.header.hash) {
                 this.logger.debug(`emit tipBlock with ${this.m_tip.hash} ${this.m_tip.number}`);
                 this.emit('tipBlock', this, this.m_tip);
-                // 在broadcast之前执行一次recycleSnapShot
-                this.m_storageManager.recycleSnapShot();
                 let hr = await this.getHeader(this.m_tip, -this._broadcastDepth);
                 if (hr.err) {
                     return hr.err;
@@ -1019,25 +1101,29 @@ class Chain extends events_1.EventEmitter {
         this.m_logger.info(`begin add verified block to chain`);
         assert(this.m_headerStorage);
         assert(this.m_tip);
+        let err = await this._onVerifiedBlock(block);
+        if (err) {
+            this.m_logger.error(` onVerifiedBlock ${block.number} ${block.hash} failed for ${error_code_1.stringifyErrorCode(err)}`);
+            return err;
+        }
         let cr = await this._compareWork(block.header, this.m_tip);
         if (cr.err) {
             return cr.err;
         }
         if (cr.result > 0) {
             this.m_logger.info(`begin extend chain's tip`);
-            let err = await this.m_headerStorage.changeBest(block.header);
+            err = await this.m_headerStorage.changeBest(block.header);
             if (err) {
-                this.m_logger.info(`extend chain's tip failed for save to header storage failed for ${err}`);
+                this.m_logger.error(`extend chain's tip failed for save to header storage failed for ${err}`);
                 return err;
             }
-            err = await this._onVerifiedBlock(block);
-            err = await this._updateTip(block.header);
+            err = await this._onUpdateTip(block.header);
             if (err) {
                 return err;
             }
         }
         else {
-            let err = await this.m_headerStorage.updateVerified(block.header, block_1.VERIFY_STATE.verified);
+            err = await this.m_headerStorage.updateVerified(block.header, block_1.VERIFY_STATE.verified);
             if (err) {
                 this.m_logger.error(`add verified block to chain failed for update verify state to header storage failed for ${err}`);
                 return err;
@@ -1060,8 +1146,30 @@ class Chain extends events_1.EventEmitter {
         });
         return block;
     }
-    async newBlockExecutor(block, storage) {
-        let executor = new executor_1.BlockExecutor({ logger: this.m_logger, block, storage, handler: this.m_handler, externContext: {}, globalOptions: this.m_globalOptions });
+    async newBlockExecutor(options) {
+        let { block, storage, externParams } = options;
+        if (!externParams) {
+            const ppr = await this.prepareExternParams(block, storage);
+            if (ppr.err) {
+                return { err: ppr.err };
+            }
+            externParams = ppr.params;
+        }
+        return this._newBlockExecutor(block, storage, externParams);
+    }
+    async prepareExternParams(block, storage) {
+        return { err: error_code_1.ErrorCode.RESULT_OK, params: [] };
+    }
+    async _newBlockExecutor(block, storage, externParams) {
+        let executor = new executor_1.BlockExecutor({
+            logger: this.m_logger,
+            block,
+            storage,
+            handler: this.m_handler,
+            externContext: {},
+            globalOptions: this.m_globalOptions,
+            externParams: []
+        });
         return { err: error_code_1.ErrorCode.RESULT_OK, executor };
     }
     async newViewExecutor(header, storage, method, param) {
@@ -1089,12 +1197,7 @@ class Chain extends events_1.EventEmitter {
         this.m_node.on('outbound', async (conn) => {
             let syncPeer = conn;
             assert(syncPeer);
-            let hr = await this.m_headerStorage.getHeader((this.m_tip.number > this._confirmDepth) ? (this.m_tip.number - this._confirmDepth) : 0);
-            if (hr.err) {
-                return hr.err;
-            }
-            assert(hr.header);
-            return await this._beginSyncWithConnection({ conn }, hr.header.hash);
+            return await this._beginSyncWithConnection({ conn }, this.getLIB().hash);
         });
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -1109,7 +1212,7 @@ class Chain extends events_1.EventEmitter {
         storage.createLogger();
         let crr;
         // 通过redo log 来添加block的内容
-        if (options && options.redoLog) {
+        if (this._ignoreVerify && options && options.redoLog) {
             crr = { err: error_code_1.ErrorCode.RESULT_OK, routine: new VerifyBlockWithRedoLogRoutine({
                     name,
                     block,
@@ -1189,7 +1292,7 @@ class Chain extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async onPostCreateGenesis(genesis, storage) {
-        // assert(genesis.header.storageHash === (await storage.messageDigest()).value);
+        // assert(genesis1.header.storageHash === (await storage.messageDigest()).value);
         assert(genesis.number === 0);
         if (genesis.number !== 0) {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
@@ -1285,6 +1388,15 @@ class Chain extends events_1.EventEmitter {
     _getReceiptType() {
         return block_1.Receipt;
     }
+    getLIB() {
+        return { number: this.m_tip.number, hash: this.m_tip.hash };
+    }
+    getPrice() {
+    }
+    calcTxLimit(method, input) {
+        let limit = this.m_calcTxLimit.calcTxLimit(method, input);
+        return { err: error_code_1.ErrorCode.RESULT_OK, limit: limit.toString() };
+    }
 }
 // 存储address入链的tx的最大nonce
 Chain.dbSystem = '__system';
@@ -1295,7 +1407,12 @@ Chain.s_dbFile = 'database';
 exports.Chain = Chain;
 class VerifyBlockWithRedoLogRoutine extends executor_routine_1.BlockExecutorRoutine {
     constructor(options) {
-        super(options);
+        super({
+            name: options.name,
+            block: options.block,
+            storage: options.storage,
+            logger: options.logger
+        });
         this.m_redoLog = options.redoLog;
     }
     async execute() {

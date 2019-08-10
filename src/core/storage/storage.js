@@ -61,13 +61,15 @@ class Storage extends IReadWritableStorage {
     }
     async remove() {
         await this.uninit();
-        try {
-            this.m_logger.debug(`about to remove storage file `, this.m_filePath);
-            fs.removeSync(this.m_filePath);
-        }
-        catch (e) {
-            this.m_logger.error(`remove storage ${this.m_filePath} failed `, e);
-            return error_code_1.ErrorCode.RESULT_EXCEPTION;
+        if (fs.existsSync(this.m_filePath)) {
+            try {
+                this.m_logger.debug(`about to remove storage file `, this.m_filePath);
+                fs.unlinkSync(this.m_filePath);
+            }
+            catch (e) {
+                this.m_logger.error(`remove storage ${this.m_filePath} failed `, e);
+                return error_code_1.ErrorCode.RESULT_EXCEPTION;
+            }
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }

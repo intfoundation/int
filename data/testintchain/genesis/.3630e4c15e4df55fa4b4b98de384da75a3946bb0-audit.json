@@ -1,0 +1,29 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 7
+    },
+    "auditLog": "/Users/ali/WebstormProjects/int/data/testintchain/genesis/.3630e4c15e4df55fa4b4b98de384da75a3946bb0-audit.json",
+    "files": [
+        {
+            "date": 1547215668298,
+            "name": "/Users/ali/WebstormProjects/int/data/testintchain/genesis/exception.log.2019-01-11-22.",
+            "hash": "c4c0b8cde8790617b86f5114c42a1ce0"
+        },
+        {
+            "date": 1547353808690,
+            "name": "/Users/ali/WebstormProjects/int/data/testintchain/genesis/exception.log.2019-01-13-12.",
+            "hash": "d4898bf00d5c9fdbd91df8984dcf28d3"
+        },
+        {
+            "date": 1547365086880,
+            "name": "/Users/ali/WebstormProjects/int/data/testintchain/genesis/exception.log.2019-01-13-15.",
+            "hash": "cb020ec8dac46b6e51bf17e314424659"
+        },
+        {
+            "date": 1547476908371,
+            "name": "/Users/ali/WebstormProjects/int/data/testintchain/genesis/exception.log.2019-01-14-22.",
+            "hash": "0fad1fc7c96d5a0f207e846b6e5599b2"
+        }
+    ]
+}

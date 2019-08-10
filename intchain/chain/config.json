@@ -1,18 +1,18 @@
 {
     "handler":"./handler.js",
     "type": {
-        "consensus":"dpos",
+        "consensus":"dbft",
         "features":[]
     },
     "global": {
-        "minCreateor": 1,
-        "maxCreateor": 13,
-        "reSelectionBlocks": 360,
-        "blockInterval": 10,
-        "timeOffsetToLastBlock": 1800,
-        "timeBan": 3600,
-        "unbanBlocks": 100,
-        "dposVoteMaxProducers": 20,
-        "maxBlockIntervalOffset": 1
+        "minValidator": 1,
+        "maxValidator": 13,
+        "reSelectionBlocks": 364,
+		"blockInterval": 10,
+        "superAdmin": "INT1HtnwUJMUkgPo6hQicViqwsM2Sgy5crVG4",
+        "agreeRateNumerator": 2,
+        "agreeRateDenominator": 3,
+        "numberOffsetToLastBlock":2184,
+        "banBlocks": 8736
     }
 }

@@ -9,8 +9,6 @@ class ValueMiner extends chain_1.Miner {
     constructor(options) {
         super(options);
         this.m_blocklimit = new bignumber_js_1.BigNumber(0);
-        // 一个块的最大 limit
-        this.m_maxblocklimit = new bignumber_js_1.BigNumber(80000000);
     }
     set coinbase(address) {
         this.m_coinbase = address;
@@ -35,9 +33,6 @@ class ValueMiner extends chain_1.Miner {
             return { err: error_code_1.ErrorCode.RESULT_PARSE_ERROR };
         }
         value.blocklimit = new bignumber_js_1.BigNumber(options.origin.get('blocklimit'));
-        if (value.blocklimit.gt(this.m_maxblocklimit)) {
-            return { err: error_code_1.ErrorCode.RESULT_BLOCK_LIMIT_TOO_BIG };
-        }
         return { err: error_code_1.ErrorCode.RESULT_OK, value };
     }
     async initialize(options) {
@@ -45,16 +40,16 @@ class ValueMiner extends chain_1.Miner {
             this.m_coinbase = options.coinbase;
         }
         this.m_blocklimit = options.blocklimit;
-        return super.initialize(options);
+        return await super.initialize(options);
     }
     async _decorateBlock(block) {
         block.header.coinbase = this.m_coinbase;
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    pushTx(block) {
-        let txs = this.chain.pending.popTransactionWithFee(this.m_blocklimit);
-        while (txs.length > 0) {
-            block.content.addTransaction(txs.shift());
+    async _collectTransactions(block) {
+        let txs = await this.chain.pending.popTransactionWithFee(this.m_blocklimit);
+        for (const tx of txs) {
+            block.content.addTransaction(tx);
         }
     }
 }

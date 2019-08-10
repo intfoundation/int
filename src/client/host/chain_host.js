@@ -2,10 +2,23 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const path = require("path");
 const fs = require("fs-extra");
+const addressClass = require("../../core/address");
 const core_1 = require("../../core");
+const server_1 = require("../event/server");
 const rpc_1 = require("./rpc");
 class ChainHost {
     constructor() {
+    }
+    async _initEventServer(options) {
+        if (!options.commandOptions.has('eventsServer')) {
+            return { err: core_1.ErrorCode.RESULT_OK };
+        }
+        let server = new server_1.ChainEventServer({ chain: options.chain });
+        const err = await server.init({});
+        if (err) {
+            return { err };
+        }
+        return { err: core_1.ErrorCode.RESULT_OK, server };
     }
     async initMiner(commandOptions) {
         let dataDir = this._parseDataDir(commandOptions);
@@ -35,6 +48,11 @@ class ChainHost {
             console.error('chain_host initMiner fail initialize');
             return { ret: false };
         }
+        const iesr = await this._initEventServer({ chain: cr.miner.chain, commandOptions });
+        if (iesr.err) {
+            console.error('init events server fail parseInstanceOptions');
+            return { ret: false };
+        }
         this.m_server = new rpc_1.ChainServer(logger, cr.miner.chain, cr.miner);
         this.m_server.init(commandOptions);
         return { ret: true, miner: cr.miner };
@@ -44,6 +62,39 @@ class ChainHost {
         if (!dataDir) {
             return { ret: false };
         }
+        //处理peerId相关逻辑
+        let optionsFile = path.join(dataDir, '../', '.options.json');
+        let writeFlag = false;
+        let json = {};
+        let propertyName = "peerid";
+        if (commandOptions.has("test")) {
+            propertyName = "testPeerid";
+        }
+        try {
+            if (fs.existsSync(optionsFile)) {
+                json = fs.readJsonSync(optionsFile);
+                if (json["peerid"]) {
+                    commandOptions.set("peerid", json[propertyName]);
+                }
+                else {
+                    writeFlag = true;
+                }
+            }
+            else {
+                writeFlag = true;
+            }
+        }
+        catch (error) {
+            console.error(`read or write nodeinfo error, rebuild file`);
+            writeFlag = true;
+        }
+        if (writeFlag) {
+            let privateKey = addressClass.createKeyPair()[1];
+            let address = addressClass.addressFromSecretKey(privateKey.toString('hex'));
+            json[propertyName] = address;
+            fs.writeJsonSync(optionsFile, json);
+        }
+        commandOptions.set("peerid", json[propertyName]);
         let logger = this._parseLogger(dataDir, commandOptions);
         let creator = core_1.initChainCreator({ logger });
         let cr = await creator.createChainInstance(dataDir, { initComponents: true });
@@ -59,12 +110,17 @@ class ChainHost {
         if (pr.err) {
             return { ret: false };
         }
-        let err = await cr.chain.initialize(pr.value);
+        this.m_server = new rpc_1.ChainServer(logger, cr.chain);
+        this.m_server.init(commandOptions);
+        let err = await cr.chain.initialize(pr.value, true);
         if (err) {
             return { ret: false };
         }
-        this.m_server = new rpc_1.ChainServer(logger, cr.chain);
-        this.m_server.init(commandOptions);
+        const iesr = await this._initEventServer({ chain: cr.chain, commandOptions });
+        if (iesr.err) {
+            console.error('init events server fail parseInstanceOptions');
+            return { ret: false };
+        }
         return { ret: true, chain: cr.chain };
     }
     async createGenesis(commandOptions) {

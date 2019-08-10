@@ -1,7 +1,16 @@
 .idea
 node_modules/
 .DS_Store
-data/testintchain/
+data/testintchain/peerData*
+data/testintchain/intchaindata
+data/testintchain/minerData*
+data/testintchain/.options.json
 data/intchain/peerData
 data/intchain/minerData*
+data/intchain/.options.json
+data/keystore
+data/dbft/*
+data/testdbft/*
+!data/dbft/genesis
 package-lock.json
+log/

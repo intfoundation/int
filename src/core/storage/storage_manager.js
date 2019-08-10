@@ -155,6 +155,9 @@ class StorageManager {
     hasRedoLog(blockHash) {
         return this.m_snapshotManager.hasRedoLog(blockHash);
     }
+    addRedoLog(blockHash, log) {
+        return this.m_snapshotManager.writeRedoLog(blockHash, log);
+    }
     async releaseSnapshotView(blockHash) {
         let stub = this.m_views.get(blockHash);
         if (stub) {
@@ -167,7 +170,7 @@ class StorageManager {
             }
         }
     }
-    recycleSnapShot() {
+    recycleSnapshot() {
         return this.m_snapshotManager.recycle();
     }
 }

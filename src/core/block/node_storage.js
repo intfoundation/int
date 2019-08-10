@@ -11,21 +11,26 @@ class NodeStorage {
         this.m_staticNodes = [];
         this.m_file = path.join(options.dataDir, 'nodeinfo');
         this.m_logger = options.logger;
-        try {
-            fs.ensureDirSync(options.dataDir);
-            if (fs.existsSync(this.m_file)) {
+        fs.ensureDirSync(options.dataDir);
+        if (fs.existsSync(this.m_file)) {
+            try {
                 let json = fs.readJsonSync(this.m_file);
                 this.m_nodes = json['nodes'] ? json['nodes'] : [];
                 this.m_banNodes = json['bans'] ? json['bans'] : [];
             }
-        }
-        catch (e) {
-            this.m_logger.error(`[node_storage NodeStorage constructor] ${e.toString()}`);
+            catch (error) {
+                this.m_logger.error(`read nodeinfo error `, error);
+            }
         }
         // 在这里读一次staticnodes
         const staticFile = path.join(options.dataDir, 'staticnodes');
         if (fs.pathExistsSync(staticFile)) {
-            this.m_staticNodes = fs.readJSONSync(staticFile);
+            try {
+                this.m_staticNodes = fs.readJSONSync(staticFile);
+            }
+            catch (error) {
+                this.m_logger.error(`read staticnodes error `, error);
+            }
         }
         setInterval(() => {
             this.flush();

@@ -12,8 +12,8 @@ __export(require("./lib/logger_util"));
 __export(require("./lib/decimal_transfer"));
 __export(require("./chain"));
 __export(require("./value_chain"));
-__export(require("./dpos_chain"));
 __export(require("./net"));
+__export(require("./dbft_chain"));
 var node_1 = require("./net_tcp/node");
 exports.TcpNode = node_1.TcpNode;
 var node_2 = require("./net_bdt/node");
@@ -28,13 +28,14 @@ const fs = require("fs-extra");
 const network_1 = require("./block/network");
 const chain_creator_2 = require("./chain_creator");
 const value_chain_1 = require("./value_chain");
-const dpos_chain_1 = require("./dpos_chain");
+const dbft_chain_1 = require("./dbft_chain");
 const logger_util_1 = require("./lib/logger_util");
 const node_4 = require("./net_tcp/node");
 const node_5 = require("./net_standalone/node");
 const net_1 = require("./net");
 const node_6 = require("./net_bdt/node");
 const random_outbound_network_1 = require("./block/random_outbound_network");
+const validators_network_1 = require("./dbft_chain/validators_network");
 function initChainCreator(options) {
     const logger = logger_util_1.initLogger(options);
     const networkCreator = new network_1.NetworkCreator({ logger });
@@ -114,6 +115,7 @@ function initChainCreator(options) {
         let snconfig = snPeers.split('@');
         if (snconfig.length !== 4) {
             console.error('invalid sn: <SN_PEERID>@<SN_IP>@<SN_TCP_PORT>@<SN_UDP_PORT>');
+            return;
         }
         const snPeer = {
             peerid: `${snconfig[0]}`,
@@ -128,24 +130,32 @@ function initChainCreator(options) {
             file_dir: commandOptions.get('dataDir') + '/log',
             file_name: commandOptions.get('bdt_log_name') || 'bdt',
         };
+        let dhtAppID = 0;
+        if (commandOptions.has('networkid')) {
+            dhtAppID = parseInt(commandOptions.get('networkid'));
+            if (isNaN(dhtAppID)) {
+                dhtAppID = 0;
+            }
+        }
         let initDHTEntry;
         const initDHTFile = commandOptions.get('dataDir') + '/peers';
         if (fs.pathExistsSync(initDHTFile)) {
             initDHTEntry = fs.readJSONSync(initDHTFile);
         }
-        return new node_6.BdtNode({ network, host: _host, tcpport, udpport, peerid, snPeer, bdtLoggerOptions: bdt_logger, initDHTEntry });
+        return new node_6.BdtNode({ network, host: _host, tcpport, udpport, peerid, snPeer, dhtAppID, bdtLoggerOptions: bdt_logger, initDHTEntry });
     });
     networkCreator.registerNetwork('random', random_outbound_network_1.RandomOutNetwork);
+    networkCreator.registerNetwork('validators', validators_network_1.ValidatorsNetwork);
     let _creator = new chain_creator_2.ChainCreator({ logger, networkCreator });
-    _creator.registerChainType('dpos', {
+    _creator.registerChainType('dbft', {
         newHandler(creator, typeOptions) {
             return new value_chain_1.ValueHandler();
         },
         newChain(creator, dataDir, config) {
-            return new dpos_chain_1.DposChain({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
+            return new dbft_chain_1.DbftChain({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
         },
         newMiner(creator, dataDir, config) {
-            return new dpos_chain_1.DposMiner({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
+            return new dbft_chain_1.DbftMiner({ networkCreator, logger: creator.logger, handler: config.handler, dataDir, globalOptions: config.globalOptions });
         }
     });
     return _creator;

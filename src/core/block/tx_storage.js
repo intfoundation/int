@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const error_code_1 = require("../error_code");
 let assert = require('assert');
 const initSql = 'CREATE TABLE IF NOT EXISTS "txview"("txhash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "address" CHAR(64) NOT NULL, "blockheight" INTEGER NOT NULL, "blockhash" CHAR(64) NOT NULL);';
+const initIndex = 'CREATE INDEX IF NOT EXISTS "index_blockheight" on "txview" ("blockheight")';
 class TxStorage {
     constructor(options) {
         this.m_readonly = !!(options && options.readonly);
@@ -14,6 +15,7 @@ class TxStorage {
         if (!this.m_readonly) {
             try {
                 await this.m_db.run(initSql);
+                await this.m_db.run(initIndex);
             }
             catch (e) {
                 this.m_logger.error(e);
@@ -26,10 +28,6 @@ class TxStorage {
         // do nothing
     }
     async add(blockhash) {
-        if (!this.m_blockStorage.has(blockhash)) {
-            assert(false, `can't find block ${blockhash} when update tx storage`);
-            return error_code_1.ErrorCode.RESULT_NOT_FOUND;
-        }
         let block = this.m_blockStorage.get(blockhash);
         if (!block) {
             this.m_logger.error(`can't load ${blockhash} when update tx storage`);

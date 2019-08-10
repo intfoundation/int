@@ -57,32 +57,34 @@ class ChainNode extends events_1.EventEmitter {
     }
     async init() {
         let inits = [];
-        for (const node of this.m_networks) {
-            node.on('inbound', (conn) => {
-                this._beginSyncWithNode(node, conn);
+        for (const network of this.m_networks) {
+            network.on('inbound', (conn) => {
+                this._beginSyncWithNode(network, conn);
                 this.emit('inbound', conn);
             });
-            node.on('outbound', (conn) => {
-                this._beginSyncWithNode(node, conn);
+            network.on('outbound', (conn) => {
+                this._beginSyncWithNode(network, conn);
                 this.emit('outbound', conn);
             });
-            node.on('error', (remote, err) => {
-                this._onConnectionError(remote);
-                this.emit('error', net_1.INode.fullPeerid(node.name, remote));
+            network.on('error', (remote, id, err) => {
+                const fullRemote = net_1.INode.fullPeerid(network.name, remote);
+                this._onConnectionError(fullRemote, id);
+                this.emit('error', fullRemote);
             });
-            node.on('ban', (remote) => {
-                this._onRemoveConnection(remote);
-                this.emit('ban', net_1.INode.fullPeerid(node.name, remote));
+            network.on('ban', (remote) => {
+                const fullRemote = net_1.INode.fullPeerid(network.name, remote);
+                this._onRemoveConnection(fullRemote);
+                this.emit('ban', fullRemote);
             });
-            inits.push(node.init());
+            inits.push(network.init());
         }
         let results = await Promise.all(inits);
         if (results[0]) {
             return results[0];
         }
         let initOutbounds = [];
-        for (const node of this.m_networks) {
-            initOutbounds.push(node.initialOutbounds());
+        for (const network of this.m_networks) {
+            initOutbounds.push(network.initialOutbounds());
         }
         results = await Promise.all(initOutbounds);
         return results[0];
@@ -92,8 +94,8 @@ class ChainNode extends events_1.EventEmitter {
         this.removeAllListeners('headers');
         this.removeAllListeners('transactions');
         let uninits = [];
-        for (const node of this.m_networks) {
-            uninits.push(node.uninit());
+        for (const network of this.m_networks) {
+            uninits.push(network.uninit());
         }
         return Promise.all(uninits);
     }
@@ -102,8 +104,8 @@ class ChainNode extends events_1.EventEmitter {
     }
     async listen() {
         let listens = [];
-        for (const node of this.m_networks) {
-            listens.push(node.listen());
+        for (const network of this.m_networks) {
+            listens.push(network.listen());
         }
         const results = await Promise.all(listens);
         for (const err of results) {
@@ -113,11 +115,11 @@ class ChainNode extends events_1.EventEmitter {
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    getNetwork(network) {
-        if (network) {
-            for (const node of this.m_networks) {
-                if (node.name === network) {
-                    return node;
+    getNetwork(_network) {
+        if (_network) {
+            for (const network of this.m_networks) {
+                if (network.name === _network) {
+                    return network;
                 }
             }
             return undefined;
@@ -136,8 +138,15 @@ class ChainNode extends events_1.EventEmitter {
     }
     getOutbounds() {
         let arr = [];
-        for (const node of this.m_networks) {
-            arr.push(...node.node.getOutbounds());
+        for (const network of this.m_networks) {
+            arr.push(...network.node.getOutbounds());
+        }
+        return arr;
+    }
+    getInbounds() {
+        let arr = [];
+        for (const network of this.m_networks) {
+            arr.push(...network.node.getInbounds());
         }
         return arr;
     }
@@ -146,6 +155,7 @@ class ChainNode extends events_1.EventEmitter {
             return error_code_1.ErrorCode.RESULT_OK;
         }
         let pwriter;
+        let strategy;
         if (content[0] instanceof block_1.BlockHeader) {
             let hwriter = new writer_1.BufferWriter();
             for (let header of content) {
@@ -158,6 +168,7 @@ class ChainNode extends events_1.EventEmitter {
             let raw = hwriter.render();
             pwriter = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.header, { count: content.length }, raw.length);
             pwriter.writeData(raw);
+            strategy = block_1.NetworkBroadcastStrategy.headers;
         }
         else if (content[0] instanceof block_1.Transaction) {
             let hwriter = new writer_1.BufferWriter();
@@ -171,10 +182,13 @@ class ChainNode extends events_1.EventEmitter {
             let raw = hwriter.render();
             pwriter = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.tx, { count: content.length }, raw.length);
             pwriter.writeData(raw);
+            strategy = block_1.NetworkBroadcastStrategy.transaction;
         }
         assert(pwriter);
-        for (const node of this.m_networks) {
-            node.node.broadcast(pwriter, options);
+        for (const network of this.m_networks) {
+            const opt = Object.create(options ? options : null);
+            opt.strategy = strategy;
+            network.broadcast(pwriter, opt);
         }
         return error_code_1.ErrorCode.RESULT_OK;
     }
@@ -219,6 +233,7 @@ class ChainNode extends events_1.EventEmitter {
                 let buffer = pkg.copyData();
                 let headerReader = new reader_1.BufferReader(buffer);
                 let headers = [];
+                this.logger.debug(`receive headers from ${conn.fullRemote} err ${pkg.body.error} request `, pkg.body.request);
                 if (!pkg.body.error) {
                     let err = error_code_1.ErrorCode.RESULT_OK;
                     let preHeader;
@@ -337,12 +352,13 @@ class ChainNode extends events_1.EventEmitter {
             network.banConnection(conn.remote, block_1.BAN_LEVEL.day); // 可能分叉？
             return;
         }
-        let err = this._onRecvBlock(block, conn.fullRemote);
+        const eventParams = { from: conn.fullRemote, block, redoLog };
+        let err = this._onRecvBlock(eventParams);
         if (err) {
             return;
         }
         // 数据emit 到chain层
-        this.emit('blocks', { from: conn.fullRemote, block, redoLog });
+        this.emit('blocks', eventParams);
     }
     requestHeaders(from, options) {
         this.logger.debug(`request headers from  with options ${from.fullRemote}`, options);
@@ -369,28 +385,35 @@ class ChainNode extends events_1.EventEmitter {
         let requests = [];
         let addRequesting = (header) => {
             if (this.m_blockStorage.has(header.hash)) {
-                if (this.m_blockWithLog) {
-                    let redoLog = this.m_storageManager.getRedoLog(header.hash);
-                    if (redoLog) {
-                        let block = this.m_blockStorage.get(header.hash);
-                        assert(block, `block storage load block ${header.hash} failed while file exists`);
-                        if (block) {
+                let block = this.m_blockStorage.get(header.hash);
+                assert(block, `block storage load block ${header.hash} failed while file exists`);
+                if (block) {
+                    if (this.m_blockWithLog) {
+                        if (this.m_storageManager.hasRedoLog(header.hash)) {
+                            let redoLog = this.m_storageManager.getRedoLog(header.hash);
+                            if (redoLog) {
+                                setImmediate(() => {
+                                    this.emit('blocks', { block, redoLog });
+                                });
+                            }
+                            else {
+                                setImmediate(() => {
+                                    this.emit('blocks', { block });
+                                });
+                            }
+                        }
+                        else {
                             setImmediate(() => {
-                                this.emit('blocks', { block, redoLog });
+                                this.emit('blocks', { block });
                             });
-                            return false;
                         }
                     }
-                }
-                else {
-                    let block = this.m_blockStorage.get(header.hash);
-                    assert(block, `block storage load block ${header.hash} failed while file exists`);
-                    if (block) {
+                    else {
                         setImmediate(() => {
                             this.emit('blocks', { block });
                         });
-                        return false;
                     }
+                    return false;
                 }
             }
             let sources = this.m_blockFromMap.get(header.hash);
@@ -418,10 +441,9 @@ class ChainNode extends events_1.EventEmitter {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;
         }
         for (let hash of requests) {
-            if (!this._tryRequestBlockFromConnection(hash, connRequesting)) {
-                this._addToPendingBlocks(hash);
-            }
+            this._addToPendingBlocks(hash);
         }
+        this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
     _tryRequestBlockFromConnection(hash, from) {
@@ -537,36 +559,39 @@ class ChainNode extends events_1.EventEmitter {
         }
         return valid;
     }
-    _onRecvBlock(block, remote) {
-        let connRequesting = this.m_requestingBlock.connMap.get(remote);
+    _onRecvBlock(params) {
+        let connRequesting = this.m_requestingBlock.connMap.get(params.from);
         if (!connRequesting) {
-            this.logger.error(`requesting info on ${remote} missed, skip it`);
+            this.logger.error(`requesting info on ${params.from} missed, skip it`);
             return error_code_1.ErrorCode.RESULT_NOT_FOUND;
         }
-        let stub = this.m_requestingBlock.hashMap.get(block.hash);
-        assert(stub, `recv block ${block.hash} from ${remote} that never request`);
+        let stub = this.m_requestingBlock.hashMap.get(params.block.hash);
+        assert(stub, `recv block ${params.block.hash} from ${params.from} that never request`);
         if (!stub) {
-            this._banConnection(remote, block_1.BAN_LEVEL.day);
+            this._banConnection(params.from, block_1.BAN_LEVEL.day);
             return error_code_1.ErrorCode.RESULT_INVALID_BLOCK;
         }
-        this.logger.debug(`recv block hash: ${block.hash} number: ${block.number} from ${remote}`);
-        this.m_blockStorage.add(block);
-        assert(stub.remote === remote, `request ${block.hash} from ${stub.remote} while recv from ${remote}`);
-        this.m_requestingBlock.hashMap.delete(block.hash);
-        connRequesting.hashes.delete(block.hash);
-        this.m_blockFromMap.delete(block.hash);
-        this.m_cc.onRecvBlock(this, block, connRequesting);
+        this.logger.debug(`recv block hash: ${params.block.hash} number: ${params.block.number} from ${params.from}`);
+        this.m_blockStorage.add(params.block);
+        if (params.redoLog) {
+            this.m_storageManager.addRedoLog(params.block.hash, params.redoLog);
+        }
+        assert(stub.remote === params.from, `request ${params.block.hash} from ${stub.remote} while recv from ${params.from}`);
+        this.m_requestingBlock.hashMap.delete(params.block.hash);
+        connRequesting.hashes.delete(params.block.hash);
+        this.m_blockFromMap.delete(params.block.hash);
+        this.m_cc.onRecvBlock(this, params.block, connRequesting);
         this._onFreeBlockWnd(connRequesting);
         return error_code_1.ErrorCode.RESULT_OK;
     }
-    _onConnectionError(remote) {
-        this.logger.warn(`connection from ${remote} break, close it.`);
-        this._onRemoveConnection(remote);
+    _onConnectionError(fullRemote, id) {
+        this.logger.warn(`connection ${id} from ${fullRemote} break, close it.`);
+        this._onRemoveConnection(fullRemote);
     }
     /*must not async*/
-    _onRemoveConnection(remote) {
-        this.logger.info(`removing ${remote} from block requesting source`);
-        let connRequesting = this.m_requestingBlock.connMap.get(remote);
+    _onRemoveConnection(fullRemote) {
+        this.logger.info(`removing ${fullRemote} from block requesting source`);
+        let connRequesting = this.m_requestingBlock.connMap.get(fullRemote);
         if (connRequesting) {
             for (let hash of connRequesting.hashes) {
                 this.logger.debug(`change block ${hash} from requesting to pending`);
@@ -574,15 +599,14 @@ class ChainNode extends events_1.EventEmitter {
                 this._addToPendingBlocks(hash, true);
             }
         }
-        this.m_requestingBlock.connMap.delete(remote);
-        const pendings = this.m_pendingBlock.sequence.slice(0);
-        for (let hash of pendings) {
+        this.m_requestingBlock.connMap.delete(fullRemote);
+        for (let hash of this.m_blockFromMap.keys()) {
             let sources = this.m_blockFromMap.get(hash);
-            if (sources.has(remote)) {
-                sources.delete(remote);
+            if (sources.has(fullRemote)) {
+                sources.delete(fullRemote);
                 if (!sources.size) {
                     this.logger.debug(`remove block ${hash} from pending blocks for all source removed`);
-                    this._removeFromPendingBlocks(hash);
+                    // this._removeFromPendingBlocks(hash);
                 }
                 else {
                     for (let from of sources) {
@@ -595,13 +619,13 @@ class ChainNode extends events_1.EventEmitter {
                 }
             }
         }
-        this.m_requestingHeaders.delete(remote);
+        this.m_requestingHeaders.delete(fullRemote);
     }
-    banConnection(remote, level) {
-        return this._banConnection(remote, level);
+    banConnection(fullRemote, level) {
+        return this._banConnection(fullRemote, level);
     }
-    _banConnection(remote, level) {
-        const { network, peerid } = net_1.INode.splitFullPeerid(remote);
+    _banConnection(fullRemote, level) {
+        const { network, peerid } = net_1.INode.splitFullPeerid(fullRemote);
         const node = this.getNetwork(network);
         if (node) {
             node.banConnection(peerid, level);
@@ -620,11 +644,11 @@ class ChainNode extends events_1.EventEmitter {
             }
         }
         // 返回headers超时
-        for (let remote of this.m_requestingHeaders.keys()) {
-            let rh = this.m_requestingHeaders.get(remote);
+        for (let fullRemote of this.m_requestingHeaders.keys()) {
+            let rh = this.m_requestingHeaders.get(fullRemote);
             if (now - rh.time > this.m_headersTimeout) {
-                this.logger.debug(`header request timeout from ${remote} timeout with options `, rh.req);
-                this._banConnection(remote, block_1.BAN_LEVEL.hour);
+                this.logger.debug(`header request timeout from ${fullRemote} timeout with options `, rh.req);
+                this._banConnection(fullRemote, block_1.BAN_LEVEL.hour);
             }
         }
     }
@@ -645,17 +669,26 @@ class ChainNode extends events_1.EventEmitter {
             return err;
         }
         let rawBlocks = bwriter.render();
+        let redoLogRaw;
         // 如果请求参数里设置了redoLog,  则读取redoLog, 合并在返回的包里
         if (req.redoLog === 1) {
-            let redoLogWriter = new writer_1.BufferWriter();
-            // 从本地文件中读取redoLog, 处理raw 拼接在block后
-            let redoLog = this.m_storageManager.getRedoLog(req.hash);
-            err = redoLog.encode(redoLogWriter);
-            if (err) {
-                this.logger.error(`encode redolog ${req.hash} failed`);
-                return err;
-            }
-            let redoLogRaw = redoLogWriter.render();
+            do {
+                let redoLogWriter = new writer_1.BufferWriter();
+                // 从本地文件中读取redoLog, 处理raw 拼接在block后
+                let redoLog = this.m_storageManager.getRedoLog(req.hash);
+                if (!redoLog) {
+                    this.logger.error(`${req.hash} redo log missing`);
+                    break;
+                }
+                err = redoLog.encode(redoLogWriter);
+                if (err) {
+                    this.logger.error(`encode redolog ${req.hash} failed`);
+                    break;
+                }
+                redoLogRaw = redoLogWriter.render();
+            } while (false);
+        }
+        if (redoLogRaw) {
             let dataLength = rawBlocks.length + redoLogRaw.length;
             let pwriter = net_1.PackageStreamWriter.fromPackage(SYNC_CMD_TYPE.block, {
                 blockLength: rawBlocks.length,

@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const error_code_1 = require("../error_code");
+const util_1 = require("util");
 class BaseHandler {
     constructor() {
         this.m_txListeners = new Map();
         this.m_viewListeners = new Map();
         this.m_preBlockListeners = [];
         this.m_postBlockListeners = [];
+        this.m_eventDefinations = new Map();
     }
     addTX(name, listener, checker) {
         if (name.length > 0 && listener) {
@@ -49,21 +51,33 @@ class BaseHandler {
     }
     getPreBlockListeners(h) {
         let listeners = [];
-        for (let l of this.m_preBlockListeners) {
-            if (l.filter(h)) {
-                listeners.push(l.listener);
+        for (let index = 0; index < this.m_preBlockListeners.length; ++index) {
+            let s = this.m_preBlockListeners[index];
+            if (util_1.isNullOrUndefined(h) || s.filter(h)) {
+                listeners.push({ listener: s.listener, index });
             }
         }
         return listeners;
     }
     getPostBlockListeners(h) {
         let listeners = [];
-        for (let l of this.m_postBlockListeners) {
-            if (l.filter(h)) {
-                listeners.push(l.listener);
+        for (let index = 0; index < this.m_postBlockListeners.length; ++index) {
+            let s = this.m_postBlockListeners[index];
+            if (util_1.isNullOrUndefined(h) || s.filter(h)) {
+                listeners.push({ listener: s.listener, index });
             }
         }
         return listeners;
+    }
+    defineEvent(name, def) {
+        this.m_eventDefinations.set(name, def);
+    }
+    getEventDefination(name) {
+        return this.m_eventDefinations.get(name);
+    }
+    getEventDefinations() {
+        const d = this.m_eventDefinations;
+        return d;
     }
 }
 exports.BaseHandler = BaseHandler;

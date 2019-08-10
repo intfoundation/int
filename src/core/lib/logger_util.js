@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs-extra");
 const { LogShim } = require('./log_shim');
 exports.LogShim = LogShim;
+require('winston-daily-rotate-file');
 function initLogger(options) {
     if (options.logger) {
         return options.logger;
@@ -21,15 +22,16 @@ function initLogger(options) {
         }
         if (options.loggerOptions.file) {
             fs.ensureDirSync(options.loggerOptions.file.root);
-            loggerTransports.push(new winston_1.transports.File({
+            loggerTransports.push(new winston_1.transports.DailyRotateFile({
                 json: false,
                 level: options.loggerOptions.level ? options.loggerOptions.level : 'info',
                 timestamp: true,
-                filename: path.join(options.loggerOptions.file.root, options.loggerOptions.file.filename || 'info.log'),
-                datePattern: 'yyyy-MM-dd.',
+                filename: path.join(options.loggerOptions.file.root, options.loggerOptions.file.filename || '%DATE%intchain.log'),
+                datePattern: 'YYYY-MM-DD-HH.',
                 prepend: true,
                 handleExceptions: true,
-                humanReadableUnhandledException: true
+                humanReadableUnhandledException: true,
+                maxFiles: '7d'
             }));
         }
         const logger = new winston_1.Logger({
