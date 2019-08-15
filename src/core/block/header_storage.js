@@ -12,6 +12,7 @@ const tx_storage_1 = require("./tx_storage");
 const initHeaderSql = 'CREATE TABLE IF NOT EXISTS "headers"("hash" CHAR(64) PRIMARY KEY NOT NULL UNIQUE, "pre" CHAR(64) NOT NULL, "verified" TINYINT NOT NULL, "raw" BLOB NOT NULL);';
 const initBestSql = 'CREATE TABLE IF NOT EXISTS "best"("height" INTEGER PRIMARY KEY NOT NULL UNIQUE, "hash" CHAR(64) NOT NULL,  "timestamp" INTEGER NOT NULL);';
 const initBestHashIndexSql = 'create index if not exists "index_hash" on best (hash)';
+const initHeadersPreIndexSql = 'create index if not exists "index_pre" on headers (pre)';
 const getByHashSql = 'SELECT raw, verified FROM headers WHERE hash = $hash';
 const getHeightOnBestSql = 'select b.height, h.raw, h.verified from (select * from headers where hash=$hash) as h left join (select * from best where hash=$hash) as b on h.hash=b.hash';
 const getByHeightSql = 'select raw, verified from headers where hash in (select hash from best where height=$height)';
@@ -59,6 +60,7 @@ class HeaderStorage {
                 return error_code_1.ErrorCode.RESULT_EXCEPTION;
             }
         }
+        await this.m_db.run(initHeadersPreIndexSql);
         return await this.m_txView.init();
     }
     uninit() {
