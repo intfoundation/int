@@ -53,10 +53,7 @@ class PendingTransactions extends events_1.EventEmitter {
             this.m_logger.warn(`pengding count=${nCount}, maxPengdingCount=${this.m_maxPengdingCount},orphanTxcount=${orphanTxcount}`);
             return error_code_1.ErrorCode.RESULT_OUT_OF_MEMORY;
         }
-        // if (this.m_isPeer && this._isExist(tx)) {
-        //     this.m_logger.warn(`addTransaction failed, tx exist,hash=${tx.hash}`);
-        //     return ErrorCode.RESULT_TX_EXIST;
-        // }
+
         this.m_logger.debug(`addTransaction, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
         let bt = this.baseMethodChecker(tx);
         if (bt) {
