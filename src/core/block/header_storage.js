@@ -115,6 +115,7 @@ class HeaderStorage {
             }
         }
     }
+
     async _loadHeader(arg) {
         let rawHeader;
         let verified;
