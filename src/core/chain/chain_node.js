@@ -386,6 +386,7 @@ class ChainNode extends events_1.EventEmitter {
         let addRequesting = (header) => {
             if (this.m_blockStorage.has(header.hash)) {
                 let block = this.m_blockStorage.get(header.hash);
+                this.logger.debug(`request query blocks from storage hash = ${header.hash}`);
                 assert(block, `block storage load block ${header.hash} failed while file exists`);
                 if (block) {
                     if (this.m_blockWithLog) {
