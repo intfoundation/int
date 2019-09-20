@@ -421,11 +421,12 @@ class ChainNode extends events_1.EventEmitter {
                 sources = new Set();
                 this.m_blockFromMap.set(header.hash, sources);
             }
-            if (sources.has(from)) {
-                return false;
+            if (!sources.has(from)) {
+                sources.add(from);
             }
-            sources.add(from);
-            if (this.m_requestingBlock.hashMap.has(header.hash)) {
+            let stub = this.m_requestingBlock.hashMap.get(header.hash);
+            if (stub && (Date.now() / 1000 - stub.time) < 5) {
+                this.logger.debug(`block has requested hash = ${header.hash}, stub = ${stub}`);
                 return false;
             }
             requests.push(header.hash);
@@ -457,6 +458,7 @@ class ChainNode extends events_1.EventEmitter {
     _addToPendingBlocks(hash, head = false) {
         if (!this.m_pendingBlock.hashes.has(hash)) {
             this.m_pendingBlock.hashes.add(hash);
+            this.logger.debug(`add new waiting async block to m_pendingBlock, hash = ${hash}`);
             if (head) {
                 this.m_pendingBlock.sequence.unshift(hash);
             }
@@ -518,6 +520,7 @@ class ChainNode extends events_1.EventEmitter {
                 pending.sequence.splice(index, 1);
                 pending.hashes.delete(hash);
                 if (connRequesting.wnd <= connRequesting.hashes.size) {
+                    this.logger.debug(`onFreeBlockWnd connRequesting.wnd <= connRequesting.hashes.size, from ${connRequesting.conn.fullRemote},hash ${hash}`);
                     break;
                 }
                 else {
