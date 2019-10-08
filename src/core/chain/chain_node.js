@@ -425,7 +425,7 @@ class ChainNode extends events_1.EventEmitter {
                 sources.add(from);
             }
             let stub = this.m_requestingBlock.hashMap.get(header.hash);
-            if (stub && (Date.now() / 1000 - stub.time) < 5) {
+            if (stub && (Date.now() / 1000 - stub.time) < 20) {
                 this.logger.debug(`block has requested hash = ${header.hash}, stub = ${stub}`);
                 return false;
             }
