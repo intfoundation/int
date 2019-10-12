@@ -440,7 +440,7 @@ class ChainServer {
                     let verifyResult = addressClass.verify(tx.hash, tx.signature, tx.publicKey);
                     if (!verifyResult) {
                         err = core_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
-                        this.m_logger.error(`rpc server sendTransactionWithSignature error signature verify fail, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                        this.m_logger.error(`rpc server sendTransactionWithSignature error signature verify failed, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
                     }
                 }
 

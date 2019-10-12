@@ -110,6 +110,7 @@ class ChainHost {
         if (pr.err) {
             return { ret: false };
         }
+        //启动RPC Server
         this.m_server = new rpc_1.ChainServer(logger, cr.chain);
         this.m_server.init(commandOptions);
         let err = await cr.chain.initialize(pr.value, true);

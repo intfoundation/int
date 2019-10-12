@@ -803,6 +803,7 @@ class Chain extends events_1.EventEmitter {
             }
             else if (result.verified === block_1.VERIFY_STATE.notVerified) {
                 // 已经认证过的block就不要再请求了
+                this.m_logger.info(`storage header is not verified, hash = ${header.hash}`);
                 toRequest.push(header);
             }
             else if (result.verified === block_1.VERIFY_STATE.invalid) {
@@ -1292,7 +1293,7 @@ class Chain extends events_1.EventEmitter {
         return error_code_1.ErrorCode.RESULT_OK;
     }
     async onPostCreateGenesis(genesis, storage) {
-        // assert(genesis1.header.storageHash === (await storage.messageDigest()).value);
+        // assert(genesis.header.storageHash === (await storage.messageDigest()).value);
         assert(genesis.number === 0);
         if (genesis.number !== 0) {
             return error_code_1.ErrorCode.RESULT_INVALID_PARAM;

@@ -116,7 +116,7 @@ class DbftContext {
             return { err: kvr.err };
         }
         let kvDBFT = kvr.kv;
-        // if voter does not have enough stake , return error
+        // 如果投票者的权益不够，则返回
         let her = await kvDBFT.hexists(DbftContext.keyStake, address);
         if (her.err) {
             return { err: her.err };
@@ -131,6 +131,24 @@ class DbftContext {
             }
             return { err: error_code_1.ErrorCode.RESULT_OK, stake: gr.value };
         }
+    }
+    //用于获取地址所投的目标节点
+    async getVoteResult(address) {
+        let kvr = await this.getDbftKV(DbftContext.kvDBFT);
+        if (kvr.err) {
+            this.logger.error(`execute getVoteResult get dbft keyvalue failed,errcode=${kvr.err}`);
+            return { err: kvr.err };
+        }
+        let kvDBFT = kvr.kv;
+        let producerInfo = await kvDBFT.hget(DbftContext.keyProducers, address);
+        if (producerInfo.err === error_code_1.ErrorCode.RESULT_NOT_FOUND) {
+            return { err: error_code_1.ErrorCode.RESULT_OK, voteResult: [] };
+        }
+        if (producerInfo.err) {
+            this.logger.error(`execute _updatevote get producerInfo failed,errcode=${producerInfo.err}`);
+            return { err: producerInfo.err };
+        }
+        return { err: error_code_1.ErrorCode.RESULT_OK, voteResult: producerInfo.value };
     }
     async getVote() {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);
