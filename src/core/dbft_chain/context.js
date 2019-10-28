@@ -196,6 +196,30 @@ class DbftContext {
         });
         return { err: error_code_1.ErrorCode.RESULT_OK, vote };
     }
+    //获取候选节点获得的票数
+    async getCandidateVote(address) {
+        let kvr = await this.getDbftKV(DbftContext.kvDBFT);
+        if (kvr.err) {
+            this.logger.error(`get dbft keyvalue failed,errcode=${kvr.err}`);
+            return { err: kvr.err };
+        }
+        let kvDBFT = kvr.kv;
+        // 如果投票者的权益不够，则返回
+        let her = await kvDBFT.hexists(DbftContext.keyVote, address);
+        if (her.err) {
+            return { err: her.err };
+        }
+        if (!her.value) {
+            return { err: error_code_1.ErrorCode.RESULT_OK, vote: new bignumber_js_1.BigNumber(0) };
+        }
+        else {
+            let gr = await kvDBFT.hget(DbftContext.keyVote, address);
+            if (gr.err) {
+                return { err: gr.err };
+            }
+            return { err: error_code_1.ErrorCode.RESULT_OK, vote: gr.value };
+        }
+    }
 
     async registerToCandidate(candidate, blockheight) {
         let kvr = await this.getDbftKV(DbftContext.kvDBFT);

@@ -263,6 +263,7 @@ export type DbftViewContext = {
     getMiners: () => Promise<string[]>;
     getVote: () => Promise<Array<{address: string, vote: BigNumber}>>;
     getStake: (address: string) => Promise<BigNumber>;
+    getCandidateVote: (address: string) => Promise<BigNumber>;
     getCandidates: () => Promise<string[]>;
     getVoteResult: (address: string) => Promise<string[]>;
 } & ValueViewContext;
