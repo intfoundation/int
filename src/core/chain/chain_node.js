@@ -422,12 +422,11 @@ class ChainNode extends events_1.EventEmitter {
                 sources = new Set();
                 this.m_blockFromMap.set(header.hash, sources);
             }
-            if (!sources.has(from)) {
-                sources.add(from);
+            if (sources.has(from)) {
+                return false;
             }
-            let stub = this.m_requestingBlock.hashMap.get(header.hash);
-            if (stub && (Date.now() / 1000 - stub.time) < 20) {
-                this.logger.debug(`block has requested hash = ${header.hash}, stub = ${stub}`);
+            sources.add(from);
+            if (this.m_requestingBlock.hashMap.has(header.hash)) {
                 return false;
             }
             requests.push(header.hash);
