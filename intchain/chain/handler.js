@@ -70,6 +70,12 @@ function registerHandler(handler) {
     handler.addViewMethod('getStake', async (context, params) => {
         return await context.getStake(params.address);
     });
+    handler.addViewMethod('getCandidateVote', async (context, params) => {
+        return await context.getCandidateVote(params.address);
+    });
+    handler.addViewMethod('getVoteResult', async (context, params) => {
+        return await context.getVoteResult(params.address);
+    });
     handler.addViewMethod('getCandidates', async (context, params) => {
         return await context.getCandidates();
     });

@@ -98,6 +98,20 @@ class DbftChain extends value_chain_1.ValueChain {
             }
             return gm.stake;
         };
+        externalContext.getCandidateVote = async (address) => {
+            let gm = await dbftProxy.getCandidateVote(address);
+            if (gm.err) {
+                throw Error(`newBlockExecutor getCandidateVote failed errcode ${gm.err}`);
+            }
+            return gm.vote;
+        };
+        externalContext.getVoteResult = async (address) => {
+            let gm = await dbftProxy.getVoteResult(address);
+            if (gm.err) {
+                throw Error(`newBlockExecutor getVoteResult failed errcode ${gm.err}`);
+            }
+            return gm.voteResult;
+        };
         externalContext.getCandidates = async () => {
             let gm = await dbftProxy.getCandidates();
             if (gm.err) {
