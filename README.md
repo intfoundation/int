@@ -73,7 +73,7 @@ Install INT CLI to your node_modules folder with
 
     $ npm install --save int-cli
     
-Now you can run INT CLI using following command andywhere
+Now you can run INT CLI using following command
 
     $ node_modules/.bin/int-cli
     
@@ -91,4 +91,3 @@ Now you can run INT CLI using following command andywhere
         --rpchost                        The host that peer can communicate by RPC,defaut value is localhost
         --rpcpot                         The RPC server port，default value is 8555
         
-                          
