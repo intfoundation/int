@@ -15,9 +15,7 @@ function registerHandler(handler) {
     handler.addViewMethod('getBalance', async (context, params) => {
         return await context.getBalance(params.address);
     });
-    // handler.addViewMethod('isMiner', async (context: DbftViewContext, params: any): Promise<boolean> => {
-    //     return await context.isMiner(params.address);
-    // });
+
     handler.addTX('transferTo', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
@@ -32,13 +30,7 @@ function registerHandler(handler) {
         }
         return await context.register(context.caller);
     }, txPendingChecker.registerChecker);
-    // handler.addTX('unregister', async (context: DbftTransactionContext, params: any): Promise<ErrorCode> => {
-    //     let err = context.cost(context.totallimit.times(context.price));
-    //     if (err) {
-    //         return err;
-    //     }
-    //     return await context.unregister(context.caller, params.address);
-    // });
+
     handler.addTX('mortgage', async (context, params) => {
         let err = context.cost(context.totallimit.times(context.price));
         if (err) {
