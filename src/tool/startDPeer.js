@@ -1,11 +1,12 @@
 #! /usr/bin/env node
-
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const process = require("process");
 const path = require("path");
 const client_1 = require("../client");
+const core_1 = require("../core");
 const pkg = require('../../package.json');
+const fork = require('child_process').fork;
 Error.stackTraceLimit = 1000;
 async function run(argv) {
     let command = client_1.parseCommandPeer(argv);
@@ -69,16 +70,25 @@ async function run(argv) {
     options.set("saveMismatch", true);
     options.set("ignoreBan", true);
     //options.set("broadcast_limit_transaction",3);
-    exit = !(await client_1.host.initPeer(command.options)).ret;
-    if (exit) {
-        process.exit();
-    }
+    StartNode(command.options);
 }
 exports.run = run;
 if (require.main === module) {
     run(process.argv);
 }
-
+function StartNode(commandOptions) {
+    const startWork = fork('./src/client/host/startNode.js');
+    startWork.on('exit', function (code) {
+        console.log(`exit code = ${code}`)
+        if (!code) {
+            StartNode(commandOptions);
+        }
+        else {
+            console.log("happen some exception,exit directly ***********");
+        }
+    });
+    startWork.send({ messageFlag: "startPeer", commandOptions: core_1.MapToObject(commandOptions) });
+}
 function help() {
     console.log(["The INT Chain Command Line Interface. Version:" + pkg.version + ".",
         "",
@@ -111,7 +121,6 @@ function help() {
     ].join("\n"));
     console.log("\n");
 }
-
 function version() {
     console.log("Version:" + pkg.version + "\n");
 }

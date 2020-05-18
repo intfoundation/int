@@ -6,6 +6,8 @@ const addressClass = require("../../core/address");
 const core_1 = require("../../core");
 const server_1 = require("../event/server");
 const rpc_1 = require("./rpc");
+const process = require("process");
+let moment = require('moment/moment');
 class ChainHost {
     constructor() {
     }
@@ -113,6 +115,29 @@ class ChainHost {
         //启动RPC Server
         this.m_server = new rpc_1.ChainServer(logger, cr.chain);
         this.m_server.init(commandOptions);
+
+        let blockNumber = 0;
+        setInterval(async () => {
+            // @ts-ignore
+            let resultHeader = await cr.chain.getHeader("latest");
+            if (!resultHeader.err) {
+                // @ts-ignore
+                let newBlockNumber = resultHeader.header.number;
+
+                if (isNaN(newBlockNumber)) {
+                    return;
+                }
+                logger.info(`update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD hh:mm:ss")},update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                if (newBlockNumber != blockNumber) {
+                    blockNumber = newBlockNumber;
+                }
+                else {
+                    process.exit(0);
+                }
+            }
+        }, 1000 * 60 * 5);
+
         let err = await cr.chain.initialize(pr.value, true);
         if (err) {
             return { ret: false };
