@@ -128,7 +128,7 @@ class ChainHost {
                     return;
                 }
                 logger.info(`update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
-                fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                // fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
                 if (newBlockNumber != blockNumber) {
                     blockNumber = newBlockNumber;
                 }
