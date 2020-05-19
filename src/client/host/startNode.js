@@ -9,7 +9,7 @@ process.on('message', async (messageData) => {
     messageData.commandOptions = core_1.MapFromObject(messageData.commandOptions);
     if (messageData.messageFlag == "startPeer") {
         console.log(`${moment().format("YYYY-MM-DD hh:mm:ss")},restart async blocks`)
-        fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD hh:mm:ss")},restart async blocks`);
+        fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},restart async blocks`);
         let result = await client_1.host.initPeer(messageData.commandOptions);
         if (!result.ret) {
             process.exit(1);
