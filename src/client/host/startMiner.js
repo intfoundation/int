@@ -7,10 +7,10 @@ let fs = require('fs');
 let moment = require('moment/moment');
 process.on('message', async (messageData) => {
     messageData.commandOptions = core_1.MapFromObject(messageData.commandOptions);
-    if (messageData.messageFlag == "startPeer") {
-        console.log(`${moment().format("YYYY-MM-DD hh:mm:ss")},restart peer async blocks`)
-        fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},restart peer async blocks`);
-        let result = await client_1.host.initPeer(messageData.commandOptions);
+    if (messageData.messageFlag == "startMiner") {
+        console.log(`${moment().format("YYYY-MM-DD hh:mm:ss")},restart miner async blocks`)
+        fs.appendFile('./miner-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},restart miner async blocks`);
+        let result = await client_1.host.initMiner(messageData.commandOptions);
         if (!result.ret) {
             process.exit(1);
         }

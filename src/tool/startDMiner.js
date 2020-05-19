@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+const addressClass = require("../core/address");
 const process = require("process");
 const client_1 = require("../client");
-const addressClass = require("../core/address");
+const core_1 = require("../core");
+const fork = require('child_process').fork;
 Error.stackTraceLimit = 1000;
 async function run(argv) {
     let command = client_1.parseCommandNew(argv);
@@ -71,13 +73,23 @@ async function run(argv) {
     options.set("executor", "interprocess");
     options.set("ignoreBan",true);
     //options.set("broadcast_limit_transaction",3);
-    let exit = false;
-    exit = !(await client_1.host.initMiner(command.options)).ret;
-    if (exit) {
-        process.exit();
-    }
+    StartMiner(command.options);
 }
 exports.run = run;
 if (require.main === module) {
     run(process.argv);
+}
+
+function StartMiner(commandOptions) {
+    const startWork = fork('./src/client/host/startMiner.js');
+    startWork.on('exit', function (code) {
+        console.log(`exit code = ${code}`)
+        if (!code) {
+            StartMiner(commandOptions);
+        }
+        else {
+            console.log("happen some exception,exit directly ***********");
+        }
+    });
+    startWork.send({ messageFlag: "startMiner", commandOptions: core_1.MapToObject(commandOptions) });
 }

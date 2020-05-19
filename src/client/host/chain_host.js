@@ -45,6 +45,31 @@ class ChainHost {
             console.error('chain_host initMiner fail parseInstanceOptions');
             return { ret: false };
         }
+
+        this.m_server = new rpc_1.ChainServer(logger, cr.miner.chain, cr.miner);
+        this.m_server.init(commandOptions);
+        let blockNumber = 0;
+        setInterval(async () => {
+            // @ts-ignore
+            let resultHeader = await cr.miner.chain.getHeader("latest");
+            if (!resultHeader.err) {
+                // @ts-ignore
+                let newBlockNumber = resultHeader.header.number;
+
+                if (isNaN(newBlockNumber)) {
+                    return;
+                }
+                logger.info(`update miner blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                fs.appendFile('./miner-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},update miner blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                if (newBlockNumber != blockNumber) {
+                    blockNumber = newBlockNumber;
+                }
+                else {
+                    process.exit(0);
+                }
+            }
+        }, 1000 * 60 * 5);
+
         let err = await cr.miner.initialize(pr.value);
         if (err) {
             console.error('chain_host initMiner fail initialize');
@@ -55,8 +80,6 @@ class ChainHost {
             console.error('init events server fail parseInstanceOptions');
             return { ret: false };
         }
-        this.m_server = new rpc_1.ChainServer(logger, cr.miner.chain, cr.miner);
-        this.m_server.init(commandOptions);
         return { ret: true, miner: cr.miner };
     }
     async initPeer(commandOptions) {
@@ -127,8 +150,8 @@ class ChainHost {
                 if (isNaN(newBlockNumber)) {
                     return;
                 }
-                logger.info(`update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
-                // fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},update blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                logger.info(`update peer blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
+                fs.appendFile('./peer-log.txt', `\n ${moment().format("YYYY-MM-DD HH:mm:ss")},update peer blockHeight, newBlockNumber:${newBlockNumber} and blockNumber：${blockNumber}`);
                 if (newBlockNumber != blockNumber) {
                     blockNumber = newBlockNumber;
                 }
