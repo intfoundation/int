@@ -255,6 +255,9 @@ class ChainServer {
             let tx = new core_1.ValueTransaction();
             let err = tx.decode(new core_1.BufferReader(Buffer.from(params.tx, 'hex')));
 
+            let signature = tx.signature.toString("hex");
+            let publicKey = tx.publicKey.toString("hex");
+            this.m_logger.debug(`rpc server add txhash=${tx.hash}, signature=${signature}, publicKey=${publicKey}`);
             if(!err){
                 let verifyResult = addressClass.verify(tx.hash, tx.signature, tx.publicKey);
                 if (!verifyResult) {
