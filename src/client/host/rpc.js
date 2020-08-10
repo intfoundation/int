@@ -277,6 +277,7 @@ class ChainServer {
             else {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
             }
+            await promisify(resp.end.bind(resp)());
         });
         this.m_server.on('getTransactionReceipt', async (params, resp) => {
             let cr = await this.m_chain.getTransactionReceipt(params.tx);
