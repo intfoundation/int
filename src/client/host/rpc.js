@@ -254,20 +254,26 @@ class ChainServer {
         this.m_server.on('sendSignedTransaction', async (params, resp) => {
             let tx = new core_1.ValueTransaction();
             let err = tx.decode(new core_1.BufferReader(Buffer.from(params.tx, 'hex')));
+
+            if(!err){
+                let verifyResult = addressClass.verify(tx.hash, tx.signature, tx.publicKey);
+                if (!verifyResult) {
+                    err = core_1.ErrorCode.RESULT_VERIFY_NOT_MATCH;
+                    this.m_logger.error(`rpc server sendTransactionWithSignature error signature verify failed, txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                }
+            }
+
+            if(!err){
+                this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
+                err = await this.m_chain.addTransaction(tx);
+            }
+
             if (err) {
                 await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
             }
             else {
-                this.m_logger.debug(`rpc server txhash=${tx.hash}, nonce=${tx.nonce}, address=${tx.address}`);
-                err = await this.m_chain.addTransaction(tx);
-                if (err) {
-                    await promisify(resp.write.bind(resp)(JSON.stringify({ err: err })));
-                }
-                else {
-                    await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
-                }
+                await promisify(resp.write.bind(resp)(JSON.stringify({ err: err, hash: tx.hash })));
             }
-            await promisify(resp.end.bind(resp)());
         });
         this.m_server.on('getTransactionReceipt', async (params, resp) => {
             let cr = await this.m_chain.getTransactionReceipt(params.tx);
